@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+enum BoardRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum ColumnDataType {
+  TEXT
+  LONG_TEXT
+  SELECT
+  USER
+  DATE
+  NUMBER
+  FORMULA
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  password_hash String   @map("password_hash")
+  name          String
+  role          UserRole @default(MEMBER)
+  is_active     Boolean  @default(true)
+
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  boards        Board[]
+  comments      Comment[]
+  board_members BoardMember[]
+
+  @@map("users")
+}
+
+model Board {
+  id            Int      @id @default(autoincrement())
+  name          String
+
+  owner_id      Int      @map("owner_id")
+  owner         User     @relation(fields: [owner_id], references: [id]) 
+
+  columns       Column[]
+  sections      Section[]
+  board_members BoardMember[]
+
+  @@map("boards")
+}
+
+model Section {
+  id            Int      @id @default(autoincrement())
+  board_id      Int      @map("board_id")
+  name          String
+  order         Int      @default(0)
+  
+  board         Board    @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  
+  items         Item[]
+
+  @@map("sections")
+}
+
+model Column {
+  id            Int      @id @default(autoincrement())
+  board_id      Int      @map("board_id")
+  name          String
+  data_type     ColumnDataType   @map("data_type")
+  options       Json?
+  formula_expression String?
+
+  board         Board    @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  
+  item_values   ItemValue[]
+
+  @@map("columns")
+}
+
+model Item {
+  id            Int      @id @default(autoincrement())
+  section_id    Int      @map("section_id")
+  title         String
+
+  order         Int      @default(0)
+  
+  section       Section  @relation(fields: [section_id], references: [id], onDelete: Cascade)
+  
+  item_values   ItemValue[]
+
+  comments      Comment[]
+
+  @@map("items")
+}
+
+model ItemValue {
+
+  item_id       Int
+  column_id     Int
+  
+  value         String
+
+  item          Item     @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  column        Column   @relation(fields: [column_id], references: [id], onDelete: Cascade)
+
+  @@id([item_id, column_id])
+  @@map("item_values")
+}
+
+model Comment {
+  id            Int      @id @default(autoincrement())
+  item_id       Int      @map("item_id")
+  user_id       Int      @map("user_id")
+  content       String   @db.Text
+  created_at    DateTime @default(now())
+
+  item          Item     @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  
+  user          User     @relation(fields: [user_id], references: [id])
+
+  @@map("comments")
+}
+
+model BoardMember {
+  user_id      Int
+  board_id     Int
+  role         BoardRole @default(VIEWER)
+  
+  user         User      @relation(fields: [user_id], references: [id])
+  board        Board     @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  
+  @@id([user_id, board_id])
+  @@map("board_members")
+}
