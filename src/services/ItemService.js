@@ -1,21 +1,27 @@
 const prisma = require('../config/prisma')
+const PermissionService = require('./PermissionService')
+const LogService = require('./LogService')
+const BoardContextService = require('./BoardContextService')
+const ColumnService = require('./ColumnService')
 
 const ItemService = {
-    async createItem({ sectionId, title, values = {} }) {
-        if (!sectionId || !title) {
-            throw new Error('ID da Seção e Título da Tarefa são obrigatórios!')
-        }
 
-        const result = await prisma.$transaction(async (tx) => {
+    async createItem({ sectionId, title, values = {}, userId }) {
+        const boardId = await BoardContextService.getBoardId(sectionId, 'SECTION')
+        await PermissionService.checkEditPermission(boardId, userId)
+
+        await ColumnService.validateItemValues(values, boardId)
+
+        const newItem = await prisma.$transaction(async (tx) => {
             const lastItem = await tx.item.findFirst({
                 where: { section_id: sectionId },
                 orderBy: { order: 'desc' },
                 select: { order: true }
             })
 
-            const newOrder = lastItem ? lastItem.order + 1 : 0
+            const newOrder = lastItem ? lastItem?.order + 1 : 0
 
-            const newItem = await tx.item.create({
+            const item = await tx.item.create({
                 data: {
                     section_id: sectionId,
                     title,
@@ -23,36 +29,37 @@ const ItemService = {
                 },
             })
 
-            const itemValuesToCreate = []
-            for (const columnId in values) {
-                const value = values[columnId]
+            const itemValuesToCreate = Object.entries(values)
+                .filter(([_, val]) => val !== null && val !== undefined && String(val).trim() !== '')
+                .map(([columnId, val]) => ({
+                    item_id: item.id,
+                    column_id: parseInt(columnId),
+                    value: String(val),
+                }))
 
-                if (value !== null && value !== undefined && String(value).trim() !== '') {
-                    itemValuesToCreate.push({
-                        item_id: newItem.id,
-                        column_id: parseInt(columnId),
-                        value: String(value),
-                    })
-                }
-            }
-
-            let newCustomValues = []
             if (itemValuesToCreate.length > 0) {
-                newCustomValues = await tx.itemValue.createMany({
+                await tx.itemValue.createMany({
                     data: itemValuesToCreate
                 })
             }
 
-            return { newItem, newCustomValues }
+            return item
         })
 
-        return result.newItem
+        await LogService.register({
+            userId,
+            boardId,
+            action: 'CREATE',
+            entityType: 'ITEM',
+            entityId: newItem.id,
+            newValue: title
+        })
+
+        return newItem
     },
 
-    async getItemByBoard(boardId) {
-        if (!boardId) {
-            throw new Error('ID do Quadro é obrigatório para listar tarefas!')
-        }
+    async getItemByBoard({ boardId, userId }) {
+        await PermissionService.checkViewPermission(boardId, userId)
 
         const itemsWithValuesQuery = `
             SELECT
@@ -81,12 +88,17 @@ const ItemService = {
 
         const rawItems = await prisma.$queryRawUnsafe(itemsWithValuesQuery, boardId)
 
+        const rawItemsMap = new Map()
+        rawItems.forEach(item => {
+            rawItemsMap.set(item.item_id, item.custom_values)
+        })
+
         const sections = await prisma.section.findMany({
             where: { board_id: boardId },
             orderBy: { order: 'asc' },
             include: {
                 items: {
-                    orderBy: { id: 'asc' },
+                    orderBy: { order: 'asc' },
                     include: {
                         comments: {
                             select: {
@@ -110,7 +122,7 @@ const ItemService = {
         const finalSections = sections.map(section => ({
             ...section,
             items: section.items.map(item => {
-                const pivotedValues = rawItems.find(r => r.item_id === item.id)?.custom_values || {}
+                const pivotedValues = rawItemsMap.get(item.id) || {}
 
                 return {
                     ...item,
@@ -123,32 +135,44 @@ const ItemService = {
         return finalSections
     },
 
-    async updateItem({ itemId, title, sectionId, values = {} }) {
-        if (!itemId) {
-            throw new Error('ID do Item é obrigatório para atualização!')
-        }
+    async updateItem({ itemId, title, sectionId, values = {}, userId }) {
+        const boardId = await BoardContextService.getBoardId(itemId, 'ITEM')
+        await PermissionService.checkEditPermission(boardId, userId)
 
-        const numericSectionId = sectionId ? parseInt(sectionId) : undefined;
+        await ColumnService.validateItemValues(values, boardId)
 
         return prisma.$transaction(async (tx) => {
-            const updateItem = await tx.item.update({
+            const oldItem = await tx.item.findUnique({
+                where: { id: itemId }
+            })
+
+            const updatedItem = await tx.item.update({
                 where: { id: itemId },
                 data: {
                     ...(title && { title }),
-                    ...(numericSectionId && { section_id: numericSectionId }),
+                    ...(sectionId && { section_id: sectionId }),
                 },
             })
 
-            const transactions = []
+            if (title && title !== oldItem.title) {
+                await LogService.register({
+                    userId,
+                    boardId,
+                    action: 'UPDATE',
+                    entityType: 'ITEM',
+                    entityId: itemId,
+                    oldValue: oldItem.title,
+                    newValue: title
+                })
+            }
 
             for (const columnIdStr in values) {
                 const columnIdNum = parseInt(columnIdStr)
                 const newValue = String(values[columnIdStr])
-
                 const compoundKey = {
                     item_id: itemId,
                     column_id: columnIdNum,
-                };
+                }
 
                 const existingItemValue = await tx.itemValue.findUnique({
                     where: {
@@ -157,130 +181,167 @@ const ItemService = {
                 })
 
                 if (existingItemValue) {
-                    if (newValue.trim() === '') {
-                        transactions.push(tx.itemValue.delete({
+                    if (newValue.trim() === 'null' || newValue.trim() === '') {
+                        await tx.itemValue.delete({
                             where: {
                                 item_id_column_id: compoundKey,
                             }
-                        }))
-                    } else {
-                        transactions.push(tx.itemValue.update({
+                        })
+                    } else if (existingItemValue.value !== newValue) {
+                        await tx.itemValue.update({
                             where: {
                                 item_id_column_id: compoundKey,
                             },
                             data: { value: newValue },
-                        }))
+                        })
+
+                        await LogService.register({
+                            userId,
+                            boardId,
+                            action: 'UPDATE',
+                            entityType: 'ITEM_VALUE',
+                            entityId: itemId,
+                            oldValue: existingItemValue.value,
+                            newValue
+                        })
                     }
-                } else if (newValue.trim() !== '') {
-                    transactions.push(tx.itemValue.create({
+                } else if (newValue.trim() !== 'null' && newValue.trim() !== '') {
+                    await tx.itemValue.create({
                         data: {
                             item_id: itemId,
                             column_id: columnIdNum,
                             value: newValue,
                         }
-                    }))
+                    })
+
+                    await LogService.register({
+                        userId,
+                        boardId,
+                        action: 'CREATE',
+                        entityType: 'ITEM_VALUE',
+                        entityId: itemId,
+                        newValue
+                    })
                 }
             }
 
-            await Promise.all(transactions)
-
-            return updateItem
+            return updatedItem
         })
     },
 
-    async deleteItem(itemId) {
-        if (!itemId) {
-            throw new Error('ID do Item é obrigatório para exclusão!')
-        }
+    async deleteItem({ itemId, userId }) {
+        const boardId = await BoardContextService.getBoardId(itemId, 'ITEM')
+        await PermissionService.checkEditPermission(boardId, userId)
 
-        const deleteItem = await prisma.item.delete({
+        const item = await prisma.item.findUnique({ where: { id: itemId } })
+        const deletedItem = await prisma.item.delete({
             where: { id: itemId }
         })
 
-        return deleteItem
+        await LogService.register({
+            userId,
+            boardId,
+            action: 'DELETE',
+            entityType: 'ITEM',
+            entityId: itemId,
+            oldValue: item.title
+        })
+
+        return deletedItem
     },
 
-    async moveItem({ itemId, newSectionId, newOrder }) {
-        if (!itemId || !newSectionId || newOrder === undefined) {
-            throw new Error('ID do Item, ID da Nova Seção e Nova Ordem são obrigatórios para mover a tarefa!')
+    async moveItem({ itemId, newSectionId, newOrder, userId }) {
+        const boardId = await BoardContextService.getBoardId(itemId, 'ITEM')
+        await PermissionService.checkEditPermission(boardId, userId)
+
+        const targetBoardId = await BoardContextService.getBoardId(newSectionId, 'SECTION')
+        if (targetBoardId !== boardId) throw new Error('Não é permitido mover itens entre quadros diferentes!')
+
+        let oldState = {
+            sectionId: 0,
+            order: 0
         }
 
-        const numericNewSectionId = parseInt(newSectionId)
-        const numericNewOrder = parseInt(newOrder)
-
-        return prisma.$transaction(async (tx) => {
+        const movedItem = await prisma.$transaction(async (tx) => {
             const currentItem = await tx.item.findUnique({
                 where: { id: itemId },
-                select: { section_id: true, order: true }
+                select: { section_id: true, order: true, title: true }
             })
 
-            if (!currentItem) {
-                throw new Error('Tarefa não encontrada!')
-            }
+            if (!currentItem) throw new Error('Tarefa não encontrada!')
 
             const oldSectionId = currentItem.section_id
             const oldOrder = currentItem.order
 
-            const transactions = []
+            oldState = {
+                sectionId: oldSectionId,
+                order: oldOrder
+            }
 
-            if (oldSectionId === numericNewSectionId) {
-                if (numericNewOrder < oldOrder) {
-                    transactions.push(tx.item.updateMany({
+            if (oldSectionId === newSectionId) {
+                if (newOrder < oldOrder) {
+                    await tx.item.updateMany({
                         where: {
                             section_id: oldSectionId,
                             order: {
-                                gte: numericNewOrder,
+                                gte: newOrder,
                                 lt: oldOrder,
                             }
                         },
                         data: { order: { increment: 1 } }
-                    }))
-                } else if (numericNewOrder > oldOrder) {
-                    transactions.push(tx.item.updateMany({
+                    })
+                } else if (newOrder > oldOrder) {
+                    await tx.item.updateMany({
                         where: {
                             section_id: oldSectionId,
                             order: {
                                 gt: oldOrder,
-                                lte: numericNewOrder,
+                                lte: newOrder,
                             }
                         },
                         data: { order: { decrement: 1 } }
-                    }))
+                    })
                 }
             } else {
-                transactions.push(tx.item.updateMany({
+                await tx.item.updateMany({
                     where: {
                         section_id: oldSectionId,
                         order: { gt: oldOrder }
                     },
                     data: { order: { decrement: 1 } }
-                }))
+                })
 
-                transactions.push(tx.item.updateMany({
+                await tx.item.updateMany({
                     where: {
-                        section_id: numericNewSectionId,
-                        order: { gte: numericNewOrder }
+                        section_id: newSectionId,
+                        order: { gte: newOrder }
                     },
                     data: { order: { increment: 1 } }
-                }))
+                })
             }
 
-            transactions.push(tx.item.update({
+            const updated = await tx.item.update({
                 where: { id: itemId },
                 data: {
-                    section_id: numericNewSectionId,
-                    order: numericNewOrder,
+                    section_id: newSectionId,
+                    order: newOrder,
                 }
-            }))
-
-            await Promise.all(transactions)
-
-            const updatedItem = await tx.item.findUnique({
-                where: { id: itemId }
             })
 
-            return updatedItem
+            return updated
         })
+
+        await LogService.register({
+            userId,
+            boardId,
+            action: 'MOVE',
+            entityType: 'ITEM',
+            entityId: itemId,
+            oldValue: `Seção: ${oldState.sectionId}, Ordem: ${oldState.order}`,
+            newValue: `Seção: ${newSectionId}, Ordem: ${newOrder}`
+        })
+
+        return movedItem
     },
 
 }

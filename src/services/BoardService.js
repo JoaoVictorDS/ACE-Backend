@@ -1,25 +1,54 @@
 const prisma = require('../config/prisma')
+const PermissionService = require('./PermissionService')
+const LogService = require('./LogService')
 
 const BoardService = {
-    async createBoard({ name, userId }) {
-        if (!name || !userId) {
-            throw new Error('Nome do quadro e ID do proprietário são obrigatórios.')
-        }
 
-        const newBoard = await prisma.board.create({
-            data: {
-                name,
-                owner_id: userId,
-            }
+    async createBoard({ name, userId }) {
+        const newBoard = await prisma.$transaction(async (tx) => {
+            const board = await tx.board.create({
+                data: {
+                    name,
+                    owner_id: userId,
+                }
+            })
+
+            await tx.boardMember.create({
+                data: {
+                    board_id: board.id,
+                    user_id: userId,
+                    role: 'OWNER'
+                }
+            })
+
+            return board
+        })
+
+        await LogService.register({
+            userId,
+            boardId: newBoard.id,
+            action: 'CREATE',
+            entityType: 'BOARD',
+            entityId: newBoard.id,
+            newValue: name
         })
 
         return newBoard
     },
 
-    async getBoardsByOwner(userId) {
+    async getBoardsByUser(userId) {
         const boards = await prisma.board.findMany({
             where: {
-                owner_id: userId,
+                OR: [
+                    { owner_id: userId },
+                    {
+                        board_members: {
+                            some: {
+                                user_id: userId,
+                            }
+                        }
+                    }
+                ]
             },
             select: {
                 id: true,
@@ -31,51 +60,56 @@ const BoardService = {
         return boards
     },
 
-    async verifyBoardOwnership(boardId, ownerId) {
-        const board = await prisma.board.findUnique({
-            where: { id: boardId },
-            select: { owner_id: true }
-        })
+    async updateBoard({ boardId, name, userId }) {
+        await PermissionService.checkEditPermission(boardId, userId)
 
-        if (!board) {
-            throw new Error('Quadro não encontrado!')
-        }
+        const currentBoard = await prisma.board.findUnique({ where: { id: boardId } })
+        if (!currentBoard) throw new Error('Quadro não encontrado!')
 
-        if (board.owner_id !== ownerId) {
-            throw new Error('Você não tem permissão para editar/deletar este quadro!')
-        }
-
-        return board
-    },
-
-    async updateBoard({ boardId, name, ownerId }) {
-        if (!boardId || !name || !ownerId) {
-            throw new Error('ID do Quadro, Nome e ID do Proprietário são obrigatórios!')
-        }
-
-        await this.verifyBoardOwnership(boardId, ownerId)
+        if (name === currentBoard.name) return currentBoard
 
         const updatedBoard = await prisma.board.update({
             where: { id: boardId },
             data: { name }
         })
 
+        await LogService.register({
+            userId,
+            boardId,
+            action: 'UPDATE',
+            entityType: 'BOARD',
+            entityId: boardId,
+            oldValue: currentBoard.name,
+            newValue: name
+        })
+
         return updatedBoard
     },
 
-    async deleteBoard({ boardId, ownerId }) {
-        if (!boardId || !ownerId) {
-            throw new Error('ID do Quadro e ID do Proprietário são obrigatórios!')
-        }
+    async deleteBoard({ boardId, userId }) {
+        await PermissionService.checkOwnerPermission(boardId, userId)
 
-        await this.verifyBoardOwnership(boardId, ownerId)
+        const boardToDelete = await prisma.board.findUnique({
+            where: { id: boardId },
+            select: { name: true }
+        })
+        if (!boardToDelete) throw new Error('Quadro não encontrado!')
 
         const deletedBoard = await prisma.board.delete({
             where: { id: boardId }
         })
 
+        await LogService.register({
+            userId,
+            boardId,
+            action: 'DELETE',
+            entityType: 'BOARD',
+            entityId: boardId,
+            oldValue: boardToDelete.name
+        })
+
         return deletedBoard
-    }
+    },
 
 }
 
