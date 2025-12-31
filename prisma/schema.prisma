@@ -27,47 +27,69 @@ enum ColumnDataType {
   FORMULA
 }
 
-model User {
-  id            Int      @id @default(autoincrement())
-  email         String   @unique
-  password_hash String   @map("password_hash")
-  name          String
-  role          UserRole @default(MEMBER)
-  is_active     Boolean  @default(true)
+enum ActivityAction {
+  CREATE
+  UPDATE
+  DELETE
+  MOVE
+}
 
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+enum EntityType {
+  BOARD
+  SECTION
+  COLUMN
+  ITEM
+  ITEM_VALUE
+  COMMENT
+  MEMBER
+}
+
+model User {
+  id            Int           @id @default(autoincrement())
+  email         String        @unique
+  password_hash String        @map("password_hash")
+  name          String
+  role          UserRole      @default(MEMBER)
+  is_active     Boolean       @default(true)
+  
+  created_at    DateTime      @default(now()) @map("created_at")
+  updated_at    DateTime      @updatedAt @map("updated_at")
 
   boards        Board[]
   comments      Comment[]
   board_members BoardMember[]
+  activities    ActivityLog[]
 
   @@map("users")
 }
 
 model Board {
-  id            Int      @id @default(autoincrement())
+  id            Int           @id @default(autoincrement())
   name          String
-
-  owner_id      Int      @map("owner_id")
-  owner         User     @relation(fields: [owner_id], references: [id]) 
+  owner_id      Int           @map("owner_id")
+  owner         User          @relation(fields: [owner_id], references: [id])
+  
+  created_at    DateTime      @default(now()) @map("created_at")
+  updated_at    DateTime      @updatedAt @map("updated_at")
 
   columns       Column[]
   sections      Section[]
   board_members BoardMember[]
+  activities    ActivityLog[]
 
   @@map("boards")
 }
 
 model Section {
-  id            Int      @id @default(autoincrement())
-  board_id      Int      @map("board_id")
+  id            Int           @id @default(autoincrement())
+  board_id      Int           @map("board_id")
   name          String
-  order         Int      @default(0)
-  
-  board         Board    @relation(fields: [board_id], references: [id], onDelete: Cascade)
-  
+  order         Int           @default(0)
+  board         Board         @relation(fields: [board_id], references: [id], onDelete: Cascade)
   items         Item[]
+
+  created_at    DateTime      @default(now()) @map("created_at")
+  updated_at    DateTime      @updatedAt @map("updated_at")
 
   @@map("sections")
 }
@@ -79,36 +101,38 @@ model Column {
   data_type     ColumnDataType   @map("data_type")
   options       Json?
   formula_expression String?
+  order              Int      @default(0)
 
-  board         Board    @relation(fields: [board_id], references: [id], onDelete: Cascade)
-  
+  created_at         DateTime       @default(now()) @map("created_at")
+  updated_at         DateTime       @updatedAt @map("updated_at")
+
   item_values   ItemValue[]
+  board         Board    @relation(fields: [board_id], references: [id], onDelete: Cascade)
 
   @@map("columns")
 }
 
 model Item {
-  id            Int      @id @default(autoincrement())
-  section_id    Int      @map("section_id")
+  id            Int           @id @default(autoincrement())
+  section_id    Int           @map("section_id")
   title         String
-
-  order         Int      @default(0)
-  
-  section       Section  @relation(fields: [section_id], references: [id], onDelete: Cascade)
-  
+  order         Int           @default(0)
+  section       Section       @relation(fields: [section_id], references: [id], onDelete: Cascade)
   item_values   ItemValue[]
-
   comments      Comment[]
+
+  created_at    DateTime      @default(now()) @map("created_at")
+  updated_at    DateTime      @updatedAt @map("updated_at")
 
   @@map("items")
 }
 
 model ItemValue {
-
   item_id       Int
   column_id     Int
-  
   value         String
+
+  updated_at DateTime @updatedAt @map("updated_at")
 
   item          Item     @relation(fields: [item_id], references: [id], onDelete: Cascade)
   column        Column   @relation(fields: [column_id], references: [id], onDelete: Cascade)
@@ -125,7 +149,6 @@ model Comment {
   created_at    DateTime @default(now())
 
   item          Item     @relation(fields: [item_id], references: [id], onDelete: Cascade)
-  
   user          User     @relation(fields: [user_id], references: [id])
 
   @@map("comments")
@@ -136,9 +159,29 @@ model BoardMember {
   board_id     Int
   role         BoardRole @default(VIEWER)
   
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
   user         User      @relation(fields: [user_id], references: [id])
   board        Board     @relation(fields: [board_id], references: [id], onDelete: Cascade)
   
   @@id([user_id, board_id])
   @@map("board_members")
+}
+
+model ActivityLog {
+  id          Int      @id @default(autoincrement())
+  user_id     Int      @map("user_id")
+  board_id    Int      @map("board_id")
+  action      ActivityAction
+  entity_type EntityType
+  entity_id   Int      @map("entity_id")
+  old_value   String?  @map("old_value")
+  new_value   String?  @map("new_value")
+  created_at  DateTime @default(now()) @map("created_at")
+
+  user        User     @relation(fields: [user_id], references: [id])
+  board       Board    @relation(fields: [board_id], references: [id], onDelete: Cascade)
+
+  @@map("activity_logs")
 }

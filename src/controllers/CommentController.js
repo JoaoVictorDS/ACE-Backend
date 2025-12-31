@@ -1,11 +1,13 @@
 const CommentService = require('../services/CommentService')
 
 const CommentController = {
+
     async create(req, res) {
         const itemId = parseInt(req.params.itemId)
-
-        const userId = req.userId
+        const userId = req.user.id
         const { content } = req.body
+
+        if (!itemId || !content?.trim()) return res.status(400).json({ error: 'ID do Item e Conteúdo são obrigatórios!' })
 
         try {
             const comment = await CommentService.createComment({ itemId, userId, content })
@@ -14,34 +16,40 @@ const CommentController = {
                 comment
             })
         } catch (error) {
-            console.error('Erro ao criar comentário:', error)
-            return res.status(400).json({ error: error.message })
+            const statusCode = error.message.includes('permissão') ? 403 : 400
+            return res.status(statusCode).json({ error: error.message })
         }
     },
 
     async list(req, res) {
         const itemId = parseInt(req.params.itemId)
+        const userId = req.user.id
+
+        if (!itemId) return res.status(400).json({ error: 'ID do Item é obrigatório para listar comentários!' })
 
         try {
-            const comments = await CommentService.getCommentByItem(itemId)
+            const comments = await CommentService.getCommentByItem({ itemId, userId })
             return res.status(200).json(comments)
         } catch (error) {
-            console.error('Erro ao listar comentários:', error)
-            return res.status(500).json({ error: 'Erro ao listar comentários!' })
+            const statusCode = error.message.includes('permissão') ? 403 : 500
+            return res.status(statusCode).json({ error: error.message })
         }
     },
 
     async delete(req, res) {
         const commentId = parseInt(req.params.commentId)
+        const userId = req.user.id
+
+        if (!commentId) return res.status(400).json({ error: 'ID do comentário é obrigatório para exclusão!' })
 
         try {
-            await CommentService.deleteComment(commentId)
+            await CommentService.deleteComment({ commentId, userId })
             return res.status(200).json({ message: 'Comentário excluído com sucesso!' })
         } catch (error) {
-            console.error('Erro ao excluir comentário:', error)
-            return res.status(400).json({ error: error.message })
+            const statusCode = error.message.includes('permissão') ? 403 : 404
+            return res.status(statusCode).json({ error: error.message })
         }
-    }
+    },
 
 }
 

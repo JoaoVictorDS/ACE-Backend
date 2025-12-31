@@ -1,10 +1,13 @@
 const prisma = require('../config/prisma')
+const PermissionService = require('./PermissionService')
+const LogService = require('./LogService')
+const BoardContextService = require('./BoardContextService')
 
 const CommentService = {
+
     async createComment({ itemId, userId, content }) {
-        if (!itemId || !userId || !content) {
-            throw new Error('ID do Item, ID do Usuário e conteúdo são obrigatórios!')
-        }
+        const boardId = await BoardContextService.getBoardId(itemId, 'ITEM')
+        await PermissionService.checkViewPermission(boardId, userId)
 
         const newComment = await prisma.comment.create({
             data: {
@@ -19,15 +22,23 @@ const CommentService = {
             }
         })
 
+        await LogService.register({
+            userId,
+            boardId,
+            action: 'CREATE',
+            entityType: 'COMMENT',
+            entityId: itemId,
+            newValue: content.substring(0, 50) + (content.length > 50 ? '...' : '')
+        })
+
         return newComment
     },
 
-    async getCommentByItem(itemId) {
-        if (!itemId) {
-            throw new Error('ID do Item é obrigatório para listar comentários!')
-        }
+    async getCommentByItem(itemId, userId) {
+        const boardId = await BoardContextService.getBoardId(itemId, 'ITEM')
+        await PermissionService.checkViewPermission(boardId, userId)
 
-        const comments = await prisma.comment.findMany({
+        return await prisma.comment.findMany({
             where: { item_id: itemId },
             orderBy: { created_at: 'asc' },
             include: {
@@ -36,21 +47,39 @@ const CommentService = {
                 }
             }
         })
-
-        return comments
     },
 
-    async deleteComment(commentId) {
-        if (!commentId) {
-            throw new Error('ID do comentário é obrigatório para exclusão!')
-        }
+    async deleteComment(commentId, userId) {
+        const comment = await prisma.comment.findUnique({
+            where: { id: commentId },
+            include: { item: { select: { section: { select: { board_id: true } } } } }
+        })
 
-        const deleteComment = await prisma.comment.delete({
+        if (!comment) throw new Error('Comentário não encontrado!')
+
+        const boardId = comment.item.section.board_id
+        const userRole = await PermissionService.getRole(boardId, userId)
+
+        const isOwnerOfComment = comment.user_id === userId
+        const isBoardOwner = userRole === 'OWNER'
+
+        if (!isOwnerOfComment && !isBoardOwner) throw new Error('Você não tem permissão para excluir este comentário!')
+
+        const deleted = prisma.comment.delete({
             where: { id: commentId }
         })
 
-        return deleteComment
-    }
+        await LogService.register({
+            userId,
+            boardId,
+            action: 'DELETE',
+            entityType: 'COMMENT',
+            entityId: comment.item_id,
+            oldValue: comment.content.substring(0, 50)
+        })
+
+        return deleted
+    },
 }
 
 module.exports = CommentService
