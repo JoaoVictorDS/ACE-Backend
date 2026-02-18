@@ -5,7 +5,15 @@ const LogService = require('./LogService')
 const BoardService = {
 
     async createBoard({ name, userId }) {
-        const newBoard = await prisma.$transaction(async (tx) => {
+        const result = await prisma.$transaction(async (tx) => {
+            const lastMemberEntry = await tx.boardMember.findFirst({
+                where: { user_id: userId },
+                orderBy: { order: 'desc' },
+                select: { order: true }
+            })
+
+            const nextOrder = lastMemberEntry ? lastMemberEntry.order + 1 : 0
+
             const board = await tx.board.create({
                 data: {
                     name,
@@ -17,63 +25,68 @@ const BoardService = {
                 data: {
                     board_id: board.id,
                     user_id: userId,
-                    role: 'OWNER'
+                    role: 'OWNER',
+                    order: nextOrder
                 }
             })
 
             return board
         })
 
-        await LogService.register({
+        LogService.register({
             userId,
-            boardId: newBoard.id,
+            boardId: result.id,
             action: 'CREATE',
             entityType: 'BOARD',
-            entityId: newBoard.id,
+            entityId: result.id,
             newValue: name
         })
 
-        return newBoard
+        return result
     },
 
     async getBoardsByUser(userId) {
-        const boards = await prisma.board.findMany({
-            where: {
-                OR: [
-                    { owner_id: userId },
-                    {
-                        board_members: {
-                            some: {
-                                user_id: userId,
-                            }
-                        }
+        const memberships = await prisma.boardMember.findMany({
+            where: { user_id: userId },
+            include: {
+                board: {
+                    select: {
+                        id: true,
+                        name: true,
+                        owner_id: true,
                     }
-                ]
+                }
             },
-            select: {
-                id: true,
-                name: true,
-                owner_id: true,
+            orderBy: {
+                order: 'asc'
             }
         })
 
-        return boards
+        return memberships.map(m => ({
+            ...m.board,
+            user_role: m.role,
+            personal_order: m.order
+        }))
     },
 
     async updateBoard({ boardId, name, userId }) {
         await PermissionService.checkEditPermission(boardId, userId)
 
-        const currentBoard = await prisma.board.findUnique({ where: { id: boardId } })
+        const currentBoard = await prisma.board.findUnique({
+            where: {
+                id: boardId
+            }
+        })
         if (!currentBoard) throw new Error('Quadro não encontrado!')
 
-        if (name === currentBoard.name) return currentBoard
+        if (currentBoard.name === name) return currentBoard
 
         const updatedBoard = await prisma.board.update({
             where: { id: boardId },
             data: { name }
         })
 
-        await LogService.register({
+        LogService.register({
             userId,
             boardId,
             action: 'UPDATE',
@@ -89,26 +102,9 @@ const BoardService = {
     async deleteBoard({ boardId, userId }) {
         await PermissionService.checkOwnerPermission(boardId, userId)
 
-        const boardToDelete = await prisma.board.findUnique({
-            where: { id: boardId },
-            select: { name: true }
-        })
-        if (!boardToDelete) throw new Error('Quadro não encontrado!')
-
-        const deletedBoard = await prisma.board.delete({
+        return await prisma.board.delete({
             where: { id: boardId }
         })
-
-        await LogService.register({
-            userId,
-            boardId,
-            action: 'DELETE',
-            entityType: 'BOARD',
-            entityId: boardId,
-            oldValue: boardToDelete.name
-        })
-
-        return deletedBoard
     },
 
 }

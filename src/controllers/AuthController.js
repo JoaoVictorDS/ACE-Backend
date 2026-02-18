@@ -1,20 +1,25 @@
 const UserService = require('../services/UserService')
+const catchAsync = require('../utils/catchAsync')
+const AppError = require('../utils/AppError')
+const { loginSchema } = require('../validators/authValidator')
 
 const AuthController = {
 
-    async login(req, res) {
-        const { email, password } = req.body
-        if (!email || !password) return res.status(400).json({ error: 'E-mail e Senha são obrigatórios!' })
+    login: catchAsync(async (req, res, next) => {
+        const result = loginSchema.safeParse(req.body)
+        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-        try {
-            const result = await UserService.authenticateUser({ email, password })
-            return res.status(200).json(result)
-        } catch (error) {
-            if (error.message.includes('Credenciais inválidas')) return res.status(401).json({ error: 'E-email ou Senha incorretos!' })
-            console.error(error)
-            return res.status(500).json({ error: 'Erro interno do servidor durante o login!' })
-        }
-    }
+        const { email, password } = result.data
+
+        const authData = await UserService.authenticateUser({
+            email,
+            password
+        })
+
+        return res.status(200).json(authData)
+
+    })
+
 }
 
 module.exports = AuthController

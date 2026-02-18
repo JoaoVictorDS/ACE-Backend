@@ -155,17 +155,19 @@ model Comment {
 }
 
 model BoardMember {
+  id           Int       @id @default(autoincrement())
   user_id      Int
   board_id     Int
   role         BoardRole @default(VIEWER)
-  
+  order        Int       @default(0)
+
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
   user         User      @relation(fields: [user_id], references: [id])
   board        Board     @relation(fields: [board_id], references: [id], onDelete: Cascade)
   
-  @@id([user_id, board_id])
+  @@unique([user_id, board_id])
   @@map("board_members")
 }
 

@@ -1,116 +1,100 @@
 const ItemService = require('../services/ItemService')
+const catchAsync = require('../utils/catchAsync')
+const AppError = require('../utils/AppError')
+const { createItemSchema, updateItemSchema, moveItemSchema } = require('../validators/itemValidator')
 
 const ItemController = {
 
-    async create(req, res) {
-        const sectionId = parseInt(req.params.sectionId)
-        const userId = req.user.id
-        const { title, values } = req.body
+    create: catchAsync(async (req, res, next) => {
+        const result = createItemSchema.safeParse({
+            ...req.body,
+            section_id: parseInt(req.params.sectionId)
+        })
+        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-        if (!sectionId || !title) return res.status(400).json({ error: 'ID da Seção e Título da Tarefa são obrigatórios!' })
+        const { section_id, title } = result.data
 
-        try {
-            const item = await ItemService.createItem({ sectionId, title, values, userId })
-            return res.status(201).json({
-                message: 'Tarefa criada com sucesso!',
-                item
-            })
-        } catch (error) {
-            console.error('Erro ao criar tarefa: ', error)
-            const statusCode = error.message.includes('permissão') ? 403 : 400
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
+        const item = await ItemService.createItem({
+            sectionId: section_id,
+            title,
+            userId: req.user.id
+        })
 
-    async list(req, res) {
+        return res.status(201).json({
+            message: 'Tarefa criada com sucesso!',
+            item
+        })
+
+    }),
+
+    list: catchAsync(async (req, res, next) => {
         const boardId = parseInt(req.params.boardId)
-        const userId = req.user.id
+        if (!boardId || isNaN(boardId)) return next(new AppError('O parâmetro "boardId" é obrigatório e deve ser number', 400))
 
-        if (!boardId) return res.status(400).json({ error: 'ID do Quadro e ID do Usuário são obrigatórios para listar tarefas!' })
+        const sectionsWithItems = await ItemService.getItemByBoard({
+            boardId,
+            userId: req.user.id
+        })
 
-        try {
-            const sectionsWithItems = await ItemService.getItemByBoard({ boardId, userId })
-            return res.status(200).json(sectionsWithItems)
-        } catch (error) {
-            console.error('Erro ao criar tarefa: ', error)
-            const statusCode = error.message.includes('permissão') ? 403 : 400
-            return res.status(statusCode).json({ error: error.message })
-        }
+        return res.status(200).json(sectionsWithItems)
+    }),
 
-    },
+    update: catchAsync(async (req, res, next) => {
+        const result = updateItemSchema.safeParse({
+            ...req.body,
+            item_id: parseInt(req.params.itemId)
+        })
+        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-    async update(req, res) {
+        const { item_id, ...rest } = result.data
+
+        const item = await ItemService.updateItem({
+            itemId: item_id,
+            ...rest,
+            userId: req.user.id,
+        })
+
+        return res.json({
+            message: 'Tarefa atualizada!',
+            item
+        })
+
+    }),
+
+    delete: catchAsync(async (req, res, next) => {
         const itemId = parseInt(req.params.itemId)
-        const userId = req.user.id
-        const { title, section_id, values } = req.body
+        if (!itemId || isNaN(itemId)) return next(new AppError('O parâmetro "itemId" é obrigatório e deve ser number', 400))
 
-        if (!itemId) return res.status(400).json({ error: 'ID do Item e ID do Usuário são obrigatórios para atualização!' })
+        await ItemService.deleteItem({
+            itemId,
+            userId: req.user.id
+        })
 
-        try {
-            const updateItem = await ItemService.updateItem({
-                itemId,
-                userId,
-                title,
-                sectionId: parseInt(section_id),
-                values
-            })
-            return res.status(200).json({
-                message: 'Tarefa atualizada com sucesso!',
-                item: updateItem
-            })
-        } catch (error) {
-            console.error('Erro ao atualizar tarefa!')
-            const statusCode = error.message.includes('permissão') ? 403 : 400
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
+        return res.status(200).json({ message: 'Tarefa excluída com sucesso!' })
 
-    async delete(req, res) {
-        const itemId = parseInt(req.params.itemId)
-        const userId = req.user.id
+    }),
 
-        if (!itemId) return res.status(400).json({ error: 'ID do Item é obrigatório para exclusão!' })
+    move: catchAsync(async (req, res, next) => {
+        const result = moveItemSchema.safeParse({
+            ...req.body,
+            item_id: parseInt(req.params.itemId)
+        })
+        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-        try {
-            await ItemService.deleteItem({ itemId, userId })
-            return res.status(200).json({ message: 'Tarefa excluída com sucesso!' })
-        } catch (error) {
-            console.error('Erro ao deletar tarefa:', error)
+        const { new_section_id, new_order, item_id } = result.data
 
-            let statusCode = 500
-            if (error.message.includes('permissão')) {
-                statusCode = 403
-            } else if (error.code === 'P2025' || error.message.includes('não encontrada')) {
-                statusCode = 404
-            }
-            return res.status(statusCode).json({ error: error.message || 'Erro ao excluir tarefa!' })
-        }
-    },
+        const movedItem = await ItemService.moveItem({
+            itemId: item_id,
+            userId: req.user.id,
+            newSectionId: new_section_id,
+            newOrder: new_order
+        })
 
-    async move(req, res) {
-        const itemId = parseInt(req.params.itemId)
-        const userId = req.user.id
-        const { newSectionId, newOrder } = req.body
-
-        if (!itemId || !newSectionId || newOrder === undefined) return res.status(400).json({ error: 'ID do Item, ID da Nova Seção e Nova Ordem são obrigatórios para mover a tarefa!' })
-
-        try {
-            const movedItem = await ItemService.moveItem({
-                itemId,
-                userId,
-                newSectionId: parseInt(newSectionId),
-                newOrder: parseInt(newOrder)
-            })
-            return res.status(200).json({
-                message: 'Tarefa movida e reordenada com sucesso!',
-                item: movedItem
-            })
-        } catch (error) {
-            console.error('Erro ao mover tarefa!', error)
-            const statusCode = error.message.includes('permissão') ? 403 : 400
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
+        return res.json({
+            message: 'Tarefa movida!',
+            item: movedItem
+        })
+    }),
 
 }
 

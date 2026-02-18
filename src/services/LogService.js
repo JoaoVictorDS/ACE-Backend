@@ -1,4 +1,5 @@
 const prisma = require('../config/prisma')
+const PermissionService = require('./PermissionService')
 
 const LogService = {
 
@@ -6,11 +7,17 @@ const LogService = {
         try {
             const formatValue = (val) => {
                 if (val === null || val === undefined) return null
-                if (typeof val === 'object') return JSON.stringify(val)
-                return String(val)
+                if (typeof val === 'object') {
+                    try {
+                        return JSON.stringify(val).substring(0, 500)
+                    } catch {
+                        return '[Object]'
+                    }
+                }
+                return String(val).substring(0, 500)
             }
 
-            return await prisma.activityLog.create({
+            await prisma.activityLog.create({
                 data: {
                     user_id: userId,
                     board_id: boardId,
@@ -22,13 +29,13 @@ const LogService = {
                 }
             })
         } catch (error) {
-            console.error('Falha crítica ao registrar log de atividade:', error)
+            console.error('⚠️ [LOG ERROR]:', error.message)
         }
     },
 
-    async getLogsByBoard(boardId) {
+    async getLogsByBoard(boardId, userId) {
+        await PermissionService.checkViewPermission(boardId, userId)
 
-        //REVISAR, PROVAVELMENTE PRECISA DE PERMISSÃO E TALVEZ MOVER PARA BOARD!!!
         return await prisma.activityLog.findMany({
             where: { board_id: boardId },
             include: {

@@ -27,6 +27,7 @@ routes.post('/boards', authMiddleware, BoardController.create)
 routes.get('/boards', authMiddleware, BoardController.list)
 routes.patch('/boards/:boardId', authMiddleware, BoardController.update)
 routes.delete('/boards/:boardId', authMiddleware, BoardController.delete)
+routes.patch('/boards/:boardId/move', authMiddleware, BoardController.move)
 
 // SECTION
 routes.post('/boards/:boardId/sections', authMiddleware, SectionController.create)
@@ -52,12 +53,16 @@ routes.patch('/items/:itemId/move', authMiddleware, ItemController.move)
 // COMMENT
 routes.post('/items/:itemId/comments', authMiddleware, CommentController.create)
 routes.get('/items/:itemId/comments', authMiddleware, CommentController.list)
+routes.patch('/comments/:commentId', authMiddleware, CommentController.update)
 routes.delete('/comments/:commentId', authMiddleware, CommentController.delete)
 
 // BOARD_MEMBER
 routes.post('/boards/:boardId/members', authMiddleware, BoardMemberController.upsert)
 routes.get('/boards/:boardId/members', authMiddleware, BoardMemberController.list)
 routes.delete('/boards/:boardId/members/:memberId', authMiddleware, BoardMemberController.remove)
+
+//LOG
+routes.get('/boards/:boardId/logs', authMiddleware, BoardController.getHistory)
 
 routes.get('/status', (req, res) => {
     return res.json({ message: 'Backend Online', version: '1.0.0' })

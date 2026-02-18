@@ -1,39 +1,40 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
 const LogService = require('./LogService')
-const BoardContextService = require('./BoardContextService')
 
 const SectionService = {
 
     async createSection({ boardId, name, userId }) {
         await PermissionService.checkEditPermission(boardId, userId)
 
-        const maxOrderSection = await prisma.section.findFirst({
-            where: { board_id: boardId },
-            orderBy: { order: 'desc' },
-            select: { order: true }
+        const result = await prisma.$transaction(async (tx) => {
+            const maxOrderSection = await tx.section.findFirst({
+                where: { board_id: boardId },
+                orderBy: { order: 'desc' },
+                select: { order: true }
+            })
+
+            const newOrder = maxOrderSection ? maxOrderSection.order + 1 : 0
+
+            return await tx.section.create({
+                data: {
+                    board_id: boardId,
+                    name,
+                    order: newOrder,
+                },
+            })
         })
 
-        const newOrder = maxOrderSection ? maxOrderSection.order + 1 : 0
-
-        const newSection = await prisma.section.create({
-            data: {
-                board_id: boardId,
-                name,
-                order: newOrder,
-            },
-        })
-
-        await LogService.register({
+        LogService.register({
             userId,
             boardId,
             action: 'CREATE',
             entityType: 'SECTION',
-            entityId: newSection.id,
+            entityId: result.id,
             newValue: name
         })
 
-        return newSection
+        return result
     },
 
     async getSectionsByBoard({ boardId, userId }) {
@@ -53,30 +54,31 @@ const SectionService = {
     },
 
     async updateSection({ sectionId, userId, name }) {
-        const boardId = await BoardContextService.getBoardId(sectionId, 'SECTION')
-        await PermissionService.checkEditPermission(boardId, userId)
-
-        const oldSection = await prisma.section.findUnique({
+        const section = await prisma.section.findUnique({
             where: { id: sectionId },
-            select: { name: true }
+            select: { name: true, board_id: true }
         })
+        if (!section) throw new Error('Seção não encontrada!')
+
+        if (section.name === name) return section
+
+        const boardId = section.board_id
+        await PermissionService.checkEditPermission(boardId, userId)
 
         const updatedSection = await prisma.section.update({
             where: { id: sectionId },
             data: { name }
         })
 
-        if (oldSection.name !== name) {
-            await LogService.register({
-                userId,
-                boardId,
-                action: 'UPDATE',
-                entityType: 'SECTION',
-                entityId: sectionId,
-                oldValue: oldSection.name,
-                newValue: name
-            })
-        }
+        LogService.register({
+            userId,
+            boardId,
+            action: 'UPDATE',
+            entityType: 'SECTION',
+            entityId: sectionId,
+            oldValue: section.name,
+            newValue: name
+        })
 
         return updatedSection
     },
@@ -86,10 +88,10 @@ const SectionService = {
             where: { id: sectionId },
             select: { board_id: true, order: true, name: true }
         })
-
         if (!sectionToDelete) throw new Error('Seção não encontrada!')
 
-        await PermissionService.checkEditPermission(sectionToDelete.board_id, userId)
+        const boardId = sectionToDelete.board_id
+        await PermissionService.checkEditPermission(boardId, userId)
 
         const result = await prisma.$transaction(async (tx) => {
             await tx.section.delete({
@@ -98,7 +100,7 @@ const SectionService = {
 
             await tx.section.updateMany({
                 where: {
-                    board_id: sectionToDelete.board_id,
+                    board_id: boardId,
                     order: { gt: sectionToDelete.order }
                 },
                 data: {
@@ -109,9 +111,9 @@ const SectionService = {
             return { message: 'Seção excluída com sucesso!' }
         })
 
-        await LogService.register({
+        LogService.register({
             userId,
-            boardId: sectionToDelete.board_id,
+            boardId,
             action: 'DELETE',
             entityType: 'SECTION',
             entityId: sectionId,
@@ -122,35 +124,34 @@ const SectionService = {
     },
 
     async moveSection({ sectionId, userId, newOrder }) {
-        let oldState = {
-            boardId: 0,
-            order: 0
-        }
-
         const currentSection = await prisma.section.findUnique({
             where: { id: sectionId },
             select: { board_id: true, order: true }
         })
-
         if (!currentSection) throw new Error('Seção não encontrada!')
 
-        await PermissionService.checkEditPermission(currentSection.board_id, userId)
+        const boardId = currentSection.board_id
+        await PermissionService.checkEditPermission(boardId, userId)
 
-        oldState = {
-            boardId: currentSection.board_id,
-            order: currentSection.order
-        }
+        const oldOrder = currentSection.order
 
-        if (oldState.order === newOrder) return currentSection
+        const totalSections = await prisma.section.count({
+            where: {
+                board_id: boardId
+            }
+        })
+        const finalOrder = Math.max(0, Math.min(newOrder, totalSections - 1))
 
-        const updatedSection = await prisma.$transaction(async (tx) => {
-            if (newOrder > oldState.order) {
+        if (oldOrder === finalOrder) return currentSection
+
+        const result = await prisma.$transaction(async (tx) => {
+            if (finalOrder > oldOrder) {
                 await tx.section.updateMany({
                     where: {
-                        board_id: oldState.boardId,
+                        board_id: boardId,
                         order: {
-                            gt: oldState.order,
-                            lte: newOrder,
+                            gt: oldOrder,
+                            lte: finalOrder,
                         },
                     },
                     data: {
@@ -160,10 +161,10 @@ const SectionService = {
             } else {
                 await tx.section.updateMany({
                     where: {
-                        board_id: oldState.boardId,
+                        board_id: boardId,
                         order: {
-                            gte: newOrder,
-                            lt: oldState.order,
+                            gte: finalOrder,
+                            lt: oldOrder,
                         },
                     },
                     data: {
@@ -174,21 +175,21 @@ const SectionService = {
 
             return await tx.section.update({
                 where: { id: sectionId },
-                data: { order: newOrder },
+                data: { order: finalOrder },
             })
         })
 
-        await LogService.register({
+        LogService.register({
             userId,
-            boardId: oldState.boardId,
+            boardId,
             action: 'MOVE',
             entityType: 'SECTION',
             entityId: sectionId,
-            oldValue: `Ordem: ${oldState.order}`,
+            oldValue: `Ordem: ${oldOrder}`,
             newValue: `Ordem: ${newOrder}`
         })
 
-        return updatedSection
+        return result
     },
 
 }

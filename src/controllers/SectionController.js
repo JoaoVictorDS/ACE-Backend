@@ -1,101 +1,86 @@
 const SectionService = require('../services/SectionService')
+const catchAsync = require('../utils/catchAsync')
+const AppError = require('../utils/AppError')
+const { createSectionSchema, updateSectionSchema, moveSectionSchema } = require('../validators/sectionValidator')
 
 const SectionController = {
 
-    async create(req, res) {
+    create: catchAsync(async (req, res, next) => {
+        const result = createSectionSchema.safeParse({
+            ...req.body,
+            board_id: parseInt(req.params.boardId)
+        })
+        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
+
+        const { board_id, ...rest } = result.data
+
+        const section = await SectionService.createSection({
+            boardId: board_id,
+            ...rest,
+            userId: req.user.id
+        })
+
+        return res.status(201).json({
+            message: 'Seção criada com sucesso!',
+            section
+        })
+
+    }),
+
+    list: catchAsync(async (req, res, next) => {
         const boardId = parseInt(req.params.boardId)
-        const userId = req.user.id
-        const { name } = req.body
+        if (!boardId || isNaN(boardId)) return next(new AppError('O parâmetro "boardId" é obrigatório e deve ser number', 400))
 
-        if (!boardId || !name) return res.status(400).json({ error: 'ID do Quadro e Nome da Seção são obrigatórios!' })
+        const sections = await SectionService.getSectionsByBoard({
+            boardId,
+            userId: req.user.id
+        })
 
-        try {
-            const section = await SectionService.createSection({ boardId, name, userId })
-            return res.status(201).json({
-                message: 'Seção criada com sucesso!',
-                section
-            })
-        } catch (error) {
-            console.error('Erro ao criar seção!', error)
-            const statusCode = error.message.includes('permissão') ? 403 : 400
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
+        return res.status(200).json(sections)
+    }),
 
-    async list(req, res) {
-        const boardId = parseInt(req.params.boardId)
-        const userId = req.user.id
+    update: catchAsync(async (req, res, next) => {
+        const result = updateSectionSchema.safeParse(req.body)
+        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-        if (!boardId) return res.status(400).json({ error: 'ID do Quadro é obrigatório para listar seções!' })
+        const updatedSection = await SectionService.updateSection({
+            sectionId: parseInt(req.params.sectionId),
+            userId: req.user.id,
+            ...result.data
+        })
 
-        try {
-            const sections = await SectionService.getSectionsByBoard({ boardId, userId })
-            return res.status(200).json(sections)
-        } catch (error) {
-            console.error('Erro ao listar seções:', error)
-            const statusCode = error.message.includes('permissão') ? 403 : 500
-            return res.status(statusCode).json({ error: 'Erro ao listar seções!' })
-        }
-    },
+        return res.status(200).json({
+            message: 'Seção atualizada com sucesso!',
+            updatedSection
+        })
+    }),
 
-    async update(req, res) {
+    delete: catchAsync(async (req, res, next) => {
         const sectionId = parseInt(req.params.sectionId)
-        const userId = req.user.id
-        const { name } = req.body
+        if (!sectionId || isNaN(sectionId)) return next(new AppError('O parâmetro "sectionId" é obrigatório e deve ser number', 400))
 
-        if (!sectionId || !name) return res.status(400).json({ error: 'ID da Seção e Nome são obrigatórios!' })
+        const result = await SectionService.deleteSection({
+            sectionId,
+            userId: req.user.id
+        })
 
-        try {
-            const updatedSection = await SectionService.updateSection({ sectionId, userId, name })
-            return res.status(200).json({
-                message: 'Seção atualizada com sucesso!',
-                updatedSection
-            })
-        } catch (error) {
-            console.error('Erro ao atualizar seção:', error)
-            const statusCode = error.message.includes('permissão') ? 403 : 500
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
+        return res.status(200).json({ message: 'Seção excuída com sucesso' })
+    }),
 
-    async delete(req, res) {
-        const sectionId = parseInt(req.params.sectionId)
-        const userId = req.user.id
+    move: catchAsync(async (req, res, next) => {
+        const result = moveSectionSchema.safeParse(req.body)
+        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-        if (!sectionId) return res.status(400).json({ error: 'ID da Seção é obrigatório para exclusão!' })
+        const { new_order } = result.data
 
-        try {
-            const result = await SectionService.deleteSection({ sectionId, userId })
-            return res.status(200).json(result)
-        } catch (error) {
-            console.error('Erro ao deletar seção:', error)
-            const statusCode = error.message.includes('permissão') ? 403 : 400
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
+        const updatedSection = await SectionService.moveSection({
+            sectionId: parseInt(req.params.sectionId),
+            userId: req.user.id,
+            newOrder: new_order
+        })
 
-    async move(req, res) {
-        const sectionId = parseInt(req.params.sectionId)
-        const userId = req.user.id
-        const { newOrder } = req.body
-        const orderValue = parseInt(newOrder)
-
-        if (!sectionId || orderValue === undefined) return res.status(400).json({ error: 'ID da Seção e Nova Ordem são obrigatórios!' })
-        if (isNaN(orderValue)) return res.status(400).json({ error: 'newOrder é obrigatório e deve ser um número inteiro!' })
-
-        try {
-            const updatedSection = await SectionService.moveSection({
-                sectionId,
-                userId,
-                newOrder: orderValue
-            })
-            return res.status(200).json(updatedSection)
-        } catch (error) {
-            console.error('Erro ao mover seção:', error)
-            const statusCode = error.message.includes('permissão') ? 403 : 400
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
+        return res.status(200).json(updatedSection)
+    }),
 
 }
 

@@ -36,17 +36,19 @@ const PermissionService = {
     async checkEditPermission(boardId, userId) {
         const role = await this.getRole(boardId, userId)
 
-        if (role === 'OWNER' || role === 'EDITOR') return role
+        const canEdit = ['OWNER', 'EDITOR'].includes(role)
 
-        throw new Error('Você não tem permissão para editar ou modificar este quadro!')
+        if (!canEdit) throw new Error('Você não tem permissão para editar ou modificar este quadro!')
+
+        return role
     },
 
     async checkOwnerPermission(boardId, userId) {
         const role = await this.getRole(boardId, userId)
 
-        if (role === 'OWNER') return role
+        if (role !== 'OWNER') throw new Error('Ação restrita ao proprietário do quadro!')
 
-        throw new Error('Você não tem permissão de proprietário para realizar esta ação!')
+        return role
     }
 
 }

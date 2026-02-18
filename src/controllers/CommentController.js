@@ -1,55 +1,71 @@
 const CommentService = require('../services/CommentService')
+const catchAsync = require('../utils/catchAsync')
+const AppError = require('../utils/AppError')
+const { createCommentSchema, updateCommentSchema } = require('../validators/commentValidator')
 
 const CommentController = {
 
-    async create(req, res) {
+    create: catchAsync(async (req, res, next) => {
+        const result = createCommentSchema.safeParse({
+            ...req.body,
+            item_id: parseInt(req.params.itemId)
+        })
+        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
+
+        const { content, item_id } = result.data
+
+        const comment = await CommentService.createComment({
+            itemId: item_id,
+            userId: req.user.id,
+            content
+        })
+        return res.status(201).json({
+            message: 'Comentário criado com sucesso!',
+            comment
+        })
+    }),
+
+    list: catchAsync(async (req, res, next) => {
         const itemId = parseInt(req.params.itemId)
-        const userId = req.user.id
-        const { content } = req.body
+        if (!itemId || isNaN(itemId)) return next(new AppError('O parâmetro "itemId" é obrigatório e deve ser number', 400))
 
-        if (!itemId || !content?.trim()) return res.status(400).json({ error: 'ID do Item e Conteúdo são obrigatórios!' })
+        const comments = await CommentService.getCommentByItem(
+            itemId, req.user.id)
+        return res.status(200).json(comments)
+    }),
 
-        try {
-            const comment = await CommentService.createComment({ itemId, userId, content })
-            return res.status(201).json({
-                message: 'Comentário criado com sucesso!',
-                comment
-            })
-        } catch (error) {
-            const statusCode = error.message.includes('permissão') ? 403 : 400
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
+    update: catchAsync(async (req, res, next) => {
+        const result = updateCommentSchema.safeParse({
+            ...req.body,
+            comment_id: parseInt(req.params.commentId)
+        })
+        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-    async list(req, res) {
-        const itemId = parseInt(req.params.itemId)
-        const userId = req.user.id
+        const { comment_id, content } = result.data
 
-        if (!itemId) return res.status(400).json({ error: 'ID do Item é obrigatório para listar comentários!' })
+        const updatedComment = await CommentService.updateComment({
+            commentId: comment_id,
+            userId: req.user.id,
+            content
+        })
 
-        try {
-            const comments = await CommentService.getCommentByItem({ itemId, userId })
-            return res.status(200).json(comments)
-        } catch (error) {
-            const statusCode = error.message.includes('permissão') ? 403 : 500
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
+        return res.status(200).json({
+            message: 'Comentário atualizado com sucesso!',
+            comment: updatedComment
+        })
 
-    async delete(req, res) {
+    }),
+
+    delete: catchAsync(async (req, res, next) => {
         const commentId = parseInt(req.params.commentId)
-        const userId = req.user.id
+        if (!commentId || isNaN(commentId)) return next(new AppError('O parâmetro "commentId" é obrigatório e deve ser number', 400))
 
-        if (!commentId) return res.status(400).json({ error: 'ID do comentário é obrigatório para exclusão!' })
-
-        try {
-            await CommentService.deleteComment({ commentId, userId })
-            return res.status(200).json({ message: 'Comentário excluído com sucesso!' })
-        } catch (error) {
-            const statusCode = error.message.includes('permissão') ? 403 : 404
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
+        await CommentService.deleteComment(
+            commentId,
+            req.user.id
+        )
+        return res.status(200).json({ message: 'Comentário excluído com sucesso!' })
+    }),
 
 }
 

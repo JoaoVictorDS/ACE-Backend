@@ -5,15 +5,19 @@ const jwt = require('jsonwebtoken')
 const UserService = {
 
     async createUser({ name, email, password, role }) {
-        const existingUser = await prisma.user.findUnique({ where: { email } })
+        const existingUser = await prisma.user.findUnique({
+            where: {
+                email
+            }
+        })
         if (existingUser) throw new Error('Usuário com este e-mail já existe!')
 
         const password_hash = await bcrypt.hash(password, 10)
 
-        const newUser = await prisma.user.create({
+        return await prisma.user.create({
             data: {
                 name,
-                email: email.toLowerCase(),
+                email,
                 password_hash,
                 role: role || 'MEMBER'
             },
@@ -24,18 +28,21 @@ const UserService = {
                 role: true
             }
         })
-
-        return newUser
     },
 
     async authenticateUser({ email, password }) {
-        const user = await prisma.user.findUnique({ where: { email: email.toLowerCase() } })
-        if (!user) throw new Error('Credenciais inválidas!')
+        const user = await prisma.user.findUnique({
+            where: {
+                email
+            }
+        })
+        if (!user || user.is_active === false) throw new Error('Credenciais inválidas ou conta desativada!')
 
         const isValidPassword = await bcrypt.compare(password, user.password_hash)
         if (!isValidPassword) throw new Error('Credenciais inválidas!')
 
-        const secret = process.env.JWT_SECRET || 'Fallback_Secret_Seguro_AlphaCentroEmpresarial2511'
+        const secret = process.env.JWT_SECRET
+        if (!secret) throw new Error('Erro interno: Chave de segurança não configurada!')
         const expiry = process.env.JWT_EXPIRY || '8h'
 
         const token = jwt.sign(
@@ -82,11 +89,10 @@ const UserService = {
 
         if (email) {
             const emailOwner = await prisma.user.findUnique({
-                where: { email: email.toLowerCase() }
+                where: { email }
             })
             if (emailOwner && emailOwner.id !== targetUserId) throw new Error('Este e-mail já está em uso!')
-            dataToUpdate.email = email.toLowerCase()
-
+            dataToUpdate.email = email
         }
 
         if (password) dataToUpdate.password_hash = await bcrypt.hash(password, 10)
@@ -96,7 +102,7 @@ const UserService = {
             dataToUpdate.role = role
         }
 
-        const updatedUser = await prisma.user.update({
+        return await prisma.user.update({
             where: { id: targetUserId },
             data: dataToUpdate,
             select: {
@@ -106,17 +112,18 @@ const UserService = {
                 role: true
             }
         })
-
-        return updatedUser
     },
 
-    async deleteUser(targetUserId) {
+    async deleteUser(targetUserId, requesterId, requesterRole) {
+        if (requesterRole !== 'ADMIN') throw new Error('Apenas administradores podem desativar contas!')
+        if (targetUserId === requesterId) throw new Error('Você não pode desativar sua própria conta!')
+
         const user = await prisma.user.findUnique({
             where: { id: targetUserId }
         })
         if (!user) throw new Error('Usuário não encontrado!')
 
-        return await prisma.user.update({
+        await prisma.user.update({
             where: { id: targetUserId },
             data: {
                 is_active: false,

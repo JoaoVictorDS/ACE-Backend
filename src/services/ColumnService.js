@@ -16,6 +16,12 @@ const ColumnService = {
             select: { id: true, data_type: true, options: true, name: true }
         })
 
+        if (columns.length !== columnIds.length) {
+            const foundIds = columns.map(c => c.id)
+            const invalidIds = columnIds.filter(id => !foundIds.includes(id))
+            throw new Error(`Ação bloqueada: As colunas [${invalidIds.join(', ')}] não pertencem a este quadro!`)
+        }
+
         for (const col of columns) {
             const sentValue = String(values[col.id])
             if (col.data_type === 'SELECT') {
@@ -50,7 +56,7 @@ const ColumnService = {
             },
         })
 
-        await LogService.register({
+        LogService.register({
             userId,
             boardId,
             action: 'CREATE',
@@ -83,45 +89,62 @@ const ColumnService = {
         })
         if (!column) throw new Error('Coluna não encontrada!')
 
-        await PermissionService.checkEditPermission(column.board_id, userId)
+        const boardId = column.board_id
+        await PermissionService.checkEditPermission(boardId, userId)
 
-        const updatedColumn = await prisma.column.update({
-            where: { id: columnId },
-            data: {
-                name: name || undefined,
-                data_type: dataType || undefined,
-                options: options || undefined,
-                formula_expression: formulaExpression || undefined
+        const isChangingDataType = dataType && dataType !== column.data_type
+
+        const result = await prisma.$transaction(async (tx) => {
+            if (isChangingDataType) {
+                await tx.itemValue.deleteMany({
+                    where: { column_id: columnId }
+                })
             }
+
+            return await tx.column.update({
+                where: { id: columnId },
+                data: {
+                    name: name || undefined,
+                    data_type: dataType || undefined,
+                    options: dataType === 'SELECT' ? (options || null) : (dataType ? null : undefined),
+                    formula_expression: dataType === 'FORMULA' ? (formulaExpression || null) : (dataType ? null : undefined)
+                }
+            })
         })
 
+        const logBase = {
+            userId,
+            boardId,
+            action: 'UPDATE',
+            entityType: 'COLUMN',
+            entityId: columnId
+        }
+
         if (name && name !== column.name) {
-            await LogService.register({
-                userId,
-                boardId: column.board_id,
-                action: 'UPDATE',
-                entityType: 'COLUMN',
-                entityId: columnId,
+            LogService.register({
+                ...logBase,
                 oldValue: column.name,
                 newValue: name
             })
         }
 
-        if (dataType && dataType !== column.data_type) {
-            await LogService.register({
-                userId,
-                boardId: column.board_id,
-                action: 'UPDATE',
-                entityType: 'COLUMN',
-                entityId: columnId,
-                oldValue: column.data_type,
-                newValue: dataType
+        if (isChangingDataType) {
+            LogService.register({
+                ...logBase,
+                oldValue: `Tipo: ${column.data_type}`,
+                newValue: `Tipo: ${dataType} (Dados anteriores resetados por segurança!)`
             })
         }
 
-        //Falta aqui Logs para outros tipos de alteração!!!
+        if (options && JSON.stringify(options) !== JSON.stringify(column.options)) {
+            LogService.register({
+                ...logBase,
+                oldValue: 'Opções alteradas',
+                newValue: Array.isArray(options) ? options.join(', ') : 'Novas opções configuradas'
+            })
+        }
 
-        return updatedColumn
+        return result
     },
 
     async deleteColumn({ columnId, userId }) {
@@ -130,31 +153,40 @@ const ColumnService = {
         })
         if (!columnToDelete) throw new Error('Coluna não encontrada!')
 
-        await PermissionService.checkEditPermission(columnToDelete.board_id, userId)
+        const boardId = columnToDelete.board_id
+        await PermissionService.checkEditPermission(boardId, userId)
+
+        const affectedValuesCount = await prisma.itemValue.count({
+            where: { column_id: columnId }
+        })
 
         const result = await prisma.$transaction(async (tx) => {
+            await tx.itemValue.deleteMany({
+                where: { column_id: columnId }
+            })
+
             await tx.column.delete({
                 where: { id: columnId }
             })
 
             await tx.column.updateMany({
                 where: {
-                    board_id: columnToDelete.board_id,
+                    board_id: boardId,
                     order: { gt: columnToDelete.order }
                 },
                 data: { order: { decrement: 1 } }
             })
 
-            return { message: 'Coluna excluída com sucesso!' }
+            return { message: 'Coluna excluída com sucesso!', deletedCount: affectedValuesCount }
         })
 
-        await LogService.register({
+        LogService.register({
             userId,
-            boardId: columnToDelete.board_id,
+            boardId,
             action: 'DELETE',
             entityType: 'COLUMN',
             entityId: columnId,
-            oldValue: columnToDelete.name
+            oldValue: `Nome: ${columnToDelete.name} | Registros vinculados removidos: ${affectedValuesCount}`
         })
 
         return result
@@ -167,21 +199,26 @@ const ColumnService = {
         })
         if (!currentColumn) throw new Error('Coluna não encontrada!')
 
-        await PermissionService.checkEditPermission(currentColumn.board_id, userId)
+        const boardId = currentColumn.board_id
+        await PermissionService.checkEditPermission(boardId, userId)
 
         const oldOrder = currentColumn.order
-        const boardId = currentColumn.board_id
 
-        if (oldOrder === newOrder) return currentColumn
+        const totalColumns = await prisma.column.count({
+            where: { board_id: boardId }
+        })
+        const finalOrder = Math.max(0, Math.min(newOrder, totalColumns - 1))
 
-        const updatedColumn = await prisma.$transaction(async (tx) => {
-            if (newOrder > oldOrder) {
+        if (oldOrder === finalOrder) return currentColumn
+
+        return await prisma.$transaction(async (tx) => {
+            if (finalOrder > oldOrder) {
                 await tx.column.updateMany({
                     where: {
                         board_id: boardId,
                         order: {
                             gt: oldOrder,
-                            lte: newOrder,
+                            lte: finalOrder,
                         },
                     },
                     data: {
@@ -193,7 +230,7 @@ const ColumnService = {
                     where: {
                         board_id: boardId,
                         order: {
-                            gte: newOrder,
+                            gte: finalOrder,
                             lt: oldOrder,
                         },
                     },
@@ -205,21 +242,9 @@ const ColumnService = {
 
             return await tx.column.update({
                 where: { id: columnId },
-                data: { order: newOrder },
+                data: { order: finalOrder },
             })
         })
-
-        await LogService.register({
-            userId,
-            boardId,
-            action: 'MOVE',
-            entityType: 'COLUMN',
-            entityId: columnId,
-            oldValue: `Ordem: ${oldOrder}`,
-            newValue: `Ordem: ${newOrder}`
-        })
-
-        return updatedColumn
     }
 
 }

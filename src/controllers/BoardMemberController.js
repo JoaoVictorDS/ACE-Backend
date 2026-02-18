@@ -1,68 +1,62 @@
 const BoardMemberService = require('../services/BoardMemberService')
+const catchAsync = require('../utils/catchAsync')
+const AppError = require('../utils/AppError')
+const { upsertMemberSchema } = require('../validators/boardMemberValidator')
 
 const BoardMemberController = {
 
-    async upsert(req, res) {
+    upsert: catchAsync(async (req, res, next) => {
+        const result = upsertMemberSchema.safeParse({
+            ...req.body,
+            board_id: parseInt(req.params.boardId)
+        })
+        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
+
+        const { member_email, board_id, role } = result.data
+
+        const member = await BoardMemberService.upsertMember({
+            boardId: board_id,
+            userId: req.user.id,
+            memberEmail: member_email,
+            role,
+        })
+
+        return res.status(200).json({
+            message: 'Permissão de membro atualizada/adicionada com sucesso!',
+            member
+        })
+    }),
+
+    list: catchAsync(async (req, res, next) => {
         const boardId = parseInt(req.params.boardId)
-        const userId = req.user.id
-        const { memberEmail, role } = req.body
+        if (!boardId || isNaN(boardId)) return next(new AppError('O parâmetro "boardId" é obrigatório e deve ser number', 400))
 
-        if (!boardId || !memberEmail || !role) return res.status(400).json({ error: 'ID do Quadro, E-mail do Membro e Cargo são obrigatórios!' })
+        const members = await BoardMemberService.getMembersByBoard({
+            boardId,
+            userId: req.user.id
+        })
 
-        try {
-            const member = await BoardMemberService.upsertMember({
-                boardId,
-                userId,
-                memberEmail: memberEmail.toLowerCase().trim(),
-                role: role.toUpperCase().trim(),
-            })
-            return res.status(200).json({
-                message: 'Permissão de membro atualizada/adicionada com sucesso!',
-                member
-            })
-        } catch (error) {
-            const statusCode = error.message.includes('permissão') ? 403 : 400
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
+        return res.status(200).json(members)
 
-    async list(req, res) {
+    }),
+
+    remove: catchAsync(async (req, res, next) => {
         const boardId = parseInt(req.params.boardId)
-        const userId = req.user.id
+        if (!boardId || isNaN(boardId)) return next(new AppError('O parâmetro "boardId" é obrigatório e deve ser number', 400))
 
-        if (!boardId) return res.status(400).json({ error: 'ID do Quadro é obrigatório!' })
-
-        try {
-            const members = await BoardMemberService.getMembersByBoard({
-                boardId,
-                userId
-            })
-            return res.status(200).json(members)
-        } catch (error) {
-            const statusCode = error.message.includes('permissão') ? 403 : 500
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
-
-    async remove(req, res) {
-        const boardId = parseInt(req.params.boardId)
         const memberIdToRemove = parseInt(req.params.memberId)
-        const userId = req.user.id
+        if (!memberIdToRemove || isNaN(memberIdToRemove)) return next(new AppError('O parâmetro "memberId" é obrigatório e deve ser number', 400))
 
-        if (!boardId || !memberIdToRemove) return res.status(400).json({ error: 'ID do Quadro e ID do Membro a ser removido são obrigatórios!' })
+        await BoardMemberService.removeMember({
+            boardId,
+            userId: req.user.id,
+            memberIdToRemove
+        })
 
-        try {
-            await BoardMemberService.removeMember({
-                boardId,
-                userId,
-                memberIdToRemove
-            })
-            return res.status(200).json({ message: 'Membro removido com sucesso!' })
-        } catch (error) {
-            const statusCode = error.message.includes('permissão') ? 403 : 400
-            return res.status(statusCode).json({ error: error.message })
-        }
-    },
+        return res.status(200).json({
+            message: 'Membro removido com sucesso!'
+        })
+    }),
 
 }
 

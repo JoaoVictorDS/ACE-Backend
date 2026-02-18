@@ -1,63 +1,70 @@
 const UserService = require('../services/UserService')
+const catchAsync = require('../utils/catchAsync')
+const AppError = require('../utils/AppError')
+const { createUserSchema, updateUserSchema } = require('../validators/userValidator')
 
 const UserController = {
 
-    async create(req, res) {
-        const { name, email, password, role } = req.body
-        if (!name || !email || !password) return res.status(400).json({ error: 'Nome, E-mail e Senha são obrigatórios!' })
+    create: catchAsync(async (req, res, next) => {
+        const result = createUserSchema.safeParse(req.body)
+        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-        try {
-            const user = await UserService.createUser({ name, email, password, role })
-            return res.status(201).json({
-                message: 'Usuário criado com sucesso!',
-                user
-            })
-        } catch (error) {
-            if (error.message.includes('e-mail já existe')) return res.status(409).json({ error: error.message })
-            console.error(error)
-            return res.status(500).json({ error: 'Erro interno do servidor ao criar usuário!' })
-        }
-    },
+        const { name, email, password, role } = result.data
 
-    async list(req, res) {
-        try {
-            const users = await UserService.getUsers()
-            return res.json(users)
-        } catch (error) {
-            return res.status(500).json({ error: 'Erro ao listar usuário!' })
-        }
-    },
+        const user = await UserService.createUser({
+            name,
+            email,
+            password,
+            role
+        })
 
-    async update(req, res) {
-        const { userId: targetUserId } = req.params
-        const requesterId = req.user.id
-        const requesterRole = req.user.role
+        return res.status(201).json({
+            message: 'Usuário criado com sucesso!',
+            user
+        })
 
-        if (Object.keys(req.body).length === 0) return res.status(400).json({ error: 'Dados para atualizar o perfil não foram fornecidos!' })
+    }),
 
-        try {
-            const updatedUser = await UserService.updateUser(
-                parseInt(targetUserId),
-                req.body,
-                requesterId,
-                requesterRole
-            )
-            return res.json({ message: 'Perfil atualizado!', user: updatedUser })
-        } catch (error) {
-            return res.status(403).json({ error: error.message })
-        }
-    },
+    list: catchAsync(async (req, res, next) => {
+        const users = await UserService.getUsers()
+        return res.json(users)
+    }),
 
-    async delete(req, res) {
-        const { userId: targetUserId } = req.params
+    update: catchAsync(async (req, res, next) => {
+        const result = updateUserSchema.safeParse({
+            ...req.body,
+            user_id: parseInt(req.params.userId)
+        })
+        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-        try {
-            await UserService.deleteUser(parseInt(targetUserId))
-            return res.json({ message: 'Usuário desativado com sucesso!' })
-        } catch (error) {
-            return res.status(403).json({ error: error.message })
-        }
-    },
+        const { user_id, ...rest } = result.data
+
+        const updatedUser = await UserService.updateUser(
+            user_id,
+            rest,
+            req.user.id,
+            req.user.role
+        )
+
+        return res.json({
+            message: 'Perfil atualizado!',
+            user: updatedUser
+        })
+    }),
+
+    delete: catchAsync(async (req, res, next) => {
+        const targetUserId = parseInt(req.params.userId)
+        if (!targetUserId || isNaN(targetUserId)) return next(new AppError('O parâmetro "userId" é obrigatório e deve ser number', 400))
+
+        await UserService.deleteUser(
+            targetUserId,
+            req.user.id,
+            req.user.role
+        )
+        return res.json({
+            message: 'Usuário desativado com sucesso!'
+        })
+    }),
 
 }
 

@@ -3,9 +3,8 @@ const prisma = require('../config/prisma')
 const BoardContextService = {
 
     async getBoardId(entityId, type) {
-        if (!entityId) throw new Error('ID da Entidade não foi fornecido!')
-
         const id = parseInt(entityId)
+        if (!id || isNaN(id)) throw new Error('ID da Entidade inválido!')
 
         switch (type.toUpperCase()) {
             case 'BOARD':
@@ -36,7 +35,7 @@ const BoardContextService = {
                 return column.board_id
 
             default:
-                throw new Error(`Tipo de referência '${type}' desconhecida!`)
+                throw new Error(`Tipo de referência "${type}" desconhecida!`)
         }
     }
 
