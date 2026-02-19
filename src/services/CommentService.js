@@ -34,7 +34,7 @@ const CommentService = {
         return newComment
     },
 
-    async getCommentByItem(itemId, userId) {
+    async getCommentsByItem({ itemId, userId }) {
         const boardId = await BoardContextService.getBoardId(itemId, 'ITEM')
         await PermissionService.checkViewPermission(boardId, userId)
 
@@ -82,7 +82,7 @@ const CommentService = {
         return updatedComment
     },
 
-    async deleteComment(commentId, userId) {
+    async deleteComment({ commentId, userId }) {
         const comment = await prisma.comment.findUnique({
             where: { id: commentId }
         })

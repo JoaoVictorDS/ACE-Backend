@@ -1,19 +1,16 @@
 const BoardService = require('../services/BoardService')
 const BoardMemberService = require('../services/BoardMemberService')
 const catchAsync = require('../utils/catchAsync')
-const AppError = require('../utils/AppError')
-const { createBoardSchema, updateBoardSchema, moveBoardSchema } = require('../validators/boardValidator')
-const PermissionService = require('../services/PermissionService')
+const { createBoardSchema, updateBoardSchema, moveBoardSchema, deleteBoardSchema, getHistorySchema } = require('../validators/boardValidator')
 const LogService = require('../services/LogService')
 
 const BoardController = {
 
     create: catchAsync(async (req, res, next) => {
-        const result = createBoardSchema.safeParse(req.body)
-        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
+        const validatedData = createBoardSchema.parse(req.body)
 
         const board = await BoardService.createBoard({
-            ...result.data,
+            ...validatedData,
             userId: req.user.id
         })
 
@@ -21,39 +18,36 @@ const BoardController = {
             message: 'Quadro criado com sucesso!',
             board
         })
-
     }),
 
     list: catchAsync(async (req, res, next) => {
-        const boards = await BoardService.getBoardsByUser(req.user.id)
+        const boards = await BoardService.getBoardsByUser({
+            userId: req.user.id
+        })
+
         return res.status(200).json(boards)
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const result = updateBoardSchema.safeParse({
+        const { board_id: boardId, ...otherFields } = updateBoardSchema.parse({
             ...req.body,
-            board_id: parseInt(req.params.boardId)
+            ...req.params
         })
-        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
-
-        const { board_id, name } = result.data
 
         const updatedBoard = await BoardService.updateBoard({
-            boardId: board_id,
-            name: name,
+            boardId,
+            ...otherFields,
             userId: req.user.id
         })
 
         return res.status(200).json({
             message: 'Quadro atualizado com sucesso!',
-            board: updatedBoard
+            updatedBoard
         })
-
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const boardId = parseInt(req.params.boardId)
-        if (!boardId || isNaN(boardId)) return next(new AppError('O parâmetro "boardId" é obrigatório e deve ser number', 400))
+        const { board_id: boardId } = deleteBoardSchema.parse(req.params)
 
         await BoardService.deleteBoard({
             boardId,
@@ -66,35 +60,31 @@ const BoardController = {
     }),
 
     move: catchAsync(async (req, res, next) => {
-        const result = moveBoardSchema.safeParse({
+        const { board_id: boardId, new_order: newOrder } = moveBoardSchema.parse({
             ...req.body,
-            board_id: parseInt(req.params.boardId)
+            ...req.params
         })
-        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-        const { board_id, new_order } = result.data
-
-        const updatedMembership = await BoardMemberService.moveBoard({
+        const movedMembership = await BoardMemberService.moveBoard({
             userId: req.user.id,
-            boardId: board_id,
-            newOrder: new_order
+            boardId,
+            newOrder
         })
 
         return res.status(200).json({
-            message: 'Ordem do quadro atualizada!',
-            updatedMembership
+            message: 'Ordem do quadro atualizada com sucesso!',
+            movedMembership
         })
     }),
 
     getHistory: catchAsync(async (req, res, next) => {
-        const boardId = parseInt(req.params.boardId)
-        if (!boardId || isNaN(boardId)) return next(new AppError('O parâmetro "boardId" é obrigatório e deve ser number', 400))
+        const { board_id: boardId } = getHistorySchema.parse(req.params)
 
-        const logs = await LogService.getLogsByBoard(
+        const logs = await LogService.getLogsByBoard({
             boardId,
-            req.user.id
-        )
-        
+            userId: req.user.id
+        })
+
         return res.status(200).json(logs)
     }),
 

@@ -1,51 +1,41 @@
 const BoardMemberService = require('../services/BoardMemberService')
 const catchAsync = require('../utils/catchAsync')
-const AppError = require('../utils/AppError')
-const { upsertMemberSchema } = require('../validators/boardMemberValidator')
+const { upsertMemberSchema, listMembersSchema, removeMemberSchema } = require('../validators/boardMemberValidator')
 
 const BoardMemberController = {
 
     upsert: catchAsync(async (req, res, next) => {
-        const result = upsertMemberSchema.safeParse({
+        const { member_email: memberEmail, board_id: boardId, ...otherFields } = upsertMemberSchema.parse({
             ...req.body,
-            board_id: parseInt(req.params.boardId)
+            ...req.params
         })
-        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-        const { member_email, board_id, role } = result.data
-
-        const member = await BoardMemberService.upsertMember({
-            boardId: board_id,
+        const boardMember = await BoardMemberService.upsertMember({
+            boardId,
             userId: req.user.id,
-            memberEmail: member_email,
-            role,
+            memberEmail,
+            ...otherFields
         })
 
         return res.status(200).json({
             message: 'Permissão de membro atualizada/adicionada com sucesso!',
-            member
+            boardMember
         })
     }),
 
     list: catchAsync(async (req, res, next) => {
-        const boardId = parseInt(req.params.boardId)
-        if (!boardId || isNaN(boardId)) return next(new AppError('O parâmetro "boardId" é obrigatório e deve ser number', 400))
+        const { board_id: boardId } = listMembersSchema.parse(req.params)
 
-        const members = await BoardMemberService.getMembersByBoard({
+        const boardMembers = await BoardMemberService.getMembersByBoard({
             boardId,
             userId: req.user.id
         })
 
-        return res.status(200).json(members)
-
+        return res.status(200).json(boardMembers)
     }),
 
     remove: catchAsync(async (req, res, next) => {
-        const boardId = parseInt(req.params.boardId)
-        if (!boardId || isNaN(boardId)) return next(new AppError('O parâmetro "boardId" é obrigatório e deve ser number', 400))
-
-        const memberIdToRemove = parseInt(req.params.memberId)
-        if (!memberIdToRemove || isNaN(memberIdToRemove)) return next(new AppError('O parâmetro "memberId" é obrigatório e deve ser number', 400))
+        const { board_id: boardId, member_id: memberIdToRemove } = removeMemberSchema.parse(req.params)
 
         await BoardMemberService.removeMember({
             boardId,

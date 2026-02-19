@@ -33,7 +33,7 @@ const LogService = {
         }
     },
 
-    async getLogsByBoard(boardId, userId) {
+    async getLogsByBoard({ boardId, userId }) {
         await PermissionService.checkViewPermission(boardId, userId)
 
         return await prisma.activityLog.findMany({

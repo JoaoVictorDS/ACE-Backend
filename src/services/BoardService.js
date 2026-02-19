@@ -45,7 +45,7 @@ const BoardService = {
         return result
     },
 
-    async getBoardsByUser(userId) {
+    async getBoardsByUser({ userId }) {
         const memberships = await prisma.boardMember.findMany({
             where: { user_id: userId },
             include: {

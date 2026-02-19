@@ -1,22 +1,18 @@
 const ItemService = require('../services/ItemService')
 const catchAsync = require('../utils/catchAsync')
-const AppError = require('../utils/AppError')
-const { createItemSchema, updateItemSchema, moveItemSchema } = require('../validators/itemValidator')
+const { createItemSchema, updateItemSchema, moveItemSchema, deleteItemSchema, listItemsSchema } = require('../validators/itemValidator')
 
 const ItemController = {
 
     create: catchAsync(async (req, res, next) => {
-        const result = createItemSchema.safeParse({
+        const { section_id: sectionId, ...otherFields } = createItemSchema.parse({
             ...req.body,
-            section_id: parseInt(req.params.sectionId)
+            ...req.params
         })
-        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
-
-        const { section_id, title } = result.data
 
         const item = await ItemService.createItem({
-            sectionId: section_id,
-            title,
+            sectionId,
+            ...otherFields,
             userId: req.user.id
         })
 
@@ -24,14 +20,12 @@ const ItemController = {
             message: 'Tarefa criada com sucesso!',
             item
         })
-
     }),
 
     list: catchAsync(async (req, res, next) => {
-        const boardId = parseInt(req.params.boardId)
-        if (!boardId || isNaN(boardId)) return next(new AppError('O parâmetro "boardId" é obrigatório e deve ser number', 400))
+        const { board_id: boardId } = listItemsSchema.parse(req.params)
 
-        const sectionsWithItems = await ItemService.getItemByBoard({
+        const sectionsWithItems = await ItemService.getItemsByBoard({
             boardId,
             userId: req.user.id
         })
@@ -40,59 +34,52 @@ const ItemController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const result = updateItemSchema.safeParse({
+        const { item_id: itemId, ...otherFields } = updateItemSchema.parse({
             ...req.body,
-            item_id: parseInt(req.params.itemId)
+            ...req.params
         })
-        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-        const { item_id, ...rest } = result.data
-
-        const item = await ItemService.updateItem({
-            itemId: item_id,
-            ...rest,
+        const updatedItem = await ItemService.updateItem({
+            itemId,
+            ...otherFields,
             userId: req.user.id,
         })
 
-        return res.json({
-            message: 'Tarefa atualizada!',
-            item
+        return res.status(200).json({
+            message: 'Tarefa atualizada com sucesso!',
+            updatedItem
         })
-
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const itemId = parseInt(req.params.itemId)
-        if (!itemId || isNaN(itemId)) return next(new AppError('O parâmetro "itemId" é obrigatório e deve ser number', 400))
+        const { item_id: itemId } = deleteItemSchema.parse(req.params)
 
         await ItemService.deleteItem({
             itemId,
             userId: req.user.id
         })
 
-        return res.status(200).json({ message: 'Tarefa excluída com sucesso!' })
-
+        return res.status(200).json({
+            message: 'Tarefa excluída com sucesso!'
+        })
     }),
 
     move: catchAsync(async (req, res, next) => {
-        const result = moveItemSchema.safeParse({
+        const { new_section_id: newSectionId, new_order: newOrder, item_id: itemId } = moveItemSchema.parse({
             ...req.body,
-            item_id: parseInt(req.params.itemId)
+            ...req.params
         })
-        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
-
-        const { new_section_id, new_order, item_id } = result.data
 
         const movedItem = await ItemService.moveItem({
-            itemId: item_id,
+            itemId,
             userId: req.user.id,
-            newSectionId: new_section_id,
-            newOrder: new_order
+            newSectionId,
+            newOrder
         })
 
-        return res.json({
-            message: 'Tarefa movida!',
-            item: movedItem
+        return res.status(200).json({
+            message: 'Ordem da tarefa atualizada com sucesso!',
+            movedItem
         })
     }),
 

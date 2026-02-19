@@ -41,7 +41,7 @@ const ItemService = {
         return result
     },
 
-    async getItemByBoard({ boardId, userId }) {
+    async getItemsByBoard({ boardId, userId }) {
         await PermissionService.checkViewPermission(boardId, userId)
 
         const itemsWithValuesQuery = `

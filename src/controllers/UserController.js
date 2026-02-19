@@ -1,67 +1,57 @@
 const UserService = require('../services/UserService')
 const catchAsync = require('../utils/catchAsync')
-const AppError = require('../utils/AppError')
-const { createUserSchema, updateUserSchema } = require('../validators/userValidator')
+const { createUserSchema, updateUserSchema, deleteUserSchema } = require('../validators/userValidator')
 
 const UserController = {
 
     create: catchAsync(async (req, res, next) => {
-        const result = createUserSchema.safeParse(req.body)
-        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
-
-        const { name, email, password, role } = result.data
+        const { ...fields } = createUserSchema.parse(req.body)
 
         const user = await UserService.createUser({
-            name,
-            email,
-            password,
-            role
+            ...fields
         })
 
         return res.status(201).json({
             message: 'Usuário criado com sucesso!',
             user
         })
-
     }),
 
     list: catchAsync(async (req, res, next) => {
         const users = await UserService.getUsers()
-        return res.json(users)
+
+        return res.status(200).json(users)
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const result = updateUserSchema.safeParse({
+        const { user_id: targetUserId, ...otherFields } = updateUserSchema.parse({
             ...req.body,
-            user_id: parseInt(req.params.userId)
+            ...req.params
         })
-        if (!result.success) return next(new AppError(result.error.issues[0].message, 400))
 
-        const { user_id, ...rest } = result.data
+        const updatedUser = await UserService.updateUser({
+            targetUserId,
+            ...otherFields,
+            requesterId: req.user.id,
+            requesterRole: req.user.role
+        })
 
-        const updatedUser = await UserService.updateUser(
-            user_id,
-            rest,
-            req.user.id,
-            req.user.role
-        )
-
-        return res.json({
-            message: 'Perfil atualizado!',
-            user: updatedUser
+        return res.status(200).json({
+            message: 'Usuário atualizado com sucesso!',
+            updatedUser
         })
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const targetUserId = parseInt(req.params.userId)
-        if (!targetUserId || isNaN(targetUserId)) return next(new AppError('O parâmetro "userId" é obrigatório e deve ser number', 400))
+        const { user_id: targetUserId } = deleteUserSchema.parse(req.params)
 
-        await UserService.deleteUser(
+        await UserService.deleteUser({
             targetUserId,
-            req.user.id,
-            req.user.role
-        )
-        return res.json({
+            requesterId: req.user.id,
+            requesterRole: req.user.role
+        })
+
+        return res.status(200).json({
             message: 'Usuário desativado com sucesso!'
         })
     }),

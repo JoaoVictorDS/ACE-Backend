@@ -75,7 +75,7 @@ const UserService = {
         })
     },
 
-    async updateUser(targetUserId, { name, email, password, role }, requesterId, requesterRole) {
+    async updateUser({ targetUserId, name, email, password, role, requesterId, requesterRole }) {
         const user = await prisma.user.findUnique({
             where: { id: targetUserId }
         })
@@ -114,7 +114,7 @@ const UserService = {
         })
     },
 
-    async deleteUser(targetUserId, requesterId, requesterRole) {
+    async deleteUser({ targetUserId, requesterId, requesterRole }) {
         if (requesterRole !== 'ADMIN') throw new Error('Apenas administradores podem desativar contas!')
         if (targetUserId === requesterId) throw new Error('Você não pode desativar sua própria conta!')
 
