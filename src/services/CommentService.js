@@ -1,13 +1,12 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
 const LogService = require('./LogService')
-const BoardContextService = require('./BoardContextService')
+const AppError = require('../utils/AppError')
 
 const CommentService = {
 
     async createComment({ itemId, userId, content }) {
-        const boardId = await BoardContextService.getBoardId(itemId, 'ITEM')
-        await PermissionService.checkEditPermission(boardId, userId)
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.ITEM, itemId, userId, PermissionService.LEVELS.VIEW)
 
         const newComment = await prisma.comment.create({
             data: {
@@ -24,6 +23,7 @@ const CommentService = {
 
         LogService.register({
             userId,
+            workspaceId,
             boardId,
             action: 'CREATE',
             entityType: 'COMMENT',
@@ -35,8 +35,7 @@ const CommentService = {
     },
 
     async getCommentsByItem({ itemId, userId }) {
-        const boardId = await BoardContextService.getBoardId(itemId, 'ITEM')
-        await PermissionService.checkViewPermission(boardId, userId)
+        await PermissionService.checkPermission(PermissionService.TYPES.ITEM, itemId, userId, PermissionService.LEVELS.VIEW)
 
         return await prisma.comment.findMany({
             where: { item_id: itemId },
@@ -53,11 +52,10 @@ const CommentService = {
         const comment = await prisma.comment.findUnique({
             where: { id: commentId }
         })
+        if (!comment) throw new AppError('Comentário não encontrado!', 404)
+        if (comment.user_id !== userId) throw new AppError('Você não tem permissão para editar este comentário!', 403)
 
-        if (!comment) throw new Error('Comentário não encontrado!')
-        if (comment.user_id !== userId) throw new Error('Você não tem permissão para editar este comentário!')
-
-        const boardId = await BoardContextService.getBoardId(comment.item_id, 'ITEM')
+        const { boardId, workspaceId } = await PermissionService._resolveBoardContext(PermissionService.TYPES.ITEM, comment.item_id)
 
         const updatedComment = await prisma.comment.update({
             where: { id: commentId },
@@ -71,6 +69,7 @@ const CommentService = {
 
         LogService.register({
             userId,
+            workspaceId,
             boardId,
             action: 'UPDATE',
             entityType: 'COMMENT',
@@ -86,22 +85,22 @@ const CommentService = {
         const comment = await prisma.comment.findUnique({
             where: { id: commentId }
         })
-        if (!comment) throw new Error('Comentário não encontrado!')
+        if (!comment) throw new AppError('Comentário não encontrado!', 404)
 
-        const boardId = await BoardContextService.getBoardId(comment.item_id, 'ITEM')
-        const userRole = await PermissionService.getRole(boardId, userId)
+        const { boardId, workspaceId, creatorId } = await PermissionService._resolveBoardContext(PermissionService.TYPES.ITEM, comment.item_id)
 
         const isOwnerOfComment = comment.user_id === userId
-        const isBoardOwner = userRole === 'OWNER'
+        const isBoardOwner = creatorId === userId
 
-        if (!isOwnerOfComment && !isBoardOwner) throw new Error('Você não tem permissão para excluir este comentário!')
+        if (!isOwnerOfComment && !isBoardOwner) throw new AppError('Você não tem permissão para excluir este comentário!', 403)
 
-        const deleted = await prisma.comment.delete({
+        const deletedComment = await prisma.comment.delete({
             where: { id: commentId }
         })
 
         LogService.register({
             userId,
+            workspaceId,
             boardId,
             action: 'DELETE',
             entityType: 'COMMENT',
@@ -109,7 +108,7 @@ const CommentService = {
             oldValue: comment.content.substring(0, 50)
         })
 
-        return deleted
+        return deletedComment
     },
 }
 

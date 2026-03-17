@@ -1,16 +1,21 @@
 const BoardService = require('../services/BoardService')
 const BoardMemberService = require('../services/BoardMemberService')
+const LogService = require('../services/LogService')
 const catchAsync = require('../utils/catchAsync')
 const { createBoardSchema, updateBoardSchema, moveBoardSchema, deleteBoardSchema, getHistorySchema } = require('../validators/boardValidator')
-const LogService = require('../services/LogService')
+
 
 const BoardController = {
 
     create: catchAsync(async (req, res, next) => {
-        const validatedData = createBoardSchema.parse(req.body)
+        const { workspace_id: workspaceId, ...otherFields } = createBoardSchema.parse({
+            ...req.body,
+            ...req.params
+        })
 
         const board = await BoardService.createBoard({
-            ...validatedData,
+            ...otherFields,
+            workspaceId,
             userId: req.user.id
         })
 
@@ -47,11 +52,15 @@ const BoardController = {
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = deleteBoardSchema.parse(req.params)
+        const { board_id: boardId, force } = deleteBoardSchema.parse({
+            ...req.params,
+            ...req.query
+        })
 
         await BoardService.deleteBoard({
             boardId,
-            userId: req.user.id
+            userId: req.user.id,
+            force
         })
 
         return res.status(200).json({

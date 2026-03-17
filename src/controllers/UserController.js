@@ -47,8 +47,7 @@ const UserController = {
 
         await UserService.deleteUser({
             targetUserId,
-            requesterId: req.user.id,
-            requesterRole: req.user.role
+            requesterId: req.user.id
         })
 
         return res.status(200).json({

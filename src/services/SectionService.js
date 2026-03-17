@@ -1,11 +1,12 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
 const LogService = require('./LogService')
+const AppError = require('../utils/AppError')
 
 const SectionService = {
 
     async createSection({ boardId, name, userId }) {
-        await PermissionService.checkEditPermission(boardId, userId)
+        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.ADMIN)
 
         const result = await prisma.$transaction(async (tx) => {
             const maxOrderSection = await tx.section.findFirst({
@@ -27,6 +28,7 @@ const SectionService = {
 
         LogService.register({
             userId,
+            workspaceId,
             boardId,
             action: 'CREATE',
             entityType: 'SECTION',
@@ -38,7 +40,7 @@ const SectionService = {
     },
 
     async getSectionsByBoard({ boardId, userId }) {
-        await PermissionService.checkViewPermission(boardId, userId)
+        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.VIEW)
 
         const sections = await prisma.section.findMany({
             where: { board_id: boardId, },
@@ -54,16 +56,14 @@ const SectionService = {
     },
 
     async updateSection({ sectionId, userId, name }) {
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.SECTION, sectionId, userId, PermissionService.LEVELS.ADMIN)
+
         const section = await prisma.section.findUnique({
             where: { id: sectionId },
-            select: { name: true, board_id: true }
+            select: { name: true }
         })
-        if (!section) throw new Error('Seção não encontrada!')
-
+        if (!section) throw new AppError('Seção não encontrada!', 404)
         if (section.name === name) return section
-
-        const boardId = section.board_id
-        await PermissionService.checkEditPermission(boardId, userId)
 
         const updatedSection = await prisma.section.update({
             where: { id: sectionId },
@@ -72,6 +72,7 @@ const SectionService = {
 
         LogService.register({
             userId,
+            workspaceId,
             boardId,
             action: 'UPDATE',
             entityType: 'SECTION',
@@ -83,15 +84,21 @@ const SectionService = {
         return updatedSection
     },
 
-    async deleteSection({ sectionId, userId }) {
+    async deleteSection({ sectionId, userId, force = false }) {
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.SECTION, sectionId, userId, PermissionService.LEVELS.ADMIN)
+
         const sectionToDelete = await prisma.section.findUnique({
             where: { id: sectionId },
-            select: { board_id: true, order: true, name: true }
+            select: {
+                order: true, name: true,
+                _count: { select: { items: true } }
+            }
         })
-        if (!sectionToDelete) throw new Error('Seção não encontrada!')
+        if (!sectionToDelete) throw new AppError('Seção não encontrada!', 404)
 
-        const boardId = sectionToDelete.board_id
-        await PermissionService.checkEditPermission(boardId, userId)
+        const { items } = sectionToDelete._count
+        const hasContent = items > 0
+        if (!force && hasContent) throw new AppError(`Não é possível excluir a seção: existem ${items} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir!`, 409)
 
         const result = await prisma.$transaction(async (tx) => {
             await tx.section.delete({
@@ -113,6 +120,7 @@ const SectionService = {
 
         LogService.register({
             userId,
+            workspaceId,
             boardId,
             action: 'DELETE',
             entityType: 'SECTION',
@@ -124,14 +132,13 @@ const SectionService = {
     },
 
     async moveSection({ sectionId, userId, newOrder }) {
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.SECTION, sectionId, userId, PermissionService.LEVELS.ADMIN)
+
         const currentSection = await prisma.section.findUnique({
             where: { id: sectionId },
-            select: { board_id: true, order: true }
+            select: { order: true }
         })
-        if (!currentSection) throw new Error('Seção não encontrada!')
-
-        const boardId = currentSection.board_id
-        await PermissionService.checkEditPermission(boardId, userId)
+        if (!currentSection) throw new AppError('Seção não encontrada!', 404)
 
         const oldOrder = currentSection.order
 
@@ -181,6 +188,7 @@ const SectionService = {
 
         LogService.register({
             userId,
+            workspaceId,
             boardId,
             action: 'MOVE',
             entityType: 'SECTION',
@@ -191,7 +199,6 @@ const SectionService = {
 
         return result
     },
-
 }
 
 module.exports = SectionService

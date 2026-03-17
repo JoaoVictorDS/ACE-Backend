@@ -8,17 +8,20 @@ const errorMiddleware = (err, req, res, next) => {
         })
     }
 
-    err.statusCode = err.statusCode || 500
+    const statusCode = err.statusCode || 500
 
-    if (err.statusCode === 500) {
-        console.error(`❌ Erro Crítico [${req.method}] ${req.path}:`, err)
+    const status = err.isOperational ? err.status : 'internal_error'
+    const message = err.isOperational ? err.message : 'Ocorreu um erro interno no servidor!'
+
+    if (statusCode === 500) {
+        console.error(`❌ [CRITICAL] ${req.method} ${req.path}:`, err)
     } else {
-        console.warn(`⚠️ Aviso [${req.method}] ${req.path}: ${err.message}`)
+        console.warn(`⚠️ [WARN] ${req.method} ${req.path}: ${err.message}`)
     }
 
-    return res.status(err.statusCode).json({
-        status: 'error',
-        message: err.message || 'Erro interno do servidor'
+    return res.status(statusCode).json({
+        status,
+        message
     })
 }
 

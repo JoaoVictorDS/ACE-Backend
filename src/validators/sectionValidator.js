@@ -45,7 +45,12 @@ const listSectionsSchema = z.object({
 })
 
 const deleteSectionSchema = z.object({
-    section_id
+    section_id,
+
+    force: z.preprocess(
+        (val) => val === 'true' || val === true,
+        z.boolean().default(false)
+    )
 })
 
 module.exports = {

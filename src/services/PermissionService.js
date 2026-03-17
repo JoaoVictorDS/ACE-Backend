@@ -1,54 +1,122 @@
 const prisma = require('../config/prisma')
+const AppError = require('../utils/AppError')
 
 const PermissionService = {
 
-    async getRole(boardId, userId) {
-        if (!boardId || !userId) return null
+    ROLES: {
+        VIEW: ['OWNER', 'ADMIN', 'EDITOR', 'VIEWER'],
+        EDIT: ['OWNER', 'ADMIN', 'EDITOR'],
+        ADMIN: ['OWNER', 'ADMIN'],
+        OWNER: ['OWNER']
+    },
 
-        const board = await prisma.board.findUnique({
-            where: { id: boardId },
+    TYPES: {
+        BOARD: 'BOARD',
+        SECTION: 'SECTION',
+        COLUMN: 'COLUMN',
+        ITEM: 'ITEM'
+    },
+    LEVELS: {
+        VIEW: 'VIEW',
+        EDIT: 'EDIT',
+        ADMIN: 'ADMIN',
+        OWNER: 'OWNER'
+    },
+
+    async _resolveBoardContext(type, entityId) {
+        let data
+
+        switch (type.toUpperCase()) {
+            case 'BOARD':
+                data = await prisma.board.findUnique({
+                    where: { id: entityId },
+                    select: { id: true, workspace_id: true, creator_id: true }
+                })
+                break
+            case 'SECTION':
+            case 'COLUMN':
+                data = await prisma[type.toLowerCase()].findUnique({
+                    where: { id: entityId },
+                    select: { board_id: true, board: { select: { workspace_id: true, creator_id: true } } }
+                })
+                break
+            case 'ITEM':
+                data = await prisma.item.findUnique({
+                    where: { id: entityId },
+                    select: {
+                        section: { select: { board_id: true, board: { select: { workspace_id: true, creator_id: true } } } }
+                    }
+                })
+                break
+        }
+
+        if (!data) throw new AppError(`${type} não encontrado!`, 404)
+
+        if (type === 'BOARD') return {
+            boardId: data.id,
+            workspaceId: data.workspace_id,
+            creatorId: data.creator_id
+        }
+        if (type === 'ITEM') return {
+            boardId: data.section.board_id,
+            workspaceId: data.section.board.workspace_id,
+            creatorId: data.section.board.creator_id
+        }
+
+        return {
+            boardId: data.board_id,
+            workspaceId: data.board.workspace_id,
+            creatorId: data.board.creator_id
+        };
+    },
+
+    async checkPermission(type, entityId, userId, actionLevel = 'EDIT') {
+        const context = await this._resolveBoardContext(type, entityId)
+
+        const member = await prisma.boardMember.findUnique({
+            where: { user_id_board_id: { user_id: userId, board_id: context.boardId } },
+            select: { role: true }
+        })
+
+        const role = context.creatorId === userId ? 'OWNER' : (member?.role || null)
+        const allowedRoles = this.ROLES[actionLevel.toUpperCase()]
+
+        if (!role || !allowedRoles.includes(role)) throw new AppError(`Acesso negado: Permissão de ${actionLevel} insuficiente para este ${type}!`, 403)
+
+        return {
+            creatorId: context.creatorId,
+            role,
+            boardId: context.boardId,
+            workspaceId: context.workspaceId
+        }
+    },
+
+    async checkWorkspacePermission(workspaceId, userId, actionLevel = 'VIEW') {
+        const workspace = await prisma.workspace.findUnique({
+            where: { id: workspaceId },
             select: {
-                owner_id: true,
-                board_members: {
+                id: true,
+                creator_id: true,
+                workspace_members: {
                     where: { user_id: userId },
                     select: { role: true }
                 }
             }
         })
 
-        if (!board) throw new Error('Quadro não encontrado!')
+        if (!workspace) throw new AppError('Área de Trabalho não encontrada!', 404)
 
-        if (board.owner_id === userId) return 'OWNER'
+        const role = workspace.creator_id === userId ? 'OWNER' : (workspace.workspace_members[0]?.role || null)
+        const allowedRoles = this.ROLES[actionLevel.toUpperCase()]
 
-        const member = board.board_members[0]
+        if (!role || !allowedRoles.includes(role)) throw new AppError('Acesso negado à Área de Trabalho!', 403)
 
-        return member ? member.role : null
-    },
-
-    async checkViewPermission(boardId, userId) {
-        const role = await this.getRole(boardId, userId)
-
-        if (!role) throw new Error('Você não tem permissão para visualizar este quadro!')
-
-        return role
-    },
-
-    async checkEditPermission(boardId, userId) {
-        const role = await this.getRole(boardId, userId)
-
-        const canEdit = ['OWNER', 'EDITOR'].includes(role)
-
-        if (!canEdit) throw new Error('Você não tem permissão para editar ou modificar este quadro!')
-
-        return role
-    },
-
-    async checkOwnerPermission(boardId, userId) {
-        const role = await this.getRole(boardId, userId)
-
-        if (role !== 'OWNER') throw new Error('Ação restrita ao proprietário do quadro!')
-
-        return role
+        return {
+            creatorId: workspace.creator_id,
+            role,
+            workspaceId: workspace.id,
+            boardId: null
+        }
     }
 
 }

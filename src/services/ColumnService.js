@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma')
-const LogService = require('./LogService')
 const PermissionService = require('./PermissionService')
+const LogService = require('./LogService')
+const AppError = require('../utils/AppError')
 
 const ColumnService = {
 
@@ -19,23 +20,53 @@ const ColumnService = {
         if (columns.length !== columnIds.length) {
             const foundIds = columns.map(c => c.id)
             const invalidIds = columnIds.filter(id => !foundIds.includes(id))
-            throw new Error(`Ação bloqueada: As colunas [${invalidIds.join(', ')}] não pertencem a este quadro!`)
+            throw new AppError(`Ação bloqueada: As colunas [${invalidIds.join(', ')}] não pertencem a este quadro!`, 400)
         }
 
         for (const col of columns) {
-            const sentValue = String(values[col.id])
-            if (col.data_type === 'SELECT') {
-                const allowedOptions = col.options || []
+            const rawValue = values[col.id]
+            if (rawValue === null || rawValue === undefined || String(rawValue).trim() === '') continue
+            const sentValue = String(rawValue).trim()
 
-                if (sentValue !== '' && sentValue !== 'null' && !allowedOptions.includes(sentValue)) {
-                    throw new Error(`O valor "${sentValue}" não é permitido para a coluna "${col.name}". Opções válidas: ${allowedOptions.join(', ')}`)
-                }
+            switch (col.data_type) {
+                case 'SELECT':
+                    const allowedOptions = col.options || []
+                    if (sentValue !== 'null' && !allowedOptions.includes(sentValue)) {
+                        throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${col.name}". Opções válidas: ${allowedOptions.join(', ')}`, 400)
+                    }
+                    break
+
+                case 'NUMBER':
+                    const parsedNum = parseFloat(sentValue)
+                    if (isNaN(parsedNum) || !Number.isFinite(parsedNum)) {
+                        throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${col.name}". Opções válidas: Number`, 400)
+                    }
+                    break
+
+                case 'DATE':
+                    const date = new Date(sentValue)
+                    if (isNaN(date.getTime())) {
+                        throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${col.name}". Opções válidas: Date`, 400)
+                    }
+                    break
+
+                case 'USER':
+                    const userIdToValidate = parseInt(sentValue)
+                    if (isNaN(userIdToValidate)) throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${col.name}". Opções válidas: Integer (user_id)"`, 400)
+                    const userInBoard = await prisma.boardMember.findFirst({
+                        where: {
+                            board_id: boardId,
+                            user_id: userIdToValidate
+                        }
+                    })
+                    if (!userInBoard) throw new AppError('O usuário não pertence a este quadro', 400)
+                    break
             }
         }
     },
 
     async createColumn({ boardId, name, dataType, options, formulaExpression, userId }) {
-        await PermissionService.checkEditPermission(boardId, userId)
+        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.ADMIN)
 
         const maxOrderColumn = await prisma.column.findFirst({
             where: { board_id: boardId },
@@ -58,6 +89,7 @@ const ColumnService = {
 
         LogService.register({
             userId,
+            workspaceId,
             boardId,
             action: 'CREATE',
             entityType: 'COLUMN',
@@ -69,30 +101,29 @@ const ColumnService = {
     },
 
     async getColumnsByBoard({ boardId, userId }) {
-        await PermissionService.checkViewPermission(boardId, userId)
+        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.VIEW)
 
-        const column = await prisma.column.findMany({
-            where: {
-                board_id: boardId,
-            },
-            orderBy: {
-                order: 'asc',
-            }
+        const columns = await prisma.column.findMany({
+            where: { board_id: boardId, },
+            orderBy: { order: 'asc', }
         })
 
-        return column
+        return columns
     },
 
     async updateColumn({ columnId, userId, name, dataType, options, formulaExpression }) {
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.COLUMN, columnId, userId, PermissionService.LEVELS.ADMIN)
+
         const column = await prisma.column.findUnique({
             where: { id: columnId },
         })
-        if (!column) throw new Error('Coluna não encontrada!')
-
-        const boardId = column.board_id
-        await PermissionService.checkEditPermission(boardId, userId)
+        if (!column) throw new AppError('Coluna não encontrada!', 404)
 
         const isChangingDataType = dataType && dataType !== column.data_type
+
+        const finalDataType = dataType ?? column.data_type
+        const finalOptions = finalDataType === 'SELECT' ? (options ?? column.options) : null
+        const finalFormula = finalDataType === 'FORMULA' ? (formulaExpression ?? column.formula_expression) : null
 
         const result = await prisma.$transaction(async (tx) => {
             if (isChangingDataType) {
@@ -104,61 +135,63 @@ const ColumnService = {
             return await tx.column.update({
                 where: { id: columnId },
                 data: {
-                    name: name || undefined,
-                    data_type: dataType || undefined,
-                    options: dataType === 'SELECT' ? (options || null) : (dataType ? null : undefined),
-                    formula_expression: dataType === 'FORMULA' ? (formulaExpression || null) : (dataType ? null : undefined)
+                    name: name ?? undefined,
+                    data_type: finalDataType,
+                    options: finalOptions,
+                    formula_expression: finalFormula
                 }
             })
         })
 
-        const logBase = {
-            userId,
-            boardId,
-            action: 'UPDATE',
-            entityType: 'COLUMN',
-            entityId: columnId
+        const changes = []
+        const addChange = (label, oldValue, newValue) => {
+            changes.push({
+                old: `${label}: "${oldValue || ''}"`,
+                new: `${label}: "${newValue || ''}"`
+            })
         }
 
         if (name && name !== column.name) {
-            LogService.register({
-                ...logBase,
-                oldValue: column.name,
-                newValue: name
-            })
+            addChange('Nome', column.name, name)
         }
 
         if (isChangingDataType) {
-            LogService.register({
-                ...logBase,
-                oldValue: `Tipo: ${column.data_type}`,
-                newValue: `Tipo: ${dataType} (Dados anteriores resetados por segurança!)`
-            })
+            addChange('Tipo', column.data_type, `${dataType} (Dados anteriores resetados por segurança)`)
         }
 
         if (options && JSON.stringify(options) !== JSON.stringify(column.options)) {
+            addChange('Opções', Array.isArray(column.options) ? column.options.join(', ') : '', Array.isArray(options) ? options.join(', ') : '')
+        }
+
+        if (changes.length > 0) {
             LogService.register({
-                ...logBase,
-                oldValue: 'Opções alteradas',
-                newValue: Array.isArray(options) ? options.join(', ') : 'Novas opções configuradas'
+                userId,
+                workspaceId,
+                boardId,
+                action: 'UPDATE',
+                entityType: 'COLUMN',
+                entityId: columnId,
+                oldValue: changes.map(c => c.old).join(' | '),
+                newValue: changes.map(c => c.new).join(' | ')
             })
         }
 
         return result
     },
 
-    async deleteColumn({ columnId, userId }) {
+    async deleteColumn({ columnId, userId, force = false }) {
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.COLUMN, columnId, userId, PermissionService.LEVELS.ADMIN)
+
         const columnToDelete = await prisma.column.findUnique({
             where: { id: columnId }
         })
-        if (!columnToDelete) throw new Error('Coluna não encontrada!')
-
-        const boardId = columnToDelete.board_id
-        await PermissionService.checkEditPermission(boardId, userId)
+        if (!columnToDelete) throw new AppError('Coluna não encontrada!', 404)
 
         const affectedValuesCount = await prisma.itemValue.count({
             where: { column_id: columnId }
         })
+
+        if (!force && affectedValuesCount > 0) throw new AppError(`Não é possível excluir a coluna: existem ${affectedValuesCount} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir!`, 409)
 
         const result = await prisma.$transaction(async (tx) => {
             await tx.itemValue.deleteMany({
@@ -182,6 +215,7 @@ const ColumnService = {
 
         LogService.register({
             userId,
+            workspaceId,
             boardId,
             action: 'DELETE',
             entityType: 'COLUMN',
@@ -193,14 +227,13 @@ const ColumnService = {
     },
 
     async moveColumn({ columnId, userId, newOrder }) {
+        const { boardId } = await PermissionService.checkPermission(PermissionService.TYPES.COLUMN, columnId, userId, PermissionService.LEVELS.ADMIN)
+
         const currentColumn = await prisma.column.findUnique({
             where: { id: columnId },
-            select: { board_id: true, order: true, name: true }
+            select: { order: true, name: true }
         })
-        if (!currentColumn) throw new Error('Coluna não encontrada!')
-
-        const boardId = currentColumn.board_id
-        await PermissionService.checkEditPermission(boardId, userId)
+        if (!currentColumn) throw new AppError('Coluna não encontrada!', 404)
 
         const oldOrder = currentColumn.order
 

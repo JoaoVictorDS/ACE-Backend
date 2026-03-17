@@ -75,7 +75,12 @@ const listColumnsSchema = z.object({
 })
 
 const deleteColumnSchema = z.object({
-    column_id
+    column_id,
+
+    force: z.preprocess(
+        (val) => val === 'true' || val === true,
+        z.boolean().default(false)
+    )
 })
 
 module.exports = { createColumnSchema, updateColumnSchema, moveColumnSchema, listColumnsSchema, deleteColumnSchema }

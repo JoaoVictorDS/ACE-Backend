@@ -1,14 +1,13 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
 const LogService = require('./LogService')
-const BoardContextService = require('./BoardContextService')
 const ColumnService = require('./ColumnService')
+const AppError = require('../utils/AppError')
 
 const ItemService = {
 
     async createItem({ sectionId, title, userId }) {
-        const boardId = await BoardContextService.getBoardId(sectionId, 'SECTION')
-        await PermissionService.checkEditPermission(boardId, userId)
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.SECTION, sectionId, userId, PermissionService.LEVELS.EDIT)
 
         const result = await prisma.$transaction(async (tx) => {
             const lastItem = await tx.item.findFirst({
@@ -17,7 +16,7 @@ const ItemService = {
                 select: { order: true }
             })
 
-            const item = await tx.item.create({
+            const newItem = await tx.item.create({
                 data: {
                     section_id: sectionId,
                     title,
@@ -26,11 +25,12 @@ const ItemService = {
                 include: { item_values: true, comments: true }
             })
 
-            return item
+            return newItem
         })
 
         LogService.register({
             userId,
+            workspaceId,
             boardId,
             action: 'CREATE',
             entityType: 'ITEM',
@@ -42,7 +42,7 @@ const ItemService = {
     },
 
     async getItemsByBoard({ boardId, userId }) {
-        await PermissionService.checkViewPermission(boardId, userId)
+        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.VIEW)
 
         const itemsWithValuesQuery = `
             SELECT
@@ -88,8 +88,7 @@ const ItemService = {
     },
 
     async updateItem({ itemId, title, values = {}, userId }) {
-        const boardId = await BoardContextService.getBoardId(itemId, 'ITEM')
-        await PermissionService.checkEditPermission(boardId, userId)
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.ITEM, itemId, userId, PermissionService.LEVELS.EDIT)
 
         if (Object.keys(values).length > 0) {
             await ColumnService.validateItemValues(values, boardId)
@@ -106,7 +105,7 @@ const ItemService = {
                     select: { id: true, name: true }
                 })
             ])
-            if (!oldItem) throw new Error('Item não encontrado!')
+            if (!oldItem) throw new AppError('Tarefa não encontrada!', 404)
 
             const columnNameMap = Object.fromEntries(columns.map(c => [c.id, c.name]))
 
@@ -132,7 +131,7 @@ const ItemService = {
 
                 const newValue = (val === null || val === undefined || String(val).trim() === '' || String(val) === 'null') ? '' : String(val).trim()
                 const existing = oldItem.item_values.find(v => v.column_id === columnIdNum)
-                const oldValue = existing ? existing.value : ''
+                const oldValue = existing?.value ?? ''
 
                 if (oldValue !== newValue) {
                     if (newValue === '') {
@@ -184,6 +183,7 @@ const ItemService = {
         if (result.oldValue) {
             LogService.register({
                 userId,
+                workspaceId,
                 boardId,
                 action: 'UPDATE',
                 entityType: 'ITEM',
@@ -197,15 +197,14 @@ const ItemService = {
     },
 
     async deleteItem({ itemId, userId }) {
-        const boardId = await BoardContextService.getBoardId(itemId, 'ITEM')
-        await PermissionService.checkEditPermission(boardId, userId)
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.ITEM, itemId, userId, PermissionService.LEVELS.EDIT)
 
         const item = await prisma.item.findUnique({
             where: {
                 id: itemId
             }
         })
-        if (!item) throw new Error('Item não encontrado!')
+        if (!item) throw new AppError('Tarefa não encontrada!', 404)
 
         const result = await prisma.$transaction(async (tx) => {
             const deleted = await tx.item.delete({
@@ -225,6 +224,7 @@ const ItemService = {
 
         LogService.register({
             userId,
+            workspaceId,
             boardId,
             action: 'DELETE',
             entityType: 'ITEM',
@@ -236,23 +236,22 @@ const ItemService = {
     },
 
     async moveItem({ itemId, newSectionId, newOrder, userId }) {
-        const boardId = await BoardContextService.getBoardId(itemId, 'ITEM')
-        await PermissionService.checkEditPermission(boardId, userId)
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.ITEM, itemId, userId, PermissionService.LEVELS.EDIT)
 
         const result = await prisma.$transaction(async (tx) => {
             const currentItem = await tx.item.findUnique({
                 where: { id: itemId },
                 select: { section_id: true, order: true, title: true }
             })
-            if (!currentItem) throw new Error('Tarefa não encontrada!')
+            if (!currentItem) throw new AppError('Tarefa não encontrada!', 404)
 
             const oldSectionId = currentItem.section_id
             const oldOrder = currentItem.order
             const finalSectionId = newSectionId || oldSectionId
 
             if (newSectionId && newSectionId !== oldSectionId) {
-                const targetBoardId = await BoardContextService.getBoardId(newSectionId, 'SECTION')
-                if (targetBoardId !== boardId) throw new Error('Não é permitido mover itens entre quadros diferentes!')
+                const { boardId: targetBoardId } = await PermissionService._resolveBoardContext(PermissionService.TYPES.SECTION, newSectionId)
+                if (targetBoardId !== boardId) throw new AppError('Não é permitido mover tarefas entre quadros diferentes!', 400)
             }
 
             const totalInTarget = await tx.item.count({
@@ -326,6 +325,7 @@ const ItemService = {
 
         LogService.register({
             userId,
+            workspaceId,
             boardId,
             action: 'MOVE',
             entityType: 'ITEM',

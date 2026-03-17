@@ -52,11 +52,15 @@ const SectionController = {
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { section_id: sectionId } = deleteSectionSchema.parse(req.params)
+        const { section_id: sectionId, force } = deleteSectionSchema.parse({
+            ...req.params,
+            ...req.query
+        })
 
         await SectionService.deleteSection({
             sectionId,
-            userId: req.user.id
+            userId: req.user.id,
+            force
         })
 
         return res.status(200).json({

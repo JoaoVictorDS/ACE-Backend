@@ -11,8 +11,16 @@ enum UserRole {
   MEMBER
 }
 
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
 enum BoardRole {
   OWNER
+  ADMIN
   EDITOR
   VIEWER
 }
@@ -35,6 +43,7 @@ enum ActivityAction {
 }
 
 enum EntityType {
+  WORKSPACE
   BOARD
   SECTION
   COLUMN
@@ -45,32 +54,57 @@ enum EntityType {
 }
 
 model User {
-  id            Int           @id @default(autoincrement())
-  email         String        @unique
-  password_hash String        @map("password_hash")
+  id            Int      @id @default(autoincrement())
+  email         String   @unique
+  password_hash String   @map("password_hash")
   name          String
-  role          UserRole      @default(MEMBER)
-  is_active     Boolean       @default(true)
-  
-  created_at    DateTime      @default(now()) @map("created_at")
-  updated_at    DateTime      @updatedAt @map("updated_at")
+  role          UserRole @default(MEMBER)
+  is_active     Boolean  @default(true)
 
-  boards        Board[]
-  comments      Comment[]
-  board_members BoardMember[]
-  activities    ActivityLog[]
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  created_workspaces Workspace[] @relation("WorkspaceCreator")
+  created_boards     Board[]     @relation("BoardCreator")
+
+  workspace_members WorkspaceMember[]
+  board_members     BoardMember[]
+
+  comments   Comment[]
+  activities ActivityLog[]
 
   @@map("users")
 }
 
+model Workspace {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  creator_id Int  @map("creator_id")
+  creator    User @relation("WorkspaceCreator", fields: [creator_id], references: [id])
+
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  boards            Board[]
+  workspace_members WorkspaceMember[]
+  activities        ActivityLog[]
+
+  @@map("workspaces")
+}
+
 model Board {
-  id            Int           @id @default(autoincrement())
-  name          String
-  owner_id      Int           @map("owner_id")
-  owner         User          @relation(fields: [owner_id], references: [id])
-  
-  created_at    DateTime      @default(now()) @map("created_at")
-  updated_at    DateTime      @updatedAt @map("updated_at")
+  id   Int    @id @default(autoincrement())
+  name String
+
+  creator_id Int  @map("creator_id")
+  creator    User @relation("BoardCreator", fields: [creator_id], references: [id])
+
+  workspace_id Int       @map("workspace_id")
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
 
   columns       Column[]
   sections      Section[]
@@ -81,109 +115,137 @@ model Board {
 }
 
 model Section {
-  id            Int           @id @default(autoincrement())
-  board_id      Int           @map("board_id")
-  name          String
-  order         Int           @default(0)
-  board         Board         @relation(fields: [board_id], references: [id], onDelete: Cascade)
-  items         Item[]
+  id       Int    @id @default(autoincrement())
+  board_id Int    @map("board_id")
+  board    Board  @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  name     String
+  order    Int    @default(0)
 
-  created_at    DateTime      @default(now()) @map("created_at")
-  updated_at    DateTime      @updatedAt @map("updated_at")
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  items Item[]
 
   @@map("sections")
 }
 
 model Column {
-  id            Int      @id @default(autoincrement())
-  board_id      Int      @map("board_id")
-  name          String
-  data_type     ColumnDataType   @map("data_type")
-  options       Json?
-  formula_expression String?
-  order              Int      @default(0)
+  id                 Int            @id @default(autoincrement())
+  board_id           Int            @map("board_id")
+  board              Board          @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  name               String
+  data_type          ColumnDataType @map("data_type")
+  options            Json?
+  formula_expression String?        @map("formula_expression")
+  order              Int            @default(0)
 
-  created_at         DateTime       @default(now()) @map("created_at")
-  updated_at         DateTime       @updatedAt @map("updated_at")
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
 
-  item_values   ItemValue[]
-  board         Board    @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  item_values ItemValue[]
 
   @@map("columns")
 }
 
 model Item {
-  id            Int           @id @default(autoincrement())
-  section_id    Int           @map("section_id")
-  title         String
-  order         Int           @default(0)
-  section       Section       @relation(fields: [section_id], references: [id], onDelete: Cascade)
-  item_values   ItemValue[]
-  comments      Comment[]
+  id         Int     @id @default(autoincrement())
+  section_id Int     @map("section_id")
+  section    Section @relation(fields: [section_id], references: [id], onDelete: Cascade)
+  title      String
+  order      Int     @default(0)
 
-  created_at    DateTime      @default(now()) @map("created_at")
-  updated_at    DateTime      @updatedAt @map("updated_at")
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  item_values ItemValue[]
+  comments    Comment[]
 
   @@map("items")
 }
 
 model ItemValue {
-  item_id       Int
-  column_id     Int
-  value         String
+  item_id   Int    @map("item_id")
+  item      Item   @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  column_id Int    @map("column_id")
+  column    Column @relation(fields: [column_id], references: [id], onDelete: Cascade)
+  value     String
 
+  created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
-
-  item          Item     @relation(fields: [item_id], references: [id], onDelete: Cascade)
-  column        Column   @relation(fields: [column_id], references: [id], onDelete: Cascade)
 
   @@id([item_id, column_id])
   @@map("item_values")
 }
 
 model Comment {
-  id            Int      @id @default(autoincrement())
-  item_id       Int      @map("item_id")
-  user_id       Int      @map("user_id")
-  content       String   @db.Text
-  created_at    DateTime @default(now())
-
-  item          Item     @relation(fields: [item_id], references: [id], onDelete: Cascade)
-  user          User     @relation(fields: [user_id], references: [id])
-
-  @@map("comments")
-}
-
-model BoardMember {
-  id           Int       @id @default(autoincrement())
-  user_id      Int
-  board_id     Int
-  role         BoardRole @default(VIEWER)
-  order        Int       @default(0)
+  id      Int    @id @default(autoincrement())
+  item_id Int    @map("item_id")
+  item    Item   @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  user_id Int    @map("user_id")
+  user    User   @relation(fields: [user_id], references: [id])
+  content String @db.Text
 
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
-  user         User      @relation(fields: [user_id], references: [id])
-  board        Board     @relation(fields: [board_id], references: [id], onDelete: Cascade)
-  
+  @@map("comments")
+}
+
+model WorkspaceMember {
+  id           Int           @id @default(autoincrement())
+  user_id      Int           @map("user_id")
+  workspace_id Int           @map("workspace_id")
+  role         WorkspaceRole @default(VIEWER)
+  order        Int           @default(0)
+
+  user      User      @relation(fields: [user_id], references: [id])
+  workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  @@unique([user_id, workspace_id])
+  @@map("workspace_members")
+}
+
+model BoardMember {
+  id       Int       @id @default(autoincrement())
+  user_id  Int       @map("user_id")
+  board_id Int       @map("board_id")
+  role     BoardRole @default(VIEWER)
+  order    Int       @default(0)
+
+  user  User  @relation(fields: [user_id], references: [id])
+  board Board @relation(fields: [board_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
   @@unique([user_id, board_id])
   @@map("board_members")
 }
 
 model ActivityLog {
-  id          Int      @id @default(autoincrement())
-  user_id     Int      @map("user_id")
-  board_id    Int      @map("board_id")
+  id      Int  @id @default(autoincrement())
+  user_id Int  @map("user_id")
+  user    User @relation(fields: [user_id], references: [id])
+
+  workspace_id Int?       @map("workspace_id")
+  workspace    Workspace? @relation(fields: [workspace_id], references: [id], onDelete: SetNull)
+
+  board_id Int?   @map("board_id")
+  board    Board? @relation(fields: [board_id], references: [id], onDelete: SetNull)
+
   action      ActivityAction
-  entity_type EntityType
-  entity_id   Int      @map("entity_id")
-  old_value   String?  @map("old_value")
-  new_value   String?  @map("new_value")
-  created_at  DateTime @default(now()) @map("created_at")
+  entity_type EntityType     @map("entity_type")
+  entity_id   Int            @map("entity_id")
+  old_value   String?        @map("old_value")
+  new_value   String?        @map("new_value")
 
-  user        User     @relation(fields: [user_id], references: [id])
-  board       Board    @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  created_at DateTime @default(now()) @map("created_at")
 
+  @@index([workspace_id])
+  @@index([board_id])
+  @@index([entity_type, entity_id])
   @@map("activity_logs")
 }

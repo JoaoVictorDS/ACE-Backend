@@ -1,10 +1,13 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
 const LogService = require('./LogService')
+const AppError = require('../utils/AppError')
 
 const BoardService = {
 
-    async createBoard({ name, userId }) {
+    async createBoard({ name, workspaceId, userId }) {
+        await PermissionService.checkWorkspacePermission(workspaceId, userId, PermissionService.LEVELS.ADMIN)
+
         const result = await prisma.$transaction(async (tx) => {
             const lastMemberEntry = await tx.boardMember.findFirst({
                 where: { user_id: userId },
@@ -14,27 +17,29 @@ const BoardService = {
 
             const nextOrder = lastMemberEntry ? lastMemberEntry.order + 1 : 0
 
-            const board = await tx.board.create({
+            const newBoard = await tx.board.create({
                 data: {
                     name,
-                    owner_id: userId,
+                    workspace_id: workspaceId,
+                    creator_id: userId
                 }
             })
 
             await tx.boardMember.create({
                 data: {
-                    board_id: board.id,
+                    board_id: newBoard.id,
                     user_id: userId,
                     role: 'OWNER',
                     order: nextOrder
                 }
             })
 
-            return board
+            return newBoard
         })
 
         LogService.register({
             userId,
+            workspaceId,
             boardId: result.id,
             action: 'CREATE',
             entityType: 'BOARD',
@@ -53,7 +58,7 @@ const BoardService = {
                     select: {
                         id: true,
                         name: true,
-                        owner_id: true,
+                        creator_id: true
                     }
                 }
             },
@@ -70,15 +75,12 @@ const BoardService = {
     },
 
     async updateBoard({ boardId, name, userId }) {
-        await PermissionService.checkEditPermission(boardId, userId)
+        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.ADMIN)
 
         const currentBoard = await prisma.board.findUnique({
-            where: {
-                id: boardId
-            }
+            where: { id: boardId }
         })
-        if (!currentBoard) throw new Error('Quadro não encontrado!')
-
+        if (!currentBoard) throw new AppError('Quadro não encontrado!', 404)
         if (currentBoard.name === name) return currentBoard
 
         const updatedBoard = await prisma.board.update({
@@ -89,6 +91,7 @@ const BoardService = {
         LogService.register({
             userId,
             boardId,
+            workspaceId,
             action: 'UPDATE',
             entityType: 'BOARD',
             entityId: boardId,
@@ -99,12 +102,43 @@ const BoardService = {
         return updatedBoard
     },
 
-    async deleteBoard({ boardId, userId }) {
-        await PermissionService.checkOwnerPermission(boardId, userId)
+    async deleteBoard({ boardId, userId, force = false }) {
+        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.OWNER)
 
-        return await prisma.board.delete({
+        const [board, items] = await Promise.all([
+            prisma.board.findUnique({
+                where: { id: boardId },
+                select: {
+                    name: true,
+                    _count: { select: { columns: true, sections: true } }
+                }
+            }),
+
+            prisma.item.count({
+                where: { section: { board_id: boardId } }
+            })
+        ])
+        if (!board) throw new AppError('Quadro não encontrado!', 404)
+
+        const { columns, sections } = board._count
+        const hasContent = columns > 0 || sections > 0 || itemCount > 0
+        if (!force && hasContent) throw new AppError(`Não é possível excluir o quadro: existem ${columns} colunas, ${sections} seções e ${items} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir.`, 409)
+
+        await LogService.register({
+            userId,
+            boardId,
+            workspaceId,
+            action: 'DELETE',
+            entityType: 'BOARD',
+            entityId: boardId,
+            oldValue: board.name
+        })
+
+        const deleted = await prisma.board.delete({
             where: { id: boardId }
         })
+
+        return deleted
     },
 
 }

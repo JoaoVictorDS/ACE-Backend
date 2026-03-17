@@ -56,11 +56,15 @@ const ColumnController = {
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { column_id: columnId } = deleteColumnSchema.parse(req.params)
+        const { column_id: columnId, force } = deleteColumnSchema.parse({
+            ...req.params,
+            ...req.query
+        })
 
         await ColumnService.deleteColumn({
             columnId,
-            userId: req.user.id
+            userId: req.user.id,
+            force
         })
 
         return res.status(200).json({

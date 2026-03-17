@@ -3,7 +3,7 @@ const PermissionService = require('./PermissionService')
 
 const LogService = {
 
-    async register({ userId, boardId, action, entityType, entityId, oldValue = null, newValue = null }) {
+    async register({ userId, workspaceId, boardId, action, entityType, entityId, oldValue = null, newValue = null }) {
         try {
             const formatValue = (val) => {
                 if (val === null || val === undefined) return null
@@ -20,6 +20,7 @@ const LogService = {
             await prisma.activityLog.create({
                 data: {
                     user_id: userId,
+                    workspace_id: workspaceId,
                     board_id: boardId,
                     action,
                     entity_type: entityType,
@@ -33,22 +34,31 @@ const LogService = {
         }
     },
 
+    async getLogsByWorkspace({ workspaceId, userId }) {
+        await PermissionService.checkWorkspacePermission(workspaceId, userId)
+
+        return await prisma.activityLog.findMany({
+            where: { workspace_id: workspaceId },
+            include: {
+                user: { select: { name: true, email: true } }
+            },
+            orderBy: { created_at: 'desc' },
+            take: 100
+        })
+    },
+
     async getLogsByBoard({ boardId, userId }) {
-        await PermissionService.checkViewPermission(boardId, userId)
+        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.VIEW)
 
         return await prisma.activityLog.findMany({
             where: { board_id: boardId },
             include: {
-                user: {
-                    select: { name: true, email: true }
-                }
+                user: { select: { name: true, email: true } }
             },
-            orderBy: {
-                created_at: 'desc'
-            },
+            orderBy: { created_at: 'desc' },
             take: 100
         })
-    }
+    },
 
 }
 

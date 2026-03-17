@@ -1,21 +1,22 @@
 const jwt = require('jsonwebtoken')
 const prisma = require('../config/prisma')
+const AppError = require('../utils/AppError')
 
 async function authMiddleware(req, res, next) {
 
     const authHeader = req.headers.authorization
     if (!authHeader) {
-        return res.status(401).json({ error: 'Token não fornecido!' })
+        return next(new AppError('Token não fornecido!', 401))
     }
 
     const parts = authHeader.split(' ')
     if (parts.length !== 2) {
-        return res.status(401).json({ error: 'Erro no formato do token!' })
+        return next(new AppError('Erro no formato do token!', 401))
     }
 
     const [scheme, token] = parts
     if (!/^Bearer$/i.test(scheme)) {
-        return res.status(401).json({ error: 'Token malformatado!' })
+        return next(new AppError('Token malformatado!', 401))
     }
 
     try {
@@ -27,7 +28,7 @@ async function authMiddleware(req, res, next) {
         })
 
         if (!user || user.is_active === false) {
-            return res.status(401).json({ error: 'Acesso negado. Usuário inexistente ou desativado!' })
+            return next(new AppError('Acesso negado. Usuário inexistente ou desativado!', 401))
         }
 
         req.user = {
@@ -37,8 +38,8 @@ async function authMiddleware(req, res, next) {
 
         return next()
     } catch (error) {
-        console.error('Erro de autenticação:', error)
-        return res.status(401).json({ error: 'Token inválido ou expirado!' })
+        const message = error.name === 'TokenExpiredError' ? 'Token expirado!' : 'Token inválido!'
+        return next(new AppError(message, 401))
     }
 
 }
