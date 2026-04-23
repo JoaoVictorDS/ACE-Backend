@@ -49,8 +49,10 @@ enum EntityType {
   COLUMN
   ITEM
   ITEM_VALUE
+  ITEM_UPDATE
   COMMENT
   MEMBER
+  ITEM_ASSIGNEE
 }
 
 model User {
@@ -59,26 +61,57 @@ model User {
   password_hash String   @map("password_hash")
   name          String
   role          UserRole @default(MEMBER)
-  is_active     Boolean  @default(true)
+  is_active     Boolean  @default(true) @map("is_active")
 
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
-  created_workspaces Workspace[] @relation("WorkspaceCreator")
-  created_boards     Board[]     @relation("BoardCreator")
+  created_workspaces Workspace[]       @relation("WorkspaceCreator")
+  created_boards     Board[]           @relation("BoardCreator")
+  workspace_members  WorkspaceMember[]
+  board_members      BoardMember[]
+  assigned_items     ItemAssignee[]
+  item_updates       ItemUpdate[]
+  comments           Comment[]
+  activities         ActivityLog[]
 
-  workspace_members WorkspaceMember[]
-  board_members     BoardMember[]
-
-  comments   Comment[]
-  activities ActivityLog[]
+  notifications_received Notification[]            @relation("Recipient")
+  notifications_sent     Notification[]            @relation("Actor")
+  notification_settings  UserNotificationSetting[]
+  preferences            UserPreference?
 
   @@map("users")
 }
 
+model UserNotificationSetting {
+  id          Int     @id @default(autoincrement())
+  user_id     Int     @map("user_id")
+  board_id    Int?    @map("board_id")
+  action_type String  @map("action_type")
+  enabled     Boolean @default(true)
+
+  user  User   @relation(fields: [user_id], references: [id])
+  board Board? @relation(fields: [board_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, board_id, action_type])
+  @@map("user_notification_settings")
+}
+
+model UserPreference {
+  id       Int  @id @default(autoincrement())
+  user_id  Int  @unique @map("user_id")
+  settings Json
+
+  user User @relation(fields: [user_id], references: [id])
+
+  @@map("user_preferences")
+}
+
 model Workspace {
-  id   Int    @id @default(autoincrement())
-  name String
+  id          Int     @id @default(autoincrement())
+  name        String
+  description String?
+  icon        String?
 
   creator_id Int  @map("creator_id")
   creator    User @relation("WorkspaceCreator", fields: [creator_id], references: [id])
@@ -94,8 +127,10 @@ model Workspace {
 }
 
 model Board {
-  id   Int    @id @default(autoincrement())
-  name String
+  id       Int     @id @default(autoincrement())
+  name     String
+  color    String? @default("#3b82f6")
+  settings Json?
 
   creator_id Int  @map("creator_id")
   creator    User @relation("BoardCreator", fields: [creator_id], references: [id])
@@ -106,10 +141,11 @@ model Board {
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
-  columns       Column[]
-  sections      Section[]
-  board_members BoardMember[]
-  activities    ActivityLog[]
+  columns               Column[]
+  sections              Section[]
+  board_members         BoardMember[]
+  activities            ActivityLog[]
+  notification_settings UserNotificationSetting[]
 
   @@map("boards")
 }
@@ -142,7 +178,8 @@ model Column {
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
-  item_values ItemValue[]
+  item_values    ItemValue[]
+  item_assignees ItemAssignee[]
 
   @@map("columns")
 }
@@ -157,8 +194,10 @@ model Item {
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
-  item_values ItemValue[]
-  comments    Comment[]
+  item_values  ItemValue[]
+  comments     Comment[]
+  assignees    ItemAssignee[]
+  item_updates ItemUpdate[]
 
   @@map("items")
 }
@@ -175,6 +214,41 @@ model ItemValue {
 
   @@id([item_id, column_id])
   @@map("item_values")
+}
+
+model ItemAssignee {
+  id        Int @id @default(autoincrement())
+  item_id   Int @map("item_id")
+  user_id   Int @map("user_id")
+  column_id Int @map("column_id")
+
+  item   Item   @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [user_id], references: [id])
+  column Column @relation(fields: [column_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now()) @map("created_at")
+
+  @@unique([item_id, user_id, column_id])
+  @@map("item_assignees")
+}
+
+model ItemUpdate {
+  id      Int  @id @default(autoincrement())
+  item_id Int  @map("item_id")
+  item    Item @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  user_id Int  @map("user_id")
+  user    User @relation(fields: [user_id], references: [id])
+
+  content String @db.Text
+
+  parent_id Int?         @map("parent_id")
+  parent    ItemUpdate?  @relation("ThreadReplies", fields: [parent_id], references: [id], onDelete: Cascade)
+  replies   ItemUpdate[] @relation("ThreadReplies")
+
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  @@map("item_updates")
 }
 
 model Comment {
@@ -223,6 +297,25 @@ model BoardMember {
 
   @@unique([user_id, board_id])
   @@map("board_members")
+}
+
+model Notification {
+  id          Int        @id @default(autoincrement())
+  user_id     Int        @map("user_id")
+  actor_id    Int        @map("actor_id")
+  entity_type EntityType @map("entity_type")
+  entity_id   Int        @map("entity_id")
+  action      String
+  content     String?
+
+  is_read    Boolean  @default(false) @map("is_read")
+  created_at DateTime @default(now()) @map("created_at")
+
+  user  User @relation("Recipient", fields: [user_id], references: [id])
+  actor User @relation("Actor", fields: [actor_id], references: [id])
+
+  @@index([user_id, is_read])
+  @@map("notifications")
 }
 
 model ActivityLog {

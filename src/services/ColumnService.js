@@ -24,35 +24,37 @@ const ColumnService = {
         }
 
         for (const col of columns) {
-            const rawValue = values[col.id]
+            const { data_type, id, name, options } = col
+            const rawValue = values[id]
+
             if (rawValue === null || rawValue === undefined || String(rawValue).trim() === '') continue
             const sentValue = String(rawValue).trim()
 
-            switch (col.data_type) {
+            switch (data_type) {
                 case 'SELECT':
-                    const allowedOptions = col.options || []
+                    const allowedOptions = options || []
                     if (sentValue !== 'null' && !allowedOptions.includes(sentValue)) {
-                        throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${col.name}". Opções válidas: ${allowedOptions.join(', ')}`, 400)
+                        throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${name}". Opções válidas: ${allowedOptions.join(', ')}`, 400)
                     }
                     break
 
                 case 'NUMBER':
                     const parsedNum = parseFloat(sentValue)
                     if (isNaN(parsedNum) || !Number.isFinite(parsedNum)) {
-                        throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${col.name}". Opções válidas: Number`, 400)
+                        throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${name}". Opções válidas: Number`, 400)
                     }
                     break
 
                 case 'DATE':
                     const date = new Date(sentValue)
                     if (isNaN(date.getTime())) {
-                        throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${col.name}". Opções válidas: Date`, 400)
+                        throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${name}". Opções válidas: Date`, 400)
                     }
                     break
 
                 case 'USER':
                     const userIdToValidate = parseInt(sentValue)
-                    if (isNaN(userIdToValidate)) throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${col.name}". Opções válidas: Integer (user_id)"`, 400)
+                    if (isNaN(userIdToValidate)) throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${name}". Opções válidas: Integer (user_id)"`, 400)
                     const userInBoard = await prisma.boardMember.findFirst({
                         where: {
                             board_id: boardId,
@@ -65,8 +67,8 @@ const ColumnService = {
         }
     },
 
-    async createColumn({ boardId, name, dataType, options, formulaExpression, userId }) {
-        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.ADMIN)
+    async createColumn({ user, boardId, name, dataType, options, formulaExpression }) {
+        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
 
         const maxOrderColumn = await prisma.column.findFirst({
             where: { board_id: boardId },
@@ -88,20 +90,20 @@ const ColumnService = {
         })
 
         LogService.register({
-            userId,
+            userId: user.id,
             workspaceId,
             boardId,
             action: 'CREATE',
             entityType: 'COLUMN',
             entityId: newColumn.id,
-            newValue: name
+            newValue: `Coluna criada: ${name}`
         })
 
         return newColumn
     },
 
-    async getColumnsByBoard({ boardId, userId }) {
-        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.VIEW)
+    async getColumnsByBoard({ user, boardId }) {
+        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.VIEW)
 
         const columns = await prisma.column.findMany({
             where: { board_id: boardId, },
@@ -111,25 +113,38 @@ const ColumnService = {
         return columns
     },
 
-    async updateColumn({ columnId, userId, name, dataType, options, formulaExpression }) {
-        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.COLUMN, columnId, userId, PermissionService.LEVELS.ADMIN)
+    async updateColumn({ user, columnId, name, dataType, options, formulaExpression }) {
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.COLUMN, columnId, user, PermissionService.LEVELS.ADMIN)
 
         const column = await prisma.column.findUnique({
-            where: { id: columnId },
+            where: { id: columnId }
         })
         if (!column) throw new AppError('Coluna não encontrada!', 404)
 
-        const isChangingDataType = dataType && dataType !== column.data_type
-
+        const hasDataTypeChanged = dataType && dataType !== column.data_type
+        const hasNameChanged = name && name !== column.name
+        const hasOptionsChanged = options && JSON.stringify(options) !== JSON.stringify(column.options)
         const finalDataType = dataType ?? column.data_type
         const finalOptions = finalDataType === 'SELECT' ? (options ?? column.options) : null
         const finalFormula = finalDataType === 'FORMULA' ? (formulaExpression ?? column.formula_expression) : null
-
+        const changes = []
+        const addChange = (label, oldValue, newValue) => {
+            changes.push({
+                old: `${label}: "${oldValue || ''}"`,
+                new: `${label}: "${newValue || ''}"`
+            })
+        }
         const result = await prisma.$transaction(async (tx) => {
-            if (isChangingDataType) {
+            if (hasDataTypeChanged) {
                 await tx.itemValue.deleteMany({
                     where: { column_id: columnId }
                 })
+
+                if (column.data_type === 'USER') {
+                    await tx.itemAssignee.deleteMany({
+                        where: { column_id: columnId }
+                    })
+                }
             }
 
             return await tx.column.update({
@@ -143,29 +158,21 @@ const ColumnService = {
             })
         })
 
-        const changes = []
-        const addChange = (label, oldValue, newValue) => {
-            changes.push({
-                old: `${label}: "${oldValue || ''}"`,
-                new: `${label}: "${newValue || ''}"`
-            })
-        }
-
-        if (name && name !== column.name) {
+        if (hasNameChanged) {
             addChange('Nome', column.name, name)
         }
 
-        if (isChangingDataType) {
+        if (hasDataTypeChanged) {
             addChange('Tipo', column.data_type, `${dataType} (Dados anteriores resetados por segurança)`)
         }
 
-        if (options && JSON.stringify(options) !== JSON.stringify(column.options)) {
+        if (hasOptionsChanged) {
             addChange('Opções', Array.isArray(column.options) ? column.options.join(', ') : '', Array.isArray(options) ? options.join(', ') : '')
         }
 
         if (changes.length > 0) {
             LogService.register({
-                userId,
+                userId: user.id,
                 workspaceId,
                 boardId,
                 action: 'UPDATE',
@@ -179,8 +186,8 @@ const ColumnService = {
         return result
     },
 
-    async deleteColumn({ columnId, userId, force = false }) {
-        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.COLUMN, columnId, userId, PermissionService.LEVELS.ADMIN)
+    async deleteColumn({ user, columnId, force = false }) {
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.COLUMN, columnId, user, PermissionService.LEVELS.ADMIN)
 
         const columnToDelete = await prisma.column.findUnique({
             where: { id: columnId }
@@ -195,6 +202,10 @@ const ColumnService = {
 
         const result = await prisma.$transaction(async (tx) => {
             await tx.itemValue.deleteMany({
+                where: { column_id: columnId }
+            })
+
+            await tx.itemAssignee.deleteMany({
                 where: { column_id: columnId }
             })
 
@@ -214,20 +225,20 @@ const ColumnService = {
         })
 
         LogService.register({
-            userId,
+            userId: user.id,
             workspaceId,
             boardId,
             action: 'DELETE',
             entityType: 'COLUMN',
             entityId: columnId,
-            oldValue: `Nome: ${columnToDelete.name} | Registros vinculados removidos: ${affectedValuesCount}`
+            oldValue: `Coluna removida: ${columnToDelete.name} | Registros vinculados removidos: ${affectedValuesCount}`
         })
 
         return result
     },
 
-    async moveColumn({ columnId, userId, newOrder }) {
-        const { boardId } = await PermissionService.checkPermission(PermissionService.TYPES.COLUMN, columnId, userId, PermissionService.LEVELS.ADMIN)
+    async moveColumn({ user, columnId, newOrder }) {
+        const { boardId } = await PermissionService.checkPermission(PermissionService.TYPES.COLUMN, columnId, user, PermissionService.LEVELS.ADMIN)
 
         const currentColumn = await prisma.column.findUnique({
             where: { id: columnId },
@@ -241,8 +252,9 @@ const ColumnService = {
             where: { board_id: boardId }
         })
         const finalOrder = Math.max(0, Math.min(newOrder, totalColumns - 1))
+        const isSamePosition = oldOrder === finalOrder
 
-        if (oldOrder === finalOrder) return currentColumn
+        if (isSamePosition) return currentColumn
 
         return await prisma.$transaction(async (tx) => {
             if (finalOrder > oldOrder) {

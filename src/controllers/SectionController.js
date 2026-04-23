@@ -11,9 +11,9 @@ const SectionController = {
         })
 
         const section = await SectionService.createSection({
+            user: req.user,
             boardId,
-            ...otherFields,
-            userId: req.user.id
+            ...otherFields
         })
 
         return res.status(201).json({
@@ -26,8 +26,8 @@ const SectionController = {
         const { board_id: boardId } = listSectionsSchema.parse(req.params)
 
         const sections = await SectionService.getSectionsByBoard({
-            boardId,
-            userId: req.user.id
+            user: req.user,
+            boardId
         })
 
         return res.status(200).json(sections)
@@ -40,8 +40,8 @@ const SectionController = {
         })
 
         const updatedSection = await SectionService.updateSection({
+            user: req.user,
             sectionId,
-            userId: req.user.id,
             ...otherFields
         })
 
@@ -58,8 +58,8 @@ const SectionController = {
         })
 
         await SectionService.deleteSection({
+            user: req.user,
             sectionId,
-            userId: req.user.id,
             force
         })
 
@@ -75,8 +75,8 @@ const SectionController = {
         })
 
         const movedSection = await SectionService.moveSection({
+            user: req.user,
             sectionId,
-            userId: req.user.id,
             newOrder
         })
 

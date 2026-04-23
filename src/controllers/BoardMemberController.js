@@ -1,6 +1,6 @@
 const BoardMemberService = require('../services/BoardMemberService')
 const catchAsync = require('../utils/catchAsync')
-const { upsertMemberSchema, listMembersSchema, removeMemberSchema } = require('../validators/boardMemberValidator')
+const { upsertMemberSchema, listMembersSchema, removeMemberSchema, leaveBoardSchema } = require('../validators/boardMemberValidator')
 
 const BoardMemberController = {
 
@@ -11,8 +11,8 @@ const BoardMemberController = {
         })
 
         const boardMember = await BoardMemberService.upsertMember({
+            user: req.user,
             boardId,
-            userId: req.user.id,
             memberEmail,
             ...otherFields
         })
@@ -27,8 +27,8 @@ const BoardMemberController = {
         const { board_id: boardId } = listMembersSchema.parse(req.params)
 
         const boardMembers = await BoardMemberService.getMembersByBoard({
-            boardId,
-            userId: req.user.id
+            user: req.user,
+            boardId
         })
 
         return res.status(200).json(boardMembers)
@@ -38,13 +38,26 @@ const BoardMemberController = {
         const { board_id: boardId, member_id: memberIdToRemove } = removeMemberSchema.parse(req.params)
 
         await BoardMemberService.removeMember({
+            user: req.user,
             boardId,
-            userId: req.user.id,
             memberIdToRemove
         })
 
         return res.status(200).json({
             message: 'Membro removido com sucesso!'
+        })
+    }),
+
+    leave: catchAsync(async (req, res, next) => {
+        const { board_id: boardId } = leaveBoardSchema.parse(req.params)
+
+        await BoardMemberService.leaveBoard({
+            user: req.user,
+            boardId
+        })
+
+        return res.status(200).json({
+            message: 'Você saiu do quadro com sucesso!'
         })
     }),
 

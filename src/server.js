@@ -1,10 +1,18 @@
 require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
-const errorMiddleware = require('./middlewares/errorMiddleware')
+const { createServer } = require('http')
+
 const routes = require('./routes')
+const errorMiddleware = require('./middlewares/errorMiddleware')
+const NotificationService = require('./services/NotificationService')
+const { initSocket } = require('./config/socket')
 
 const app = express()
+const httpServer = createServer(app)
+
+initSocket(httpServer)
+NotificationService.init()
 
 const corsOptions = {
     origin: process.env.CLIENT_URL,
@@ -20,6 +28,7 @@ app.use(errorMiddleware)
 
 const PORT = process.env.PORT
 
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
     console.log(`🚀 Servidor rodando em http://localhost:${PORT}/api/status`)
+    console.log(`⚡ Socket.io habilitado e ouvindo na mesma porta!`)
 })

@@ -11,8 +11,8 @@ const CommentController = {
         })
 
         const comment = await CommentService.createComment({
+            user: req.user,
             itemId,
-            userId: req.user.id,
             ...otherFields
         })
 
@@ -26,8 +26,8 @@ const CommentController = {
         const { item_id: itemId } = listCommentsSchema.parse(req.params)
 
         const comments = await CommentService.getCommentsByItem({
-            itemId,
-            userId: req.user.id
+            user: req.user,
+            itemId
         })
 
         return res.status(200).json(comments)
@@ -40,8 +40,8 @@ const CommentController = {
         })
 
         const updatedComment = await CommentService.updateComment({
+            user: req.user,
             commentId,
-            userId: req.user.id,
             ...otherFields
         })
 
@@ -55,8 +55,8 @@ const CommentController = {
         const { comment_id: commentId } = deleteCommentSchema.parse(req.params)
 
         await CommentService.deleteComment({
-            commentId,
-            userId: req.user.id
+            user: req.user,
+            commentId
         })
 
         return res.status(200).json({

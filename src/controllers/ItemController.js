@@ -11,9 +11,9 @@ const ItemController = {
         })
 
         const item = await ItemService.createItem({
+            user: req.user,
             sectionId,
-            ...otherFields,
-            userId: req.user.id
+            ...otherFields
         })
 
         return res.status(201).json({
@@ -26,8 +26,8 @@ const ItemController = {
         const { board_id: boardId } = listItemsSchema.parse(req.params)
 
         const sectionsWithItems = await ItemService.getItemsByBoard({
-            boardId,
-            userId: req.user.id
+            user: req.user,
+            boardId
         })
 
         return res.status(200).json(sectionsWithItems)
@@ -40,9 +40,9 @@ const ItemController = {
         })
 
         const updatedItem = await ItemService.updateItem({
+            user: req.user,
             itemId,
-            ...otherFields,
-            userId: req.user.id,
+            ...otherFields
         })
 
         return res.status(200).json({
@@ -55,8 +55,8 @@ const ItemController = {
         const { item_id: itemId } = deleteItemSchema.parse(req.params)
 
         await ItemService.deleteItem({
-            itemId,
-            userId: req.user.id
+            user: req.user,
+            itemId
         })
 
         return res.status(200).json({
@@ -71,8 +71,8 @@ const ItemController = {
         })
 
         const movedItem = await ItemService.moveItem({
+            user: req.user,
             itemId,
-            userId: req.user.id,
             newSectionId,
             newOrder
         })

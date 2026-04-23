@@ -5,8 +5,8 @@ const AppError = require('../utils/AppError')
 
 const SectionService = {
 
-    async createSection({ boardId, name, userId }) {
-        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.ADMIN)
+    async createSection({ user, boardId, name }) {
+        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
 
         const result = await prisma.$transaction(async (tx) => {
             const maxOrderSection = await tx.section.findFirst({
@@ -27,20 +27,20 @@ const SectionService = {
         })
 
         LogService.register({
-            userId,
+            userId: user.id,
             workspaceId,
             boardId,
             action: 'CREATE',
             entityType: 'SECTION',
             entityId: result.id,
-            newValue: name
+            newValue: `Seção criada: ${name}`
         })
 
         return result
     },
 
-    async getSectionsByBoard({ boardId, userId }) {
-        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.VIEW)
+    async getSectionsByBoard({ user, boardId }) {
+        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.VIEW)
 
         const sections = await prisma.section.findMany({
             where: { board_id: boardId, },
@@ -55,15 +55,18 @@ const SectionService = {
         return sections
     },
 
-    async updateSection({ sectionId, userId, name }) {
-        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.SECTION, sectionId, userId, PermissionService.LEVELS.ADMIN)
+    async updateSection({ user, sectionId, name }) {
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.SECTION, sectionId, user, PermissionService.LEVELS.ADMIN)
 
         const section = await prisma.section.findUnique({
             where: { id: sectionId },
             select: { name: true }
         })
         if (!section) throw new AppError('Seção não encontrada!', 404)
-        if (section.name === name) return section
+
+        const isSameName = section.name === name
+
+        if (isSameName) return section
 
         const updatedSection = await prisma.section.update({
             where: { id: sectionId },
@@ -71,21 +74,21 @@ const SectionService = {
         })
 
         LogService.register({
-            userId,
+            userId: user.id,
             workspaceId,
             boardId,
             action: 'UPDATE',
             entityType: 'SECTION',
             entityId: sectionId,
-            oldValue: section.name,
-            newValue: name
+            oldValue: `Nome: ${section.name}`,
+            newValue: `Nome: ${name}`
         })
 
         return updatedSection
     },
 
-    async deleteSection({ sectionId, userId, force = false }) {
-        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.SECTION, sectionId, userId, PermissionService.LEVELS.ADMIN)
+    async deleteSection({ user, sectionId, force = false }) {
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.SECTION, sectionId, user, PermissionService.LEVELS.ADMIN)
 
         const sectionToDelete = await prisma.section.findUnique({
             where: { id: sectionId },
@@ -119,20 +122,20 @@ const SectionService = {
         })
 
         LogService.register({
-            userId,
+            userId: user.id,
             workspaceId,
             boardId,
             action: 'DELETE',
             entityType: 'SECTION',
             entityId: sectionId,
-            oldValue: sectionToDelete.name
+            oldValue: `Seção removida: ${sectionToDelete.name}`
         })
 
         return result
     },
 
-    async moveSection({ sectionId, userId, newOrder }) {
-        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.SECTION, sectionId, userId, PermissionService.LEVELS.ADMIN)
+    async moveSection({ user, sectionId, newOrder }) {
+        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.SECTION, sectionId, user, PermissionService.LEVELS.ADMIN)
 
         const currentSection = await prisma.section.findUnique({
             where: { id: sectionId },
@@ -143,13 +146,12 @@ const SectionService = {
         const oldOrder = currentSection.order
 
         const totalSections = await prisma.section.count({
-            where: {
-                board_id: boardId
-            }
+            where: { board_id: boardId }
         })
         const finalOrder = Math.max(0, Math.min(newOrder, totalSections - 1))
+        const isSamePosition = oldOrder === finalOrder
 
-        if (oldOrder === finalOrder) return currentSection
+        if (isSamePosition) return currentSection
 
         const result = await prisma.$transaction(async (tx) => {
             if (finalOrder > oldOrder) {
@@ -187,7 +189,7 @@ const SectionService = {
         })
 
         LogService.register({
-            userId,
+            userId: user.id,
             workspaceId,
             boardId,
             action: 'MOVE',

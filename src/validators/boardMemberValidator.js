@@ -36,4 +36,8 @@ const removeMemberSchema = z.object({
     }).gt(0, 'O ID do Membro não pode ser menor ou igual a 0')
 })
 
-module.exports = { upsertMemberSchema, listMembersSchema, removeMemberSchema }
+const leaveBoardSchema = z.object({
+    board_id
+})
+
+module.exports = { upsertMemberSchema, listMembersSchema, removeMemberSchema, leaveBoardSchema }

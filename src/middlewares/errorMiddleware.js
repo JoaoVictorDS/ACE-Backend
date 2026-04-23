@@ -9,11 +9,11 @@ const errorMiddleware = (err, req, res, next) => {
     }
 
     const statusCode = err.statusCode || 500
-
     const status = err.isOperational ? err.status : 'internal_error'
     const message = err.isOperational ? err.message : 'Ocorreu um erro interno no servidor!'
+    const isCritical = statusCode === 500
 
-    if (statusCode === 500) {
+    if (isCritical) {
         console.error(`❌ [CRITICAL] ${req.method} ${req.path}:`, err)
     } else {
         console.warn(`⚠️ [WARN] ${req.method} ${req.path}: ${err.message}`)

@@ -14,6 +14,7 @@ const ItemController = require('./controllers/ItemController')
 const CommentController = require('./controllers/CommentController')
 const BoardMemberController = require('./controllers/BoardMemberController')
 const WorkspaceMemberController = require('./controllers/WorkspaceMemberController')
+const NotificationController = require('./controllers/NotificationController')
 
 // AUTH
 apiRouter.post('/login', AuthController.login)
@@ -28,7 +29,7 @@ apiRouter.delete('/users/:user_id', authMiddleware, adminMiddleware, UserControl
 apiRouter.post('/workspaces', authMiddleware, adminMiddleware, WorkspaceController.create)
 apiRouter.get('/workspaces', authMiddleware, WorkspaceController.list)
 apiRouter.patch('/workspaces/:workspace_id', authMiddleware, WorkspaceController.update)
-apiRouter.delete('/workspaces/:workspace_id', authMiddleware, WorkspaceController.delete)
+apiRouter.delete('/workspaces/:workspace_id', authMiddleware, adminMiddleware, WorkspaceController.delete)
 apiRouter.patch('/workspaces/:workspace_id/move', authMiddleware, WorkspaceController.move)
 
 // BOARD
@@ -69,15 +70,21 @@ apiRouter.delete('/comments/:comment_id', authMiddleware, CommentController.dele
 apiRouter.post('/workspaces/:workspace_id/members', authMiddleware, WorkspaceMemberController.upsert)
 apiRouter.get('/workspaces/:workspace_id/members', authMiddleware, WorkspaceMemberController.list)
 apiRouter.delete('/workspaces/:workspace_id/members/:member_id', authMiddleware, WorkspaceMemberController.remove)
+apiRouter.delete('/workspaces/:workspace_id/members', authMiddleware, WorkspaceMemberController.leave)
 
 // BOARD_MEMBER
 apiRouter.post('/boards/:board_id/members', authMiddleware, BoardMemberController.upsert)
 apiRouter.get('/boards/:board_id/members', authMiddleware, BoardMemberController.list)
 apiRouter.delete('/boards/:board_id/members/:member_id', authMiddleware, BoardMemberController.remove)
+apiRouter.delete('/boards/board_id/members', authMiddleware, BoardMemberController.leave)
 
-//LOG
+// LOG
 apiRouter.get('/boards/:board_id/logs', authMiddleware, BoardController.getHistory)
 apiRouter.get('/workspaces/:workspace_id/logs', authMiddleware, WorkspaceController.getHistory)
+
+// NOTIFICATION
+apiRouter.get('/notifications', authMiddleware, NotificationController.list)
+apiRouter.patch('/notifications/:notification_id', authMiddleware, NotificationController.markAsRead)
 
 const rootRouter = express.Router()
 

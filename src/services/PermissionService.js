@@ -70,28 +70,32 @@ const PermissionService = {
         };
     },
 
-    async checkPermission(type, entityId, userId, actionLevel = 'EDIT') {
+    async checkPermission(type, entityId, user, actionLevel = 'EDIT') {
+        const userId = user.id
+        const isSystemAdmin = user.role === 'ADMIN'
+
         const context = await this._resolveBoardContext(type, entityId)
+
+        if (isSystemAdmin) return { ...context, role: 'OWNER' }
 
         const member = await prisma.boardMember.findUnique({
             where: { user_id_board_id: { user_id: userId, board_id: context.boardId } },
             select: { role: true }
         })
-
         const role = context.creatorId === userId ? 'OWNER' : (member?.role || null)
         const allowedRoles = this.ROLES[actionLevel.toUpperCase()]
 
         if (!role || !allowedRoles.includes(role)) throw new AppError(`Acesso negado: Permissão de ${actionLevel} insuficiente para este ${type}!`, 403)
 
         return {
-            creatorId: context.creatorId,
+            ...context,
             role,
-            boardId: context.boardId,
-            workspaceId: context.workspaceId
         }
     },
 
-    async checkWorkspacePermission(workspaceId, userId, actionLevel = 'VIEW') {
+    async checkWorkspacePermission(workspaceId, user, actionLevel = 'VIEW') {
+        const userId = user.id
+        const isSystemAdmin = user.role === 'ADMIN'
         const workspace = await prisma.workspace.findUnique({
             where: { id: workspaceId },
             select: {
@@ -105,6 +109,12 @@ const PermissionService = {
         })
 
         if (!workspace) throw new AppError('Área de Trabalho não encontrada!', 404)
+        if (isSystemAdmin) return {
+            boardId: null,
+            workspaceId: workspace.id,
+            creatorId: workspace.creator_id,
+            role: 'OWNER'
+        }
 
         const role = workspace.creator_id === userId ? 'OWNER' : (workspace.workspace_members[0]?.role || null)
         const allowedRoles = this.ROLES[actionLevel.toUpperCase()]

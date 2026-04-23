@@ -10,7 +10,7 @@ const WorkspaceController = {
         const { name } = createWorkspaceSchema.parse(req.body)
 
         const workspace = await WorkspaceService.createWorkspace({
-            userId: req.user.id,
+            user: req.user,
             name
         })
 
@@ -22,7 +22,7 @@ const WorkspaceController = {
 
     list: catchAsync(async (req, res, next) => {
         const workspace = await WorkspaceService.getWorkspaceByUser({
-            userId: req.user.id
+            user: req.user
         })
 
         return res.status(200).json(workspace)
@@ -35,7 +35,7 @@ const WorkspaceController = {
         })
 
         const updatedWorkspace = await WorkspaceService.updateWorkspace({
-            userId: req.user.id,
+            user: req.user,
             workspaceId,
             ...otherFields
         })
@@ -53,7 +53,7 @@ const WorkspaceController = {
         })
 
         await WorkspaceService.deleteWorkspace({
-            userId: req.user.id,
+            user: req.user,
             workspaceId,
             force
         })
@@ -70,8 +70,8 @@ const WorkspaceController = {
         })
 
         const movedWorkspaceship = await WorkspaceMemberService.moveWorkspace({
+            user: req.user,
             workspaceId,
-            userId: req.user.id,
             newOrder,
         })
 
@@ -85,8 +85,8 @@ const WorkspaceController = {
         const { workspace_id: workspaceId } = getHistorySchema.parse(req.params)
 
         const logs = await LogService.getLogsByWorkspace({
-            workspaceId,
-            userId: req.user.id
+            user: req.user,
+            workspaceId
         })
 
         return res.status(200).json(logs)

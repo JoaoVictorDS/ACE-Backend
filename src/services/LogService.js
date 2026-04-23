@@ -34,8 +34,8 @@ const LogService = {
         }
     },
 
-    async getLogsByWorkspace({ workspaceId, userId }) {
-        await PermissionService.checkWorkspacePermission(workspaceId, userId)
+    async getLogsByWorkspace({ user, workspaceId }) {
+        await PermissionService.checkWorkspacePermission(workspaceId, user, PermissionService.LEVELS.VIEW)
 
         return await prisma.activityLog.findMany({
             where: { workspace_id: workspaceId },
@@ -47,8 +47,8 @@ const LogService = {
         })
     },
 
-    async getLogsByBoard({ boardId, userId }) {
-        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.VIEW)
+    async getLogsByBoard({ user, boardId }) {
+        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.VIEW)
 
         return await prisma.activityLog.findMany({
             where: { board_id: boardId },

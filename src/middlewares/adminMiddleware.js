@@ -1,10 +1,13 @@
 const AppError = require("../utils/AppError")
 
 function adminMiddleware(req, res, next) {
+    const { user } = req
 
-    if (!req.user || req.user.role !== 'ADMIN') {
-        return next(new AppError('Acesso negado. Apenas administradores podem realizar esta operação!', 403))
-    }
+    if (!user) return next(new AppError('Sessão inválida. Por favor, faça login novamente!', 401))
+
+    const isSystemAdmin = user.role === 'ADMIN'
+
+    if (!isSystemAdmin) return next(new AppError('Acesso negado. Apenas administradores podem realizar esta operação!', 403))
 
     next()
 }

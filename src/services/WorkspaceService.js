@@ -5,50 +5,46 @@ const AppError = require('../utils/AppError')
 
 const WorkspaceService = {
 
-    async createWorkspace({ userId, name }) {
-        const result = await prisma.$transaction(async (tx) => {
-            const lastMemberEntry = await tx.workspaceMember.findFirst({
-                where: { user_id: userId },
-                orderBy: { order: 'desc' },
-                select: { order: true }
-            })
+    async createWorkspace({ user, name }) {
+        const userId = user.id
 
-            const nextOrder = lastMemberEntry ? lastMemberEntry.order + 1 : 0
+        const lastMemberEntry = await prisma.workspaceMember.findFirst({
+            where: { user_id: userId },
+            orderBy: { order: 'desc' },
+            select: { order: true }
+        })
 
-            const newWorkspace = await tx.workspace.create({
-                data: {
-                    name,
-                    creator_id: userId
+        const nextOrder = lastMemberEntry ? lastMemberEntry.order + 1 : 0
+
+        const newWorkspace = await prisma.workspace.create({
+            data: {
+                name,
+                creator_id: userId,
+                workspace_members: {
+                    create: {
+                        user_id: userId,
+                        role: 'OWNER',
+                        order: nextOrder
+                    }
                 }
-            })
-
-            await tx.workspaceMember.create({
-                data: {
-                    workspace_id: newWorkspace.id,
-                    user_id: userId,
-                    role: 'OWNER',
-                    order: nextOrder
-                }
-            })
-
-            return newWorkspace
+            }
         })
 
         LogService.register({
             userId,
-            workspaceId: result.id,
+            workspaceId: newWorkspace.id,
             action: 'CREATE',
             entityType: 'WORKSPACE',
-            entityId: result.id,
-            newValue: name
+            entityId: newWorkspace.id,
+            newValue: `Área de trabalho criada: ${name}`
         })
 
-        return result
+        return newWorkspace
     },
 
-    async getWorkspaceByUser({ userId }) {
+    async getWorkspaceByUser({ user }) {
         const memberships = await prisma.workspaceMember.findMany({
-            where: { user_id: userId },
+            where: { user_id: user.id },
             include: {
                 workspace: {
                     select: {
@@ -70,17 +66,19 @@ const WorkspaceService = {
         }))
     },
 
-    async updateWorkspace({ userId, workspaceId, name }) {
-        await PermissionService.checkWorkspacePermission(workspaceId, userId, PermissionService.LEVELS.ADMIN)
+    async updateWorkspace({ user, workspaceId, name }) {
+        await PermissionService.checkWorkspacePermission(workspaceId, user, PermissionService.LEVELS.ADMIN)
 
         const currentWorkspace = await prisma.workspace.findUnique({
-            where: {
-                id: workspaceId
-            }
+            where: { id: workspaceId },
+            select: { name: true }
         })
+
         if (!currentWorkspace) throw new AppError('Área de Trabalho não encontrada!', 404)
 
-        if (currentWorkspace.name === name) return currentWorkspace
+        const isSameName = currentWorkspace.name === name
+
+        if (isSameName) return currentWorkspace
 
         const updatedWorkspace = await prisma.workspace.update({
             where: { id: workspaceId },
@@ -88,21 +86,19 @@ const WorkspaceService = {
         })
 
         LogService.register({
-            userId,
+            userId: user.id,
             workspaceId,
             action: 'UPDATE',
             entityType: 'WORKSPACE',
             entityId: workspaceId,
-            oldValue: currentWorkspace.name,
-            newValue: name
+            oldValue: `Nome: ${currentWorkspace.name}`,
+            newValue: `Nome: ${name}`
         })
 
         return updatedWorkspace
     },
 
-    async deleteWorkspace({ userId, workspaceId, force = false }) {
-        await PermissionService.checkWorkspacePermission(workspaceId, userId, PermissionService.LEVELS.OWNER)
-
+    async deleteWorkspace({ user, workspaceId, force = false }) {
         const [workspace, items] = await Promise.all([
             prisma.workspace.findUnique({
                 where: { id: workspaceId },
@@ -122,20 +118,33 @@ const WorkspaceService = {
         const hasContent = boards > 0 || items > 0
         if (!force && hasContent) throw new AppError(`Não é possível excluir a área de trabalho: existem ${boards} quadros, ${workspace_members} membros e ${items} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir!`, 409)
 
-        await LogService.register({
-            userId,
-            workspaceId,
-            action: 'DELETE',
-            entityType: 'WORKSPACE',
-            entityId: workspaceId,
-            oldValue: workspace.name
+        const result = await prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`
+                UPDATE "workspace_members" AS wm
+                SET "order" = wm."order" - 1
+                FROM "workspace_members" AS deleted_wm
+                WHERE wm.user_id = deleted_wm.user_id
+                AND deleted_wm.workspace_id = ${workspaceId}
+                AND wm."order" > deleted_wm."order"
+            `
+
+            await tx.activityLog.create({
+                data: {
+                    user_id: user.id,
+                    workspace_id: workspaceId,
+                    action: 'DELETE',
+                    entity_type: 'WORKSPACE',
+                    entity_id: workspaceId,
+                    old_value: `Área de trabalho removida: ${workspace.name}`
+                }
+            })
+
+            return await tx.workspace.delete({
+                where: { id: workspaceId }
+            })
         })
 
-        const deleted = await prisma.workspace.delete({
-            where: { id: workspaceId }
-        })
-
-        return deleted
+        return result
     }
 
 }

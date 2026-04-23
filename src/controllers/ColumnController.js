@@ -11,10 +11,10 @@ const ColumnController = {
         })
 
         const column = await ColumnService.createColumn({
+            user: req.user,
             boardId,
             dataType,
             formulaExpression,
-            userId: req.user.id,
             ...otherFields
         })
 
@@ -28,8 +28,8 @@ const ColumnController = {
         const { board_id: boardId } = listColumnsSchema.parse(req.params)
 
         const columns = await ColumnService.getColumnsByBoard({
-            boardId,
-            userId: req.user.id
+            user: req.user,
+            boardId
         })
 
         return res.status(200).json(columns)
@@ -42,8 +42,8 @@ const ColumnController = {
         })
 
         const updatedColumn = await ColumnService.updateColumn({
+            user: req.user,
             columnId,
-            userId: req.user.id,
             dataType,
             formulaExpression,
             ...otherFields
@@ -62,8 +62,8 @@ const ColumnController = {
         })
 
         await ColumnService.deleteColumn({
+            user: req.user,
             columnId,
-            userId: req.user.id,
             force
         })
 
@@ -79,8 +79,8 @@ const ColumnController = {
         })
 
         const movedColumn = await ColumnService.moveColumn({
+            user: req.user,
             columnId,
-            userId: req.user.id,
             newOrder
         })
 

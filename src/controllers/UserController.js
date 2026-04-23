@@ -30,10 +30,9 @@ const UserController = {
         })
 
         const updatedUser = await UserService.updateUser({
+            requesterUser: req.user,
             targetUserId,
-            ...otherFields,
-            requesterId: req.user.id,
-            requesterRole: req.user.role
+            ...otherFields
         })
 
         return res.status(200).json({
@@ -46,8 +45,8 @@ const UserController = {
         const { user_id: targetUserId } = deleteUserSchema.parse(req.params)
 
         await UserService.deleteUser({
-            targetUserId,
-            requesterId: req.user.id
+            requesterUser: req.user,
+            targetUserId
         })
 
         return res.status(200).json({

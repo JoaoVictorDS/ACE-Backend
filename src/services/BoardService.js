@@ -5,60 +5,60 @@ const AppError = require('../utils/AppError')
 
 const BoardService = {
 
-    async createBoard({ name, workspaceId, userId }) {
-        await PermissionService.checkWorkspacePermission(workspaceId, userId, PermissionService.LEVELS.ADMIN)
+    async createBoard({ user, workspaceId, name }) {
+        await PermissionService.checkWorkspacePermission(workspaceId, user, PermissionService.LEVELS.ADMIN)
 
-        const result = await prisma.$transaction(async (tx) => {
-            const lastMemberEntry = await tx.boardMember.findFirst({
-                where: { user_id: userId },
-                orderBy: { order: 'desc' },
-                select: { order: true }
-            })
+        const userId = user.id
 
-            const nextOrder = lastMemberEntry ? lastMemberEntry.order + 1 : 0
+        const lastMemberEntry = await prisma.boardMember.findFirst({
+            where: {
+                user_id: userId,
+                board: { workspace_id: workspaceId }
+            },
+            orderBy: { order: 'desc' },
+            select: { order: true }
+        })
 
-            const newBoard = await tx.board.create({
-                data: {
-                    name,
-                    workspace_id: workspaceId,
-                    creator_id: userId
+        const nextOrder = lastMemberEntry ? lastMemberEntry.order + 1 : 0
+
+        const newBoard = await prisma.board.create({
+            data: {
+                name,
+                workspace_id: workspaceId,
+                creator_id: userId,
+                board_members: {
+                    create: {
+                        user_id: userId,
+                        role: 'OWNER',
+                        order: nextOrder
+                    }
                 }
-            })
-
-            await tx.boardMember.create({
-                data: {
-                    board_id: newBoard.id,
-                    user_id: userId,
-                    role: 'OWNER',
-                    order: nextOrder
-                }
-            })
-
-            return newBoard
+            }
         })
 
         LogService.register({
             userId,
             workspaceId,
-            boardId: result.id,
+            boardId: newBoard.id,
             action: 'CREATE',
             entityType: 'BOARD',
-            entityId: result.id,
-            newValue: name
+            entityId: newBoard.id,
+            newValue: `Quadro criado: ${name}`
         })
 
-        return result
+        return newBoard
     },
 
-    async getBoardsByUser({ userId }) {
+    async getBoardsByUser({ user }) {
         const memberships = await prisma.boardMember.findMany({
-            where: { user_id: userId },
+            where: { user_id: user.id },
             include: {
                 board: {
                     select: {
                         id: true,
                         name: true,
-                        creator_id: true
+                        creator_id: true,
+                        workspace_id: true
                     }
                 }
             },
@@ -74,14 +74,17 @@ const BoardService = {
         }))
     },
 
-    async updateBoard({ boardId, name, userId }) {
-        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.ADMIN)
+    async updateBoard({ user, boardId, name }) {
+        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
 
         const currentBoard = await prisma.board.findUnique({
-            where: { id: boardId }
+            where: { id: boardId },
+            select: { name: true }
         })
         if (!currentBoard) throw new AppError('Quadro não encontrado!', 404)
-        if (currentBoard.name === name) return currentBoard
+
+        const isSameName = currentBoard.name === name
+        if (isSameName) return currentBoard
 
         const updatedBoard = await prisma.board.update({
             where: { id: boardId },
@@ -89,21 +92,21 @@ const BoardService = {
         })
 
         LogService.register({
-            userId,
+            userId: user.id,
             boardId,
             workspaceId,
             action: 'UPDATE',
             entityType: 'BOARD',
             entityId: boardId,
-            oldValue: currentBoard.name,
-            newValue: name
+            oldValue: `Nome: ${currentBoard.name}`,
+            newValue: `Nome: ${name}`
         })
 
         return updatedBoard
     },
 
-    async deleteBoard({ boardId, userId, force = false }) {
-        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.OWNER)
+    async deleteBoard({ user, boardId, force = false }) {
+        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.OWNER)
 
         const [board, items] = await Promise.all([
             prisma.board.findUnique({
@@ -121,24 +124,40 @@ const BoardService = {
         if (!board) throw new AppError('Quadro não encontrado!', 404)
 
         const { columns, sections } = board._count
-        const hasContent = columns > 0 || sections > 0 || itemCount > 0
+        const hasContent = columns > 0 || sections > 0 || items > 0
         if (!force && hasContent) throw new AppError(`Não é possível excluir o quadro: existem ${columns} colunas, ${sections} seções e ${items} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir.`, 409)
 
-        await LogService.register({
-            userId,
-            boardId,
-            workspaceId,
-            action: 'DELETE',
-            entityType: 'BOARD',
-            entityId: boardId,
-            oldValue: board.name
+        const result = await prisma.$transaction(async (tx) => {
+            await tx.$executeRaw`
+                UPDATE "board_members" AS bm
+                SET "order" = bm."order" - 1
+                FROM "board_members" AS deleted_bm, "boards" AS b
+                WHERE bm.user_id = deleted_bm.user_id
+                AND deleted_bm.board_id = ${boardId}
+                AND bm.board_id = b.id
+                AND b.workspace_id = ${workspaceId}
+                AND bm."order" > deleted_bm."order"
+            `
+
+            await tx.activityLog.create({
+                data: {
+                    user_id: user.id,
+                    board_id: boardId,
+                    workspace_id: workspaceId,
+                    action: 'DELETE',
+                    entity_type: 'BOARD',
+                    entity_id: boardId,
+                    old_value: `Quadro removido: ${board.name}`
+                }
+            })
+
+            return await tx.board.delete({
+                where: { id: boardId }
+            })
+
         })
 
-        const deleted = await prisma.board.delete({
-            where: { id: boardId }
-        })
-
-        return deleted
+        return result
     },
 
 }

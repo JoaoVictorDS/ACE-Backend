@@ -1,6 +1,6 @@
 const WorkspaceMemberService = require('../services/WorkspaceMemberService')
 const catchAsync = require('../utils/catchAsync')
-const { upsertMemberSchema, listMemberSchema, removeMemberSchema } = require('../validators/workspaceMemberValidator')
+const { upsertMemberSchema, listMemberSchema, removeMemberSchema, leaveWorkspaceSchema } = require('../validators/workspaceMemberValidator')
 
 const WorkspaceMemberController = {
 
@@ -11,8 +11,8 @@ const WorkspaceMemberController = {
         })
 
         const member = await WorkspaceMemberService.upsertMember({
+            user: req.user,
             workspaceId,
-            userId: req.user.id,
             memberEmail,
             ...otherFields
         })
@@ -27,8 +27,8 @@ const WorkspaceMemberController = {
         const { workspace_id: workspaceId } = listMemberSchema.parse(req.params)
 
         const members = await WorkspaceMemberService.getMembersByWorkspace({
-            workspaceId,
-            userId: req.user.id
+            user: req.user,
+            workspaceId
         })
 
         return res.status(200).json(members)
@@ -38,13 +38,26 @@ const WorkspaceMemberController = {
         const { workspace_id: workspaceId, member_id: memberIdToRemove } = removeMemberSchema.parse(req.params)
 
         await WorkspaceMemberService.removeMember({
+            user: req.user,
             workspaceId,
-            userId: req.user.id,
             memberIdToRemove
         })
 
         return res.status(200).json({
             message: 'Membro removido com sucesso!'
+        })
+    }),
+
+    leave: catchAsync(async (req, res, next) => {
+        const { workspace_id: workspaceId } = leaveWorkspaceSchema.parse(req.params)
+
+        await WorkspaceMemberService.leaveWorkspace({
+            user: req.user,
+            workspaceId
+        })
+
+        return res.status(200).json({
+            message: 'Você saiu da área de trabalho com sucesso!'
         })
     }),
 

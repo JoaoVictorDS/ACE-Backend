@@ -5,41 +5,95 @@ const AppError = require('../utils/AppError')
 
 const BoardMemberService = {
 
-    async upsertMember({ boardId, userId, memberEmail, role }) {
-        const { workspaceId, creatorId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.ADMIN)
+    async _performMemberRemoval(tx, { membership }) {
+        const { role, order, user_id, id, board: { workspace_id, id: board_id } } = membership
+        const isPrivilegedMember = role === 'OWNER' || role === 'ADMIN'
+
+        if (isPrivilegedMember) {
+            const privilegedMembersCount = await tx.boardMember.count({
+                where: {
+                    board_id,
+                    role: { in: ['ADMIN', 'OWNER'] }
+                }
+            })
+            const isLastPrivilegedMember = privilegedMembersCount <= 1
+
+            if (isLastPrivilegedMember) throw new AppError('Não é possível remover o último membro privilegiado do quadro!', 400)
+        }
+
+        await tx.boardMember.updateMany({
+            where: {
+                user_id,
+                board: { workspace_id },
+                order: { gt: order }
+            },
+            data: { order: { decrement: 1 } }
+        })
+
+        return await tx.boardMember.delete({
+            where: { id }
+        })
+    },
+
+    async upsertMember({ user, boardId, memberEmail, role }) {
+        const { workspaceId, creatorId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
+        const userId = user.id
 
         const targetUser = await prisma.user.findUnique({
             where: { email: memberEmail },
-            include: {
-                board_members: {
-                    where: { board_id: boardId }
-                },
-                _count: { select: { board_members: true } }
-            }
+            select: { id: true, name: true }
         })
         if (!targetUser) throw new AppError('Usuário com este e-mail não encontrado!', 404)
-        if (targetUser.id === userId) throw new AppError('Não é permitido alterar sua própria permissão!', 400)
-        if (targetUser.id === creatorId) throw new AppError('O proprietário do Quadro não pode ter seu cargo alterado!', 403)
 
-        const existingMember = targetUser.board_members[0]
+        const { id: targetUserId, name: targetUserName } = targetUser
+        const isSelf = targetUserId === userId
+        const isTargetOwner = targetUserId === creatorId
 
-        if (existingMember && existingMember.role === 'ADMIN' && role !== 'ADMIN') {
+        if (isSelf) throw new AppError('Não é permitido alterar sua própria permissão!', 400)
+        if (isTargetOwner) throw new AppError('O proprietário do quadro não pode ter seu cargo alterado!', 403)
+
+        const existingMember = await prisma.boardMember.findUnique({
+            where: {
+                user_id_board_id: {
+                    user_id: targetUserId,
+                    board_id: boardId
+                }
+            }
+        })
+
+        const isDowngradingAdmin = existingMember && existingMember.role === 'ADMIN' && role !== 'ADMIN'
+
+        if (isDowngradingAdmin) {
             const privilegedMembersCount = await prisma.boardMember.count({
                 where: {
                     board_id: boardId,
                     role: { in: ['ADMIN', 'OWNER'] }
                 }
             })
-            if (privilegedMembersCount <= 1) throw new AppError('Não é possível rebaixar o único administrador do Quadro!', 400)
+            const isLastAdmin = privilegedMembersCount <= 1
+
+            if (isLastAdmin) throw new AppError('Não é possível rebaixar o único administrador do Quadro!', 400)
         }
 
-        const nextOrder = existingMember ? existingMember.order : targetUser._count.board_members
+        let nextOrder = 0
+        if (!existingMember) {
+            const lastMemberEntry = await prisma.boardMember.findFirst({
+                where: {
+                    user_id: targetUserId,
+                    board: { workspace_id: workspaceId }
+                },
+                orderBy: { order: 'desc' },
+                select: { order: true }
+            })
+
+            nextOrder = lastMemberEntry ? lastMemberEntry.order + 1 : 0
+        }
 
         const member = await prisma.boardMember.upsert({
-            where: { user_id_board_id: { user_id: targetUser.id, board_id: boardId } },
+            where: { user_id_board_id: { user_id: targetUserId, board_id: boardId } },
             update: { role },
             create: {
-                user_id: targetUser.id,
+                user_id: targetUserId,
                 board_id: boardId,
                 role,
                 order: nextOrder
@@ -54,8 +108,8 @@ const BoardMemberService = {
                 workspaceId,
                 action: 'CREATE',
                 entityType: 'MEMBER',
-                entityId: targetUser.id,
-                newValue: `Adicionado: ${targetUser.name} (${role})`
+                entityId: targetUserId,
+                newValue: `Membro adicionado: ${targetUserName} (${role})`
             })
         } else if (existingMember.role !== role) {
             LogService.register({
@@ -64,98 +118,96 @@ const BoardMemberService = {
                 workspaceId,
                 action: 'UPDATE',
                 entityType: 'MEMBER',
-                entityId: targetUser.id,
-                oldValue: existingMember.role,
-                newValue: role
+                entityId: targetUserId,
+                oldValue: `Cargo: ${existingMember.role}`,
+                newValue: `Cargo: ${role}`
             })
         }
 
         return member
     },
 
-    async getMembersByBoard({ boardId, userId }) {
-        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.VIEW)
+    async getMembersByBoard({ user, boardId }) {
+        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.VIEW)
 
         return await prisma.boardMember.findMany({
             where: { board_id: boardId },
-            include: {
-                user: { select: { id: true, name: true, email: true } }
-            },
+            include: { user: { select: { id: true, name: true, email: true } } },
             orderBy: { role: 'asc' }
         })
     },
 
-    async removeMember({ boardId, userId, memberIdToRemove }) {
-        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, userId, PermissionService.LEVELS.ADMIN)
+    async removeMember({ user, boardId, memberIdToRemove }) {
+        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
 
-        if (memberIdToRemove === userId) throw new AppError('Não é permitido remover a si mesmo do quadro!', 400)
+        const userId = user.id
+        const isSelf = memberIdToRemove === userId
 
-        const membershipToDelete = await prisma.boardMember.findUnique({
+        if (isSelf) throw new AppError('Não é permitido remover a si mesmo do quadro!', 400)
+
+        const membership = await prisma.boardMember.findUnique({
             where: { user_id_board_id: { user_id: memberIdToRemove, board_id: boardId } },
-            include: { user: { select: { name: true } } }
+            select: {
+                id: true,
+                user_id: true,
+                role: true,
+                order: true,
+                board: { select: { workspace_id: true, id: true } },
+                user: { select: { name: true } }
+            }
         })
-        if (!membershipToDelete) throw new AppError('Membro não encontrado neste quadro!', 404)
-        if (membershipToDelete.role === 'OWNER') throw new AppError('O proprietário do Quadro não pode ser removido!', 400)
-        if (membershipToDelete.role === 'ADMIN') {
-            const privilegedMembersCount = await prisma.boardMember.count({
-                where: {
-                    board_id: boardId,
-                    role: { in: ['ADMIN', 'OWNER'] }
-                }
-            })
-            if (privilegedMembersCount <= 1) throw new AppError('Não é possível remover o último administrador do quadro!', 400)
-        }
+        if (!membership) throw new AppError('Membro não encontrado neste quadro!', 404)
+
+        const { role, user: { name: targetUserName }, board: { workspace_id } } = membership
+        const isTargetOwner = role === 'OWNER'
+
+        if (isTargetOwner) throw new AppError('O proprietário do quadro não pode ser removido!', 400)
 
         const result = await prisma.$transaction(async (tx) => {
-            const deleted = await tx.boardMember.delete({
-                where: { user_id_board_id: { user_id: memberIdToRemove, board_id: boardId } }
-            })
-
-            await tx.boardMember.updateMany({
-                where: {
-                    user_id: memberIdToRemove,
-                    order: { gt: membershipToDelete.order }
-                },
-                data: { order: { decrement: 1 } }
-            })
-
-            return deleted
+            return await this._performMemberRemoval(tx, { membership })
         })
 
         LogService.register({
             userId,
             boardId,
-            workspaceId,
+            workspaceId: workspace_id,
             action: 'DELETE',
             entityType: 'MEMBER',
             entityId: memberIdToRemove,
-            oldValue: membershipToDelete.user.name
+            oldValue: `Membro removido: ${targetUserName}`
         })
 
         return result
     },
 
-    async moveBoard({ userId, boardId, newOrder }) {
+    async moveBoard({ user, boardId, newOrder }) {
+        const userId = user.id
+
         const currentMembership = await prisma.boardMember.findUnique({
-            where: { user_id_board_id: { user_id: userId, board_id: boardId } }
+            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
+            include: { board: { select: { workspace_id: true } } }
         })
         if (!currentMembership) throw new AppError('Vínculo entre usuário e quadro não encontrado!', 404)
 
+        const { board: { workspace_id: workspaceId }, order: oldOrder } = currentMembership
         const totalBoards = await prisma.boardMember.count({
-            where: { user_id: userId }
+            where: {
+                user_id: userId,
+                board: { workspace_id: workspaceId }
+            }
         })
-
         const maxOrder = totalBoards - 1
         const finalOrder = Math.max(0, Math.min(newOrder, maxOrder))
-        const oldOrder = currentMembership.order
+        const isSamePosition = oldOrder === newOrder || oldOrder === finalOrder
 
-        if (oldOrder === newOrder || oldOrder === finalOrder) return currentMembership
+        if (isSamePosition) return currentMembership
 
         const result = await prisma.$transaction(async (tx) => {
             if (finalOrder > oldOrder) {
                 await tx.boardMember.updateMany({
                     where: {
                         user_id: userId,
+                        board: { workspace_id: workspaceId },
                         order: { gt: oldOrder, lte: finalOrder }
                     },
                     data: { order: { decrement: 1 } }
@@ -164,6 +216,7 @@ const BoardMemberService = {
                 await tx.boardMember.updateMany({
                     where: {
                         user_id: userId,
+                        board: { workspace_id: workspaceId },
                         order: { gte: finalOrder, lt: oldOrder }
                     },
                     data: { order: { increment: 1 } }
@@ -173,13 +226,43 @@ const BoardMemberService = {
             return await tx.boardMember.update({
                 where: {
                     user_id_board_id:
-                    {
-                        user_id: userId,
-                        board_id: boardId
-                    }
+                        { user_id: userId, board_id: boardId }
                 },
                 data: { order: finalOrder }
             })
+        })
+
+        return result
+    },
+
+    async leaveBoard({ user, boardId }) {
+        const userId = user.id
+        const membership = await prisma.boardMember.findUnique({
+            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
+            select: {
+                id: true,
+                user_id: true,
+                role: true,
+                order: true,
+                board: { select: { workspace_id: true, id: true } },
+                user: { select: { name: true } }
+            }
+        })
+
+        if (!membership) throw new AppError('Membro não encontrado neste quadro!', 404)
+
+        const result = await prisma.$transaction(async (tx) => {
+            return await this._performMemberRemoval(tx, { membership })
+        })
+
+        LogService.register({
+            userId,
+            boardId,
+            workspaceId: membership.board.workspace_id,
+            action: 'DELETE',
+            entityType: 'MEMBER',
+            entityId: userId,
+            oldValue: `${membership.user.name} saiu do quadro`
         })
 
         return result

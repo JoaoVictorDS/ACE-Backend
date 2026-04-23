@@ -36,8 +36,13 @@ const removeMemberSchema = z.object({
     }).gt(0, 'O ID do Membro não pode ser menor ou igual a 0')
 })
 
+const leaveWorkspaceSchema = z.object({
+    workspace_id
+})
+
 module.exports = {
     upsertMemberSchema,
     listMemberSchema,
-    removeMemberSchema
+    removeMemberSchema,
+    leaveWorkspaceSchema
 }
