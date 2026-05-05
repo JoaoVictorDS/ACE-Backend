@@ -18,6 +18,8 @@ const NotificationController = require('./controllers/NotificationController')
 
 // AUTH
 apiRouter.post('/login', AuthController.login)
+apiRouter.post('/refresh', AuthController.refresh)
+apiRouter.post('/logout', authMiddleware, AuthController.logout)
 
 // USER
 apiRouter.post('/users', authMiddleware, adminMiddleware, UserController.create)

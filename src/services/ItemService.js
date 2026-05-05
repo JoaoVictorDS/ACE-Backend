@@ -4,6 +4,7 @@ const LogService = require('./LogService')
 const ColumnService = require('./ColumnService')
 const ItemAssigneeService = require('./ItemAssigneeService')
 const appEventEmitter = require('../config/events')
+const { NOTIFICATION_TYPES } = require('../utils/constants')
 const AppError = require('../utils/AppError')
 
 const ItemService = {
@@ -42,7 +43,7 @@ const ItemService = {
             actor: user,
             itemId: result.id,
             boardId,
-            action: 'ITEM_CREATE',
+            action: NOTIFICATION_TYPES.ITEM_CREATED,
             content: { itemTitle: title }
         })
 
@@ -271,7 +272,7 @@ const ItemService = {
                 actor: user,
                 itemId,
                 boardId,
-                action: 'ITEM_UPDATE',
+                action: NOTIFICATION_TYPES.ITEM_UPDATED,
                 content: {
                     itemTitle: result.itemTitle,
                     changes: result.notificationChanges
@@ -320,7 +321,7 @@ const ItemService = {
             actor: user,
             itemId,
             boardId,
-            action: 'ITEM_DELETE',
+            action: NOTIFICATION_TYPES.ITEM_DELETED,
             content: { itemTitle: item.title }
         })
 
@@ -434,7 +435,7 @@ const ItemService = {
                 actor: user,
                 itemId,
                 boardId,
-                action: 'ITEM_MOVE',
+                action: NOTIFICATION_TYPES.ITEM_MOVED,
                 content: { itemTitle: result.updated.title }
             })
         }

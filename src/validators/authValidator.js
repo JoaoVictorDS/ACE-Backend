@@ -14,4 +14,10 @@ const loginSchema = z.object({
     }).trim().min(6, 'A Senha deve ter pelo menos 6 caracteres')
 })
 
-module.exports = { loginSchema }
+const refreshTokenCookieSchema = z.object({
+    refreshToken: z.string({
+        error: (issue) => issue.input === undefined && 'Refresh Token não encontrado.'
+    }).min(1)
+})
+
+module.exports = { loginSchema, refreshTokenCookieSchema }

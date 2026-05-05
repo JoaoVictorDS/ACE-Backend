@@ -1,6 +1,8 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
 const LogService = require('./LogService')
+const MentionService = require('./MentionService')
+const appEventEmitter = require('../config/events')
 const AppError = require('../utils/AppError')
 
 const CommentService = {
@@ -8,6 +10,11 @@ const CommentService = {
     async createComment({ user, itemId, content }) {
         const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.ITEM, itemId, user, PermissionService.LEVELS.VIEW)
         const userId = user.id
+
+        const item = await prisma.item.findUnique({
+            where: { id: itemId },
+            select: { title: true }
+        })
 
         const newComment = await prisma.comment.create({
             data: {
@@ -29,7 +36,24 @@ const CommentService = {
             action: 'CREATE',
             entityType: 'COMMENT',
             entityId: itemId,
-            newValue: `Comentário criado: ${content.substring(0, 50) + (content.length > 50 ? '...' : '')}`
+            newValue: `Comentário criado: ${MentionService.sanitize(content, 50)}`
+        })
+
+        MentionService.processMentions({
+            actor: user,
+            boardId,
+            itemId,
+            itemTitle: item.title,
+            text: content,
+            context: 'comment'
+        })
+
+        appEventEmitter.emit('item.action', {
+            actor: user,
+            boardId,
+            itemId,
+            action: 'COMMENT_CREATED',
+            content: { itemTitle: item.title }
         })
 
         return newComment
@@ -52,12 +76,13 @@ const CommentService = {
     async updateComment({ user, commentId, content }) {
         const userId = user.id
         const comment = await prisma.comment.findUnique({
-            where: { id: commentId }
+            where: { id: commentId },
+            include: { item: { select: { title: true } } }
         })
-        const isOnwer = comment.user_id !== userId
-
         if (!comment) throw new AppError('Comentário não encontrado!', 404)
-        if (!isOnwer) throw new AppError('Você não tem permissão para editar este comentário!', 403)
+
+        const isOwner = comment.user_id === userId
+        if (!isOwner) throw new AppError('Você não tem permissão para editar este comentário!', 403)
 
         const { boardId, workspaceId } = await PermissionService._resolveBoardContext(PermissionService.TYPES.ITEM, comment.item_id)
 
@@ -78,8 +103,26 @@ const CommentService = {
             action: 'UPDATE',
             entityType: 'COMMENT',
             entityId: comment.item_id,
-            oldValue: `Conteúdo: ${comment.content.substring(0, 50)}`,
-            newValue: `Conteúdo: ${content.substring(0, 50)}`
+            oldValue: `Conteúdo: ${MentionService.sanitize(comment.content, 50)}`,
+            newValue: `Conteúdo: ${MentionService.sanitize(content, 50)}`
+        })
+
+        MentionService.processMentions({
+            actor: user,
+            boardId,
+            itemId: comment.item_id,
+            itemTitle: comment.item.title,
+            text: content,
+            oldText: comment.content,
+            context: 'comment'
+        })
+
+        appEventEmitter.emit('item.action', {
+            actor: user,
+            boardId,
+            itemId: comment.item_id,
+            action: 'COMMENT_UPDATED',
+            content: { itemTitle: comment.item.title }
         })
 
         return updatedComment
@@ -87,7 +130,8 @@ const CommentService = {
 
     async deleteComment({ user, commentId }) {
         const comment = await prisma.comment.findUnique({
-            where: { id: commentId }
+            where: { id: commentId },
+            include: { item: { select: { title: true } } }
         })
         if (!comment) throw new AppError('Comentário não encontrado!', 404)
 
@@ -110,7 +154,15 @@ const CommentService = {
             action: 'DELETE',
             entityType: 'COMMENT',
             entityId: comment.item_id,
-            oldValue: `Comentário removido: ${comment.content.substring(0, 50)}`
+            oldValue: `Comentário removido: ${MentionService.sanitize(comment.content, 50)}`
+        })
+
+        appEventEmitter.emit('item.action', {
+            actor: user,
+            boardId,
+            itemId: comment.item_id,
+            action: 'COMMENT_DELETED',
+            content: { itemTitle: comment.item.title }
         })
 
         return deletedComment

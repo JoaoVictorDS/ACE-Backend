@@ -1,68 +1,59 @@
 const prisma = require('../config/prisma')
 const bcrypt = require('bcryptjs')
-const jwt = require('jsonwebtoken')
+const { NOTIFICATION_TYPES } = require('../utils/constants')
 const AppError = require('../utils/AppError')
 
 const UserService = {
 
+    async setupUserDefaults(userId, tx = prisma) {
+        const defaultNotificationSettings = [
+            { user_id: userId, action_type: NOTIFICATION_TYPES.ITEM_CREATED, enabled: true },
+            { user_id: userId, action_type: NOTIFICATION_TYPES.ITEM_DELETED, enabled: true },
+            { user_id: userId, action_type: NOTIFICATION_TYPES.ITEM_UPDATED, enabled: true },
+            { user_id: userId, action_type: NOTIFICATION_TYPES.COMMENT_ADDED, enabled: true }
+        ]
+
+        await tx.userNotificationSetting.createMany({
+            data: defaultNotificationSettings
+        })
+
+        await tx.userPreference.create({
+            data: {
+                user_id: userId,
+                settings: { theme: 'light' }
+            }
+        })
+    },
+
     async createUser({ name, email, password, role }) {
         const existingUser = await prisma.user.findUnique({
-            where: {
-                email
-            }
+            where: { email }
         })
         if (existingUser) throw new AppError('Usuário com este e-mail já existe!', 409)
 
         const password_hash = await bcrypt.hash(password, 10)
 
-        return await prisma.user.create({
-            data: {
-                name,
-                email,
-                password_hash,
-                role: role || 'MEMBER'
-            },
-            select: {
-                id: true,
-                name: true,
-                email: true,
-                role: true
-            }
-        })
-    },
+        const result = await prisma.$transaction(async (tx) => {
+            const user = await tx.user.create({
+                data: {
+                    name,
+                    email,
+                    password_hash,
+                    role: role || 'MEMBER'
+                },
+            })
 
-    async authenticateUser({ email, password }) {
-        const user = await prisma.user.findUnique({
-            where: {
-                email
-            }
-        })
-        if (!user || !user.is_active) throw new AppError('Credenciais inválidas!', 401)
+            await this.setupUserDefaults(user.id, tx)
 
-        const isValidPassword = await bcrypt.compare(password, user.password_hash)
-
-        if (!isValidPassword) throw new AppError('Credenciais inválidas!', 401)
-
-        const secret = process.env.JWT_SECRET
-
-        if (!secret) throw new AppError('Erro interno: Chave de segurança não configurada!', 500)
-
-        const expiry = process.env.JWT_EXPIRY || '8h'
-        const token = jwt.sign(
-            { id: user.id, role: user.role },
-            secret,
-            { expiresIn: expiry }
-        )
-
-        return {
-            token,
-            user: {
+            return {
                 id: user.id,
                 name: user.name,
                 email: user.email,
                 role: user.role
             }
-        }
+        })
+
+        return result
     },
 
     async getUsers() {
@@ -137,7 +128,6 @@ const UserService = {
 
     async deleteUser({ requesterUser, targetUserId }) {
         const isSelf = targetUserId === requesterUser.id
-
         if (isSelf) throw new AppError('Você não pode desativar sua própria conta!', 403)
 
         const user = await prisma.user.findUnique({
@@ -153,7 +143,6 @@ const UserService = {
                 }
             }
         })
-
         if (!user) throw new AppError('Usuário não encontrado!', 404)
 
         const isTargetSystemAdmin = user.role === 'ADMIN'

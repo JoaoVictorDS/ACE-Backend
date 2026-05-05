@@ -38,10 +38,10 @@ const NotificationService = {
                 board.forEach(a => assignedUsersIdsSet.add(a.user_id))
             }
 
-            if (content && Array(content.changes)) {
+            if (content && Array.isArray(content.changes)) {
                 content.changes.forEach(c => {
-                    if (c.removedUserIds) c.removedUserIds.forEach(id => assignedUsersIdsSet.add(id))
-                    if (c.addedUserIds) c.addedUserIds.forEach(id => assignedUsersIdsSet.add(id))
+                    c.removedUserIds?.forEach(id => assignedUsersIdsSet.add(id))
+                    c.addedUserIds?.forEach(id => assignedUsersIdsSet.add(id))
                 })
             }
 
@@ -50,17 +50,29 @@ const NotificationService = {
             if (assignedUsersIdsSet.size === 0) return
 
             const assignedUsersIds = Array.from(assignedUsersIdsSet)
-            const disabledSettings = await prisma.userNotificationSetting.findMany({
+            const userSettings = await prisma.userNotificationSetting.findMany({
                 where: {
                     user_id: { in: assignedUsersIds },
-                    board_id: boardId || null,
                     action_type: action,
-                    enabled: false
-                },
-                select: { user_id: true }
+                    OR: [
+                        { board_id: boardId },
+                        { board_id: null }
+                    ]
+                }
             })
-            const disabledUserIds = new Set(disabledSettings.map(u => u.user_id))
-            const finalAssignedUserIds = assignedUsersIds.filter(id => !disabledUserIds.has(id))
+            const finalAssignedUserIds = assignedUsersIds.filter(userId => {
+                const settingsForUser = userSettings.filter(s => s.user_id === userId)
+                const specificSetting = settingsForUser.find(s => s.board_id === boardId)
+                const globalSetting = settingsForUser.find(s => s.board_id === null)
+
+                if (specificSetting) {
+                    return specificSetting.enabled
+                } else if (globalSetting) {
+                    return globalSetting.enabled
+                }
+
+                return true
+            })
 
             if (finalAssignedUserIds.length === 0) return
 

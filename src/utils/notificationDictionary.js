@@ -1,10 +1,11 @@
 const listFormatter = new Intl.ListFormat('pt-BR', { style: 'long', type: 'conjunction' })
 
 const NotificationDictionary = {
-    'ITEM_CREATE': (actorName, meta) =>
+
+    'ITEM_CREATED': (actorName, meta) =>
         `**${actorName}** criou a tarefa **${meta.itemTitle}**`,
 
-    'ITEM_UPDATE': (actorName, meta, recipientId) => {
+    'ITEM_UPDATED': (actorName, meta, recipientId) => {
         const { itemTitle, changes } = meta || {}
 
         if (!Array.isArray(changes) || changes.length === 0) {
@@ -60,14 +61,31 @@ const NotificationDictionary = {
         return `**${actorName}** atualizou a tarefa **${itemTitle}**`
     },
 
-    'ITEM_DELETE': (actorName, meta) =>
+    'ITEM_DELETED': (actorName, meta) =>
         `**${actorName}** removeu a tarefa: **${meta.itemTitle}**`,
 
-    'ITEM_MOVE': (actorName, meta) =>
+    'ITEM_MOVED': (actorName, meta) =>
         `**${actorName}** moveu **${meta.itemTitle}** para outra seção`,
 
-    'ITEM_ASSIGN': (actorName, meta) =>
+    'ITEM_ASSIGNED': (actorName, meta) =>
         `**${actorName}** designou você para a tarefa **${meta.itemTitle}**`,
+
+    'USER_MENTIONED': (actorName, meta) => {
+        if (meta.context === 'comment') {
+            return `**${actorName}** mencionou você em um comentário na tarefa **${meta.itemTitle}**`
+        }
+
+        return `**${actorName}** mencionou você na tarefa **${meta.itemTitle}**`
+    },
+
+    'COMMENT_CREATED': (actorName, meta) =>
+        `**${actorName}** adicionou um comentário na tarefa **${meta.itemTitle}**`,
+
+    'COMMENT_UPDATED': (actorName, meta) =>
+        `**${actorName}** editou um comentário na tarefa **${meta.itemTitle}**`,
+
+    'COMMENT_DELETED': (actorName, meta) =>
+        `**${actorName}** removeu um comentário da tarefa **${meta.itemTitle}**`,
 
     'DEFAULT': (actorName) =>
         `**${actorName}** realizou uma nova ação`

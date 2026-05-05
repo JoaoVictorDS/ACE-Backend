@@ -1,20 +1,32 @@
-const UserService = require('../services/UserService')
+const AuthService = require('../services/AuthService')
 const catchAsync = require('../utils/catchAsync')
-const { loginSchema } = require('../validators/authValidator')
+const { COOKIE_OPTIONS } = require('../config/constants')
+const { loginSchema, refreshTokenCookieSchema } = require('../validators/authValidator')
 
 const AuthController = {
 
-    login: catchAsync(async (req, res, next) => {
+    login: catchAsync(async (req, res) => {
         const { email, password } = loginSchema.parse(req.body)
+        const { token, refreshToken, user } = await AuthService.authenticateUser({ email, password })
 
-        const auth = await UserService.authenticateUser({
-            email,
-            password
-        })
+        res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS)
+        return res.json({ token, user })
+    }),
 
-        return res.status(200).json(auth)
+    refresh: catchAsync(async (req, res) => {
+        const { refreshToken: oldRefreshToken } = refreshTokenCookieSchema.parse(req.cookies)
+        const { token, refreshToken: newRefreshToken } = await AuthService.refreshAccessToken(oldRefreshToken)
+
+        res.cookie('refreshToken', newRefreshToken, COOKIE_OPTIONS)
+        return res.json({ token })
+    }),
+
+    logout: catchAsync(async (req, res) => {
+        await AuthService.revokeAllSessions(req.user.id)
+
+        res.clearCookie('refreshToken', { ...COOKIE_OPTIONS, maxAge: 0 })
+        return res.json({ message: 'Logout realizado com sucesso!' })
     })
-
 }
 
 module.exports = AuthController

@@ -62,6 +62,7 @@ model User {
   name          String
   role          UserRole @default(MEMBER)
   is_active     Boolean  @default(true) @map("is_active")
+  refresh_token String?  @map("refresh_token")
 
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")

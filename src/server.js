@@ -1,6 +1,7 @@
 require('dotenv').config()
 const express = require('express')
 const cors = require('cors')
+const cookieParser = require('cookie-parser')
 const { createServer } = require('http')
 
 const routes = require('./routes')
@@ -23,6 +24,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions))
 app.use(express.json())
+app.use(cookieParser())
 app.use('/api', routes)
 app.use(errorMiddleware)
 

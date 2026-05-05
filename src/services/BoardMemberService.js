@@ -46,9 +46,13 @@ const BoardMemberService = {
         if (!targetUser) throw new AppError('Usuário com este e-mail não encontrado!', 404)
 
         const { id: targetUserId, name: targetUserName } = targetUser
+        const isWorkspaceMember = await prisma.workspaceMember.findUnique({
+            where: { user_id_workspace_id: { user_id: targetUserId, workspace_id: workspaceId } }
+        })
         const isSelf = targetUserId === userId
         const isTargetOwner = targetUserId === creatorId
 
+        if (!isWorkspaceMember) throw new AppError('Este usuário não faz parte do Workspace!', 403)
         if (isSelf) throw new AppError('Não é permitido alterar sua própria permissão!', 400)
         if (isTargetOwner) throw new AppError('O proprietário do quadro não pode ter seu cargo alterado!', 403)
 

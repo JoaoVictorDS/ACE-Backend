@@ -1,5 +1,6 @@
 const prisma = require('../src/config/prisma')
 const bcrypt = require('bcryptjs')
+const { setupUserDefaults } = require('../src/services/UserService')
 
 async function main() {
     const adminEmail = 'admin@admin.com'
@@ -7,19 +8,23 @@ async function main() {
 
     console.log('🌱 Iniciando o seed...')
 
-    const admin = await prisma.user.upsert({
-        where: { email: adminEmail },
-        update: {},
-        create: {
-            email: adminEmail,
-            name: 'Admin do Sistema',
-            password_hash: passwordHash,
-            role: 'ADMIN',
-            is_active: true,
-        },
-    })
+    await prisma.$transaction(async (tx) => {
+        const admin = await tx.user.upsert({
+            where: { email: adminEmail },
+            update: {},
+            create: {
+                email: adminEmail,
+                name: 'Admin do Sistema',
+                password_hash: passwordHash,
+                role: 'ADMIN',
+                is_active: true,
+            },
+        })
 
-    console.log(`✅ Admin verificado: ${admin.email}`)
+        await setupUserDefaults(admin.id, tx)
+
+        console.log(`✅ Admin verificado: ${admin.email}`)
+    })
 }
 
 main()
