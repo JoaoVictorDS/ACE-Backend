@@ -5,9 +5,9 @@ const AppError = require('../utils/AppError')
 
 const WorkspaceMemberService = {
 
-    async _performMemberRemoval(tx, { membership }) {
+    async _performRemoval(tx, { membership }) {
         const { role, order, user_id, id, workspace_id } = membership
-        const isPrivilegedMember = role === 'OWNER' || role === 'ADMIN'
+        const isPrivilegedMember = PermissionService.isPrivileged(role)
 
         if (isPrivilegedMember) {
             const privilegedMembersCount = await tx.workspaceMember.count({
@@ -52,8 +52,8 @@ const WorkspaceMemberService = {
         })
     },
 
-    async upsertMember({ user, workspaceId, memberEmail, role }) {
-        const { creatorId } = await PermissionService.checkWorkspacePermission(workspaceId, user, PermissionService.LEVELS.ADMIN)
+    async upsert({ user, workspaceId, memberEmail, role }) {
+        const { creatorId } = await PermissionService.checkWorkspace(workspaceId, user, PermissionService.LEVELS.ADMIN)
         const userId = user.id
 
         const targetUser = await prisma.user.findUnique({
@@ -138,8 +138,8 @@ const WorkspaceMemberService = {
         return member
     },
 
-    async getMembersByWorkspace({ user, workspaceId }) {
-        await PermissionService.checkWorkspacePermission(workspaceId, user, PermissionService.LEVELS.VIEW)
+    async getByWorkspace({ user, workspaceId }) {
+        await PermissionService.checkWorkspace(workspaceId, user, PermissionService.LEVELS.VIEW)
 
         return await prisma.workspaceMember.findMany({
             where: { workspace_id: workspaceId },
@@ -148,8 +148,8 @@ const WorkspaceMemberService = {
         })
     },
 
-    async removeMember({ user, workspaceId, memberIdToRemove }) {
-        await PermissionService.checkWorkspacePermission(workspaceId, user, PermissionService.LEVELS.ADMIN)
+    async remove({ user, workspaceId, memberIdToRemove }) {
+        await PermissionService.checkWorkspace(workspaceId, user, PermissionService.LEVELS.ADMIN)
 
         const userId = user.id
         const isSelf = memberIdToRemove === userId
@@ -176,7 +176,7 @@ const WorkspaceMemberService = {
         if (isTargetOwner) throw new AppError('Não é possível remover o proprietário da área de trabalho!', 400)
 
         const result = await prisma.$transaction(async (tx) => {
-            return await this._performMemberRemoval(tx, { membership })
+            return await this._performRemoval(tx, { membership })
         })
 
         LogService.register({
@@ -191,7 +191,7 @@ const WorkspaceMemberService = {
         return result
     },
 
-    async moveWorkspace({ user, workspaceId, newOrder }) {
+    async move({ user, workspaceId, newOrder }) {
         const userId = user.id
         const currentMembership = await prisma.workspaceMember.findUnique({
             where: { user_id_workspace_id: { user_id: userId, workspace_id: workspaceId } }
@@ -236,7 +236,7 @@ const WorkspaceMemberService = {
         return result
     },
 
-    async leaveWorkspace({ user, workspaceId }) {
+    async leave({ user, workspaceId }) {
         const userId = user.id
         const membership = await prisma.workspaceMember.findUnique({
             where: { user_id_workspace_id: { user_id: userId, workspace_id: workspaceId } },
@@ -253,7 +253,7 @@ const WorkspaceMemberService = {
         if (!membership) throw new AppError('Vínculo entre usuário e área de trabalho não encontrada!', 404)
 
         const result = await prisma.$transaction(async (tx) => {
-            return await this._performMemberRemoval(tx, { membership })
+            return await this._performRemoval(tx, { membership })
         })
 
         LogService.register({

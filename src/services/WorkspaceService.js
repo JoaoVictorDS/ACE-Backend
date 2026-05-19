@@ -5,7 +5,7 @@ const AppError = require('../utils/AppError')
 
 const WorkspaceService = {
 
-    async createWorkspace({ user, name }) {
+    async create({ user, name }) {
         const userId = user.id
 
         const lastMemberEntry = await prisma.workspaceMember.findFirst({
@@ -42,7 +42,7 @@ const WorkspaceService = {
         return newWorkspace
     },
 
-    async getWorkspaceByUser({ user }) {
+    async getByUser({ user }) {
         const memberships = await prisma.workspaceMember.findMany({
             where: { user_id: user.id },
             include: {
@@ -66,8 +66,8 @@ const WorkspaceService = {
         }))
     },
 
-    async updateWorkspace({ user, workspaceId, name }) {
-        await PermissionService.checkWorkspacePermission(workspaceId, user, PermissionService.LEVELS.ADMIN)
+    async update({ user, workspaceId, name }) {
+        await PermissionService.checkWorkspace(workspaceId, user, PermissionService.LEVELS.ADMIN)
 
         const currentWorkspace = await prisma.workspace.findUnique({
             where: { id: workspaceId },
@@ -98,7 +98,7 @@ const WorkspaceService = {
         return updatedWorkspace
     },
 
-    async deleteWorkspace({ user, workspaceId, force = false }) {
+    async delete({ user, workspaceId, force = false }) {
         const [workspace, items] = await Promise.all([
             prisma.workspace.findUnique({
                 where: { id: workspaceId },

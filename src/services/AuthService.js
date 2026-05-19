@@ -55,7 +55,7 @@ const AuthService = {
         const token = jwt.sign(
             { id: user.id, role: user.role },
             secret,
-            { expiresIn: '15m' }
+            { expiresIn: '7d' }
         )
         const refreshToken = jwt.sign(
             { id: user.id },
@@ -92,7 +92,7 @@ const AuthService = {
             if (!user || !user.is_active) throw new AppError('Usuário inválido ou desativado!', 401)
 
             if (user.refresh_token !== oldRefreshToken) {
-                await this.refreshAccessToken(user.id)
+                await this.revokeAllSessions(user.id)
                 throw new AppError('Sessão inválida. Faça login novamente.', 401)
             }
 

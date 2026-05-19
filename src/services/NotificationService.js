@@ -7,11 +7,11 @@ const AppError = require('../utils/AppError')
 const NotificationService = {
 
     init() {
-        appEventEmitter.on('item.action', (payload) => this.handleItemNotification(payload))
+        appEventEmitter.on('item.action', (payload) => this.handleItem(payload))
         console.log('✅ Sistema de Notificações: Listeners ativos')
     },
 
-    async handleItemNotification(payload) {
+    async handleItem(payload) {
         const { actor, boardId, itemId, action, content, specificRecipients } = payload
 
         try {
@@ -108,7 +108,7 @@ const NotificationService = {
         }
     },
 
-    async getUserNotifications({ user, page = 1, limit = 20 }) {
+    async getByUser({ user, page = 1, limit = 20 }) {
         const userId = user.id
         const skip = (page - 1) * limit
         const [notifications, total] = await Promise.all([

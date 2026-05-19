@@ -10,7 +10,7 @@ const BoardMemberController = {
             ...req.params
         })
 
-        const boardMember = await BoardMemberService.upsertMember({
+        const boardMember = await BoardMemberService.upsert({
             user: req.user,
             boardId,
             memberEmail,
@@ -26,7 +26,7 @@ const BoardMemberController = {
     list: catchAsync(async (req, res, next) => {
         const { board_id: boardId } = listMembersSchema.parse(req.params)
 
-        const boardMembers = await BoardMemberService.getMembersByBoard({
+        const boardMembers = await BoardMemberService.getByBoard({
             user: req.user,
             boardId
         })
@@ -37,7 +37,7 @@ const BoardMemberController = {
     remove: catchAsync(async (req, res, next) => {
         const { board_id: boardId, member_id: memberIdToRemove } = removeMemberSchema.parse(req.params)
 
-        await BoardMemberService.removeMember({
+        await BoardMemberService.remove({
             user: req.user,
             boardId,
             memberIdToRemove
@@ -51,7 +51,7 @@ const BoardMemberController = {
     leave: catchAsync(async (req, res, next) => {
         const { board_id: boardId } = leaveBoardSchema.parse(req.params)
 
-        await BoardMemberService.leaveBoard({
+        await BoardMemberService.leave({
             user: req.user,
             boardId
         })

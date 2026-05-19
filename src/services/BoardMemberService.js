@@ -5,9 +5,9 @@ const AppError = require('../utils/AppError')
 
 const BoardMemberService = {
 
-    async _performMemberRemoval(tx, { membership }) {
+    async _performRemoval(tx, { membership }) {
         const { role, order, user_id, id, board: { workspace_id, id: board_id } } = membership
-        const isPrivilegedMember = role === 'OWNER' || role === 'ADMIN'
+        const isPrivilegedMember = PermissionService.isPrivileged(role)
 
         if (isPrivilegedMember) {
             const privilegedMembersCount = await tx.boardMember.count({
@@ -35,8 +35,8 @@ const BoardMemberService = {
         })
     },
 
-    async upsertMember({ user, boardId, memberEmail, role }) {
-        const { workspaceId, creatorId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
+    async upsert({ user, boardId, memberEmail, role }) {
+        const { workspaceId, creatorId } = await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
         const userId = user.id
 
         const targetUser = await prisma.user.findUnique({
@@ -128,11 +128,13 @@ const BoardMemberService = {
             })
         }
 
+        emitToRoom(`board:${boardId}`, 'board_member:changed', member)
+
         return member
     },
 
-    async getMembersByBoard({ user, boardId }) {
-        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.VIEW)
+    async getByBoard({ user, boardId }) {
+        await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.VIEW)
 
         return await prisma.boardMember.findMany({
             where: { board_id: boardId },
@@ -141,8 +143,8 @@ const BoardMemberService = {
         })
     },
 
-    async removeMember({ user, boardId, memberIdToRemove }) {
-        await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
+    async remove({ user, boardId, memberIdToRemove }) {
+        await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
 
         const userId = user.id
         const isSelf = memberIdToRemove === userId
@@ -168,7 +170,7 @@ const BoardMemberService = {
         if (isTargetOwner) throw new AppError('O proprietário do quadro não pode ser removido!', 400)
 
         const result = await prisma.$transaction(async (tx) => {
-            return await this._performMemberRemoval(tx, { membership })
+            return await this._performRemoval(tx, { membership })
         })
 
         LogService.register({
@@ -181,10 +183,12 @@ const BoardMemberService = {
             oldValue: `Membro removido: ${targetUserName}`
         })
 
+        emitToRoom(`board:${boardId}`, 'board_member:removed', { memberId: memberIdToRemove })
+
         return result
     },
 
-    async moveBoard({ user, boardId, newOrder }) {
+    async move({ user, boardId, newOrder }) {
         const userId = user.id
 
         const currentMembership = await prisma.boardMember.findUnique({
@@ -239,7 +243,7 @@ const BoardMemberService = {
         return result
     },
 
-    async leaveBoard({ user, boardId }) {
+    async leave({ user, boardId }) {
         const userId = user.id
         const membership = await prisma.boardMember.findUnique({
             where: { user_id_board_id: { user_id: userId, board_id: boardId } },
@@ -256,7 +260,7 @@ const BoardMemberService = {
         if (!membership) throw new AppError('Membro não encontrado neste quadro!', 404)
 
         const result = await prisma.$transaction(async (tx) => {
-            return await this._performMemberRemoval(tx, { membership })
+            return await this._performRemoval(tx, { membership })
         })
 
         LogService.register({
@@ -268,6 +272,8 @@ const BoardMemberService = {
             entityId: userId,
             oldValue: `${membership.user.name} saiu do quadro`
         })
+
+        emitToRoom(`board:${boardId}`, 'board_member:leaved', { memberId: userId })
 
         return result
     },

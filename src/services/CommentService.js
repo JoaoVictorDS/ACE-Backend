@@ -7,8 +7,8 @@ const AppError = require('../utils/AppError')
 
 const CommentService = {
 
-    async createComment({ user, itemId, content }) {
-        const { boardId, workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.ITEM, itemId, user, PermissionService.LEVELS.VIEW)
+    async create({ user, itemId, content }) {
+        const { boardId, workspaceId } = await PermissionService.check(PermissionService.TYPES.ITEM, itemId, user, PermissionService.LEVELS.VIEW)
         const userId = user.id
 
         const item = await prisma.item.findUnique({
@@ -39,7 +39,7 @@ const CommentService = {
             newValue: `Comentário criado: ${MentionService.sanitize(content, 50)}`
         })
 
-        MentionService.processMentions({
+        MentionService.process({
             actor: user,
             boardId,
             itemId,
@@ -56,11 +56,13 @@ const CommentService = {
             content: { itemTitle: item.title }
         })
 
+        emitToRoom(`board:${boardId}`, 'comment:created', newComment)
+
         return newComment
     },
 
-    async getCommentsByItem({ user, itemId }) {
-        await PermissionService.checkPermission(PermissionService.TYPES.ITEM, itemId, user, PermissionService.LEVELS.VIEW)
+    async getByItem({ user, itemId }) {
+        await PermissionService.check(PermissionService.TYPES.ITEM, itemId, user, PermissionService.LEVELS.VIEW)
 
         return await prisma.comment.findMany({
             where: { item_id: itemId },
@@ -73,7 +75,7 @@ const CommentService = {
         })
     },
 
-    async updateComment({ user, commentId, content }) {
+    async update({ user, commentId, content }) {
         const userId = user.id
         const comment = await prisma.comment.findUnique({
             where: { id: commentId },
@@ -82,7 +84,7 @@ const CommentService = {
         if (!comment) throw new AppError('Comentário não encontrado!', 404)
 
         const isOwner = comment.user_id === userId
-        if (!isOwner) throw new AppError('Você não tem permissão para editar este comentário!', 403)
+        if (!isOwner) throw new AppError('Você não tem permissão para editar este comentário.', 403)
 
         const { boardId, workspaceId } = await PermissionService._resolveBoardContext(PermissionService.TYPES.ITEM, comment.item_id)
 
@@ -107,7 +109,7 @@ const CommentService = {
             newValue: `Conteúdo: ${MentionService.sanitize(content, 50)}`
         })
 
-        MentionService.processMentions({
+        MentionService.process({
             actor: user,
             boardId,
             itemId: comment.item_id,
@@ -125,10 +127,12 @@ const CommentService = {
             content: { itemTitle: comment.item.title }
         })
 
+        emitToRoom(`board:${boardId}`, 'comment:updated', updatedComment)
+
         return updatedComment
     },
 
-    async deleteComment({ user, commentId }) {
+    async delete({ user, commentId }) {
         const comment = await prisma.comment.findUnique({
             where: { id: commentId },
             include: { item: { select: { title: true } } }
@@ -164,6 +168,8 @@ const CommentService = {
             action: 'COMMENT_DELETED',
             content: { itemTitle: comment.item.title }
         })
+
+        emitToRoom(`board:${boardId}`, 'comment:deleted', { commentId })
 
         return deletedComment
     },

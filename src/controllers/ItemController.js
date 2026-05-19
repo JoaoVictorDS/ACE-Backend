@@ -1,6 +1,6 @@
 const ItemService = require('../services/ItemService')
 const catchAsync = require('../utils/catchAsync')
-const { createItemSchema, updateItemSchema, moveItemSchema, deleteItemSchema, listItemsSchema } = require('../validators/itemValidator')
+const { createItemSchema, showItemSchema, updateItemSchema, moveItemSchema, deleteItemSchema } = require('../validators/itemValidator')
 
 const ItemController = {
 
@@ -10,7 +10,7 @@ const ItemController = {
             ...req.params
         })
 
-        const item = await ItemService.createItem({
+        const item = await ItemService.create({
             user: req.user,
             sectionId,
             ...otherFields
@@ -22,15 +22,15 @@ const ItemController = {
         })
     }),
 
-    list: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = listItemsSchema.parse(req.params)
+    show: catchAsync(async (req, res, next) => {
+        const { item_id: itemId } = showItemSchema.parse(req.params)
 
-        const sectionsWithItems = await ItemService.getItemsByBoard({
+        const item = await ItemService.getById({
             user: req.user,
-            boardId
+            itemId
         })
 
-        return res.status(200).json(sectionsWithItems)
+        return res.status(200).json(item)
     }),
 
     update: catchAsync(async (req, res, next) => {
@@ -39,7 +39,7 @@ const ItemController = {
             ...req.params
         })
 
-        const updatedItem = await ItemService.updateItem({
+        const updatedItem = await ItemService.update({
             user: req.user,
             itemId,
             ...otherFields
@@ -54,7 +54,7 @@ const ItemController = {
     delete: catchAsync(async (req, res, next) => {
         const { item_id: itemId } = deleteItemSchema.parse(req.params)
 
-        await ItemService.deleteItem({
+        await ItemService.delete({
             user: req.user,
             itemId
         })
@@ -70,7 +70,7 @@ const ItemController = {
             ...req.params
         })
 
-        const movedItem = await ItemService.moveItem({
+        const movedItem = await ItemService.move({
             user: req.user,
             itemId,
             newSectionId,

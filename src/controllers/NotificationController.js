@@ -6,7 +6,7 @@ const NotificationController = {
 
     list: catchAsync(async (req, res, next) => {
         const { limit, page } = listNotificationsSchema.parse(req.query)
-        const notifications = await NotificationService.getUserNotifications({
+        const notifications = await NotificationService.getByUser({
             user: req.user,
             limit,
             page

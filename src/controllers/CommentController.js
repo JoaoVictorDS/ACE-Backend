@@ -10,7 +10,7 @@ const CommentController = {
             ...req.params
         })
 
-        const comment = await CommentService.createComment({
+        const comment = await CommentService.create({
             user: req.user,
             itemId,
             ...otherFields
@@ -25,7 +25,7 @@ const CommentController = {
     list: catchAsync(async (req, res, next) => {
         const { item_id: itemId } = listCommentsSchema.parse(req.params)
 
-        const comments = await CommentService.getCommentsByItem({
+        const comments = await CommentService.getByItem({
             user: req.user,
             itemId
         })
@@ -39,7 +39,7 @@ const CommentController = {
             ...req.params
         })
 
-        const updatedComment = await CommentService.updateComment({
+        const updatedComment = await CommentService.update({
             user: req.user,
             commentId,
             ...otherFields
@@ -54,7 +54,7 @@ const CommentController = {
     delete: catchAsync(async (req, res, next) => {
         const { comment_id: commentId } = deleteCommentSchema.parse(req.params)
 
-        await CommentService.deleteComment({
+        await CommentService.delete({
             user: req.user,
             commentId
         })

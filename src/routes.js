@@ -15,6 +15,7 @@ const CommentController = require('./controllers/CommentController')
 const BoardMemberController = require('./controllers/BoardMemberController')
 const WorkspaceMemberController = require('./controllers/WorkspaceMemberController')
 const NotificationController = require('./controllers/NotificationController')
+const ItemValueController = require('./controllers/ItemValueController')
 
 // AUTH
 apiRouter.post('/login', AuthController.login)
@@ -37,9 +38,18 @@ apiRouter.patch('/workspaces/:workspace_id/move', authMiddleware, WorkspaceContr
 // BOARD
 apiRouter.post('/workspaces/:workspace_id/boards', authMiddleware, BoardController.create)
 apiRouter.get('/boards', authMiddleware, BoardController.list)
+apiRouter.get('/boards/:board_id', authMiddleware, BoardController.show)
 apiRouter.patch('/boards/:board_id', authMiddleware, BoardController.update)
 apiRouter.delete('/boards/:board_id', authMiddleware, BoardController.delete)
 apiRouter.patch('/boards/:board_id/move', authMiddleware, BoardController.move)
+
+// COLUMN
+apiRouter.post('/boards/:board_id/columns', authMiddleware, ColumnController.create)
+apiRouter.get('/boards/:board_id/columns', authMiddleware, ColumnController.list)
+apiRouter.patch('/columns/:column_id', authMiddleware, ColumnController.update)
+apiRouter.delete('/columns/:column_id', authMiddleware, ColumnController.delete)
+apiRouter.patch('/columns/:column_id/move', authMiddleware, ColumnController.move)
+apiRouter.patch('/columns/:column_id/restrictions', authMiddleware, ColumnController.updateRestrictions)
 
 // SECTION
 apiRouter.post('/boards/:board_id/sections', authMiddleware, SectionController.create)
@@ -48,19 +58,15 @@ apiRouter.patch('/sections/:section_id', authMiddleware, SectionController.updat
 apiRouter.delete('/sections/:section_id', authMiddleware, SectionController.delete)
 apiRouter.patch('/sections/:section_id/move', authMiddleware, SectionController.move)
 
-// COLUMN
-apiRouter.post('/boards/:board_id/columns', authMiddleware, ColumnController.create)
-apiRouter.get('/boards/:board_id/columns', authMiddleware, ColumnController.list)
-apiRouter.patch('/columns/:column_id', authMiddleware, ColumnController.update)
-apiRouter.delete('/columns/:column_id', authMiddleware, ColumnController.delete)
-apiRouter.patch('/columns/:column_id/move', authMiddleware, ColumnController.move)
-
 // ITEM
 apiRouter.post('/sections/:section_id/items', authMiddleware, ItemController.create)
-apiRouter.get('/boards/:board_id/items', authMiddleware, ItemController.list)
+apiRouter.get('/items/:item_id', authMiddleware, ItemController.show)
 apiRouter.patch('/items/:item_id', authMiddleware, ItemController.update)
 apiRouter.delete('/items/:item_id', authMiddleware, ItemController.delete)
 apiRouter.patch('/items/:item_id/move', authMiddleware, ItemController.move)
+
+// ITEM_VALUE
+apiRouter.patch('/items/:item_id/columns/:column_id', authMiddleware, ItemValueController.upsert)
 
 // COMMENT
 apiRouter.post('/items/:item_id/comments', authMiddleware, CommentController.create)
@@ -78,7 +84,7 @@ apiRouter.delete('/workspaces/:workspace_id/members', authMiddleware, WorkspaceM
 apiRouter.post('/boards/:board_id/members', authMiddleware, BoardMemberController.upsert)
 apiRouter.get('/boards/:board_id/members', authMiddleware, BoardMemberController.list)
 apiRouter.delete('/boards/:board_id/members/:member_id', authMiddleware, BoardMemberController.remove)
-apiRouter.delete('/boards/board_id/members', authMiddleware, BoardMemberController.leave)
+apiRouter.delete('/boards/:board_id/members', authMiddleware, BoardMemberController.leave)
 
 // LOG
 apiRouter.get('/boards/:board_id/logs', authMiddleware, BoardController.getHistory)

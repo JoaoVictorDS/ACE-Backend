@@ -2,7 +2,7 @@ const BoardService = require('../services/BoardService')
 const BoardMemberService = require('../services/BoardMemberService')
 const LogService = require('../services/LogService')
 const catchAsync = require('../utils/catchAsync')
-const { createBoardSchema, updateBoardSchema, moveBoardSchema, deleteBoardSchema, getHistorySchema } = require('../validators/boardValidator')
+const { createBoardSchema, showBoardSchema, updateBoardSchema, moveBoardSchema, deleteBoardSchema, getHistorySchema } = require('../validators/boardValidator')
 
 const BoardController = {
 
@@ -12,7 +12,7 @@ const BoardController = {
             ...req.params
         })
 
-        const board = await BoardService.createBoard({
+        const board = await BoardService.create({
             user: req.user,
             workspaceId,
             ...otherFields
@@ -25,11 +25,22 @@ const BoardController = {
     }),
 
     list: catchAsync(async (req, res, next) => {
-        const boards = await BoardService.getBoardsByUser({
+        const boards = await BoardService.getByUser({
             user: req.user
         })
 
         return res.status(200).json(boards)
+    }),
+
+    show: catchAsync(async (req, res, next) => {
+        const { board_id: boardId } = showBoardSchema.parse(req.params)
+
+        const board = await BoardService.getFull({
+            user: req.user,
+            boardId
+        })
+
+        return res.status(200).json(board)
     }),
 
     update: catchAsync(async (req, res, next) => {
@@ -38,7 +49,7 @@ const BoardController = {
             ...req.params
         })
 
-        const updatedBoard = await BoardService.updateBoard({
+        const updatedBoard = await BoardService.update({
             user: req.user,
             boardId,
             ...otherFields,
@@ -56,7 +67,7 @@ const BoardController = {
             ...req.query
         })
 
-        await BoardService.deleteBoard({
+        await BoardService.delete({
             user: req.user,
             boardId,
             force
@@ -73,7 +84,7 @@ const BoardController = {
             ...req.params
         })
 
-        const movedMembership = await BoardMemberService.moveBoard({
+        const movedMembership = await BoardMemberService.move({
             user: req.user,
             boardId,
             newOrder
@@ -88,7 +99,7 @@ const BoardController = {
     getHistory: catchAsync(async (req, res, next) => {
         const { board_id: boardId } = getHistorySchema.parse(req.params)
 
-        const logs = await LogService.getLogsByBoard({
+        const logs = await LogService.getByBoard({
             user: req.user,
             boardId
         })

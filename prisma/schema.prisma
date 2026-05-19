@@ -67,14 +67,15 @@ model User {
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
-  created_workspaces Workspace[]       @relation("WorkspaceCreator")
-  created_boards     Board[]           @relation("BoardCreator")
-  workspace_members  WorkspaceMember[]
-  board_members      BoardMember[]
-  assigned_items     ItemAssignee[]
-  item_updates       ItemUpdate[]
-  comments           Comment[]
-  activities         ActivityLog[]
+  created_workspaces  Workspace[]         @relation("WorkspaceCreator")
+  created_boards      Board[]             @relation("BoardCreator")
+  workspace_members   WorkspaceMember[]
+  board_members       BoardMember[]
+  assigned_items      ItemAssignee[]
+  item_updates        ItemUpdate[]
+  comments            Comment[]
+  activities          ActivityLog[]
+  column_restrictions ColumnRestriction[]
 
   notifications_received Notification[]            @relation("Recipient")
   notifications_sent     Notification[]            @relation("Actor")
@@ -139,6 +140,9 @@ model Board {
   workspace_id Int       @map("workspace_id")
   workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
 
+  item_label_singular String @default("Item")
+  item_label_plural   String @default("Itens")
+
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
@@ -181,8 +185,26 @@ model Column {
 
   item_values    ItemValue[]
   item_assignees ItemAssignee[]
+  restrictions   ColumnRestriction[]
 
   @@map("columns")
+}
+
+model ColumnRestriction {
+  id         Int        @id @default(autoincrement())
+  column_id  Int        @map("column_id")
+  user_id    Int?       @map("user_id")
+  board_role BoardRole? @map("board_role")
+  can_view   Boolean    @default(true)
+  can_edit   Boolean    @default(false)
+
+  column Column @relation(fields: [column_id], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  @@map("column_restrictions")
 }
 
 model Item {

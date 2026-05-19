@@ -1,5 +1,3 @@
-const listFormatter = new Intl.ListFormat('pt-BR', { style: 'long', type: 'conjunction' })
-
 const NotificationDictionary = {
 
     'ITEM_CREATED': (actorName, meta) =>
@@ -8,54 +6,32 @@ const NotificationDictionary = {
     'ITEM_UPDATED': (actorName, meta, recipientId) => {
         const { itemTitle, changes } = meta || {}
 
-        if (!Array.isArray(changes) || changes.length === 0) {
-            return `**${actorName}** editou a tarefa **${itemTitle}**`
+        if (!changes || typeof changes !== 'object') {
+            return `**${actorName}** atualizou a tarefa **${itemTitle}**`
         }
 
-        const titleChange = changes.find(c => c.field === 'system_title')
-        const columnChanges = changes.filter(c => c.field !== 'system_title')
+        const { field, label, oldValue, newValue, isAssignee, addedUserIds, removedUserIds } = changes
 
-        if (titleChange && columnChanges.length === 0) {
-            return `**${actorName}** renomeou a tarefa de "${titleChange.oldValue}" para **"${titleChange.newValue}"**`
+        if (field === 'system_title') {
+            return `**${actorName}** renomeou a tarefa de "${oldValue}" para **"${newValue}"**`
         }
 
-        if (!titleChange && columnChanges.length === 1 && columnChanges[0].isAssignee) {
-            const c = columnChanges[0]
-
-            if (recipientId && c.removedUserIds?.includes(recipientId)) {
+        if (isAssignee) {
+            if (recipientId && removedUserIds?.includes(recipientId)) {
                 return `**${actorName}** removeu **você** da tarefa **${itemTitle}**`
             }
 
-            if (recipientId && c.addedUserIds?.includes(recipientId)) {
+            if (recipientId && addedUserIds?.includes(recipientId)) {
                 return `**${actorName}** designou **você** para a tarefa **${itemTitle}**`
             }
 
-            let msgParts = []
-            if (c.addedUserNames?.length > 0) {
-                msgParts.push(`adicionou **${listFormatter.format(c.addedUserNames)}**`)
-            }
-            if (c.removedUserNames?.length > 0) {
-                msgParts.push(`removeu **${listFormatter.format(c.removedUserNames)}**`)
-            }
-
-            return msgParts.length > 0
-                ? `**${actorName}** ${msgParts.join(' e ')} em **${itemTitle}**`
-                : `**${actorName}** editou os responsáveis em **${itemTitle}**` // Fallback seguro
+            return `**${actorName}** alterou **${label}** de "${oldValue}" para "${newValue}" em **${itemTitle}**`
         }
 
-        if (!titleChange && columnChanges.length > 0) {
-            if (columnChanges.length === 1) {
-                const c = columnChanges[0]
-                return `**${actorName}** alterou **${c.label}** de "${c.oldValue}" para "${c.newValue}" em **${itemTitle}**`
-            }
-
-            const labels = [...new Set(columnChanges.map(c => c.label))]
-            return `**${actorName}** atualizou **${listFormatter.format(labels)}** na tarefa **${itemTitle}**`
-        }
-
-        if (titleChange && columnChanges.length > 0) {
-            const labels = [...new Set(columnChanges.map(c => c.label))]
-            return `**${actorName}** renomeou a tarefa **${itemTitle}** para **"${titleChange.newValue}"** e atualizou **${listFormatter.format(labels)}**`
+        if (field === 'custom_column') {
+            const safeOld = oldValue || 'vazio'
+            const safeNew = newValue || 'vazio'
+            return `**${actorName}** alterou **${label}** de "${safeOld}" para "${safeNew}" em **${itemTitle}**`
         }
 
         return `**${actorName}** atualizou a tarefa **${itemTitle}**`
@@ -74,7 +50,6 @@ const NotificationDictionary = {
         if (meta.context === 'comment') {
             return `**${actorName}** mencionou você em um comentário na tarefa **${meta.itemTitle}**`
         }
-
         return `**${actorName}** mencionou você na tarefa **${meta.itemTitle}**`
     },
 

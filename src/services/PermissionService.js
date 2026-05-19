@@ -16,11 +16,18 @@ const PermissionService = {
         COLUMN: 'COLUMN',
         ITEM: 'ITEM'
     },
+
     LEVELS: {
         VIEW: 'VIEW',
         EDIT: 'EDIT',
         ADMIN: 'ADMIN',
         OWNER: 'OWNER'
+    },
+
+    isPrivileged(role) {
+        if (!role) return false
+
+        return this.ROLES.ADMIN.includes(role.toUpperCase())
     },
 
     async _resolveBoardContext(type, entityId) {
@@ -70,7 +77,7 @@ const PermissionService = {
         };
     },
 
-    async checkPermission(type, entityId, user, actionLevel = 'EDIT') {
+    async check(type, entityId, user, actionLevel = 'EDIT') {
         const userId = user.id
         const isSystemAdmin = user.role === 'ADMIN'
 
@@ -93,7 +100,7 @@ const PermissionService = {
         }
     },
 
-    async checkWorkspacePermission(workspaceId, user, actionLevel = 'VIEW') {
+    async checkWorkspace(workspaceId, user, actionLevel = 'VIEW') {
         const userId = user.id
         const isSystemAdmin = user.role === 'ADMIN'
         const workspace = await prisma.workspace.findUnique({

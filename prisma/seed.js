@@ -1,6 +1,6 @@
 const prisma = require('../src/config/prisma')
 const bcrypt = require('bcryptjs')
-const { setupUserDefaults } = require('../src/services/UserService')
+const { setupDefaults } = require('../src/services/UserService')
 
 async function main() {
     const adminEmail = 'admin@admin.com'
@@ -21,7 +21,7 @@ async function main() {
             },
         })
 
-        await setupUserDefaults(admin.id, tx)
+        await setupDefaults(admin.id, tx)
 
         console.log(`✅ Admin verificado: ${admin.email}`)
     })

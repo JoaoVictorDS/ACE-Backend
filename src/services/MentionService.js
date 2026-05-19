@@ -15,7 +15,7 @@ const MentionService = {
         return cleanText
     },
 
-    async processMentions({ actor, boardId, itemId, itemTitle, text, oldText = '', context = 'description' }) {
+    async process({ actor, boardId, itemId, itemTitle, text, oldText = '', context = 'description' }) {
         try {
             if (!text || typeof text !== 'string') return
 

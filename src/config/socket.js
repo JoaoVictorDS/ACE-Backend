@@ -1,6 +1,5 @@
 const { Server } = require('socket.io')
 const AuthService = require('../services/AuthService')
-const AppError = require('../utils/AppError')
 
 let io
 
@@ -18,7 +17,6 @@ const initSocket = (httpServer) => {
             const user = await AuthService.validateToken(token)
 
             socket.user = user
-
             next()
         } catch (error) {
             next(error)
@@ -29,8 +27,17 @@ const initSocket = (httpServer) => {
         const userId = socket.user.id;
 
         socket.join(`user:${userId}`)
-
         console.log(`⚡ Socket: Usuário ${userId} está conectado e ouvindo na sala user:${userId}`)
+
+        socket.on('board:join', (boardId) => {
+            socket.join(`board:${boardId}`)
+            console.log(`👀 Usuário ${userId} abriu o quadro ${boardId}`)
+        })
+
+        socket.on('board:leave', (boardId) => {
+            socket.leave(`board:${boardId}`)
+            console.log(`👋 Usuário ${userId} fechou o quadro ${boardId}`)
+        })
 
         socket.on('disconnect', () => {
             console.log(`🔌 Socket: Usuário ${userId} foi desconectado`)
@@ -45,7 +52,17 @@ const getIO = () => {
     return io
 }
 
+const emitToRoom = (room, event, payload) => {
+    try {
+        if (!io) throw new Error('Socket.io não inicializado')
+        io.to(room).emit(event, payload)
+    } catch (error) {
+        console.error(`⚠️ Erro ao emitir socket para [${room}] no evento [${event}]:`, error.message)
+    }
+}
+
 module.exports = {
     initSocket,
-    getIO
+    getIO,
+    emitToRoom
 }

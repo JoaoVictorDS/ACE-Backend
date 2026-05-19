@@ -10,7 +10,7 @@ const WorkspaceMemberController = {
             ...req.params
         })
 
-        const member = await WorkspaceMemberService.upsertMember({
+        const member = await WorkspaceMemberService.upsert({
             user: req.user,
             workspaceId,
             memberEmail,
@@ -26,7 +26,7 @@ const WorkspaceMemberController = {
     list: catchAsync(async (req, res, next) => {
         const { workspace_id: workspaceId } = listMemberSchema.parse(req.params)
 
-        const members = await WorkspaceMemberService.getMembersByWorkspace({
+        const members = await WorkspaceMemberService.getByWorkspace({
             user: req.user,
             workspaceId
         })
@@ -37,7 +37,7 @@ const WorkspaceMemberController = {
     remove: catchAsync(async (req, res, next) => {
         const { workspace_id: workspaceId, member_id: memberIdToRemove } = removeMemberSchema.parse(req.params)
 
-        await WorkspaceMemberService.removeMember({
+        await WorkspaceMemberService.remove({
             user: req.user,
             workspaceId,
             memberIdToRemove
@@ -51,7 +51,7 @@ const WorkspaceMemberController = {
     leave: catchAsync(async (req, res, next) => {
         const { workspace_id: workspaceId } = leaveWorkspaceSchema.parse(req.params)
 
-        await WorkspaceMemberService.leaveWorkspace({
+        await WorkspaceMemberService.leave({
             user: req.user,
             workspaceId
         })

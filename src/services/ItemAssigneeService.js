@@ -2,7 +2,7 @@ const AppError = require('../utils/AppError')
 
 const ItemAssigneeService = {
 
-    async syncAssignees(tx, { itemId, boardId, columnId, oldValue, newValue }) {
+    async sync(tx, { itemId, boardId, columnId, oldValue, newValue }) {
         const parseIds = (val) => {
             if (!val) return []
             return String(val).split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id))

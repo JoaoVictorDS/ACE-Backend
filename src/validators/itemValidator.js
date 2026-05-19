@@ -22,17 +22,14 @@ const createItemSchema = z.object({
     title
 })
 
+const showItemSchema = z.object({
+    item_id
+})
+
 const updateItemSchema = z.object({
     item_id,
 
-    title: title.optional(),
-
-    values: z.record(
-        z.string().min(1, 'O ID da Coluna não pode ser vazio'),
-        z.any()
-    ).optional()
-}).refine(data => data.title !== undefined || (data.values !== undefined && Object.keys(data.values).length > 0), {
-    error: 'Você deve informar ao menos o "title" ou "values" para atualizar o item'
+    title: title.optional()
 })
 
 const moveItemSchema = z.object({
@@ -49,22 +46,14 @@ const moveItemSchema = z.object({
     error: 'Você deve informar ao menos a "new_section_id" ou a "new_order" para mover o item'
 })
 
-const listItemsSchema = z.object({
-    board_id: z.coerce.number({
-        error: (issue) => issue.input === undefined
-            ? 'O parâmetro "board_id" é obrigatório'
-            : 'O ID do Quadro deve ser number'
-    }).gt(0, 'O ID do Quadro não pode ser menor ou igual a 0')
-})
-
 const deleteItemSchema = z.object({
     item_id
 })
 
 module.exports = {
     createItemSchema,
+    showItemSchema,
     updateItemSchema,
     moveItemSchema,
-    listItemsSchema,
     deleteItemSchema
 }

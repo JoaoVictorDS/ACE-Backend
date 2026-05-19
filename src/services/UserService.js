@@ -5,7 +5,7 @@ const AppError = require('../utils/AppError')
 
 const UserService = {
 
-    async setupUserDefaults(userId, tx = prisma) {
+    async setupDefaults(userId, tx = prisma) {
         const defaultNotificationSettings = [
             { user_id: userId, action_type: NOTIFICATION_TYPES.ITEM_CREATED, enabled: true },
             { user_id: userId, action_type: NOTIFICATION_TYPES.ITEM_DELETED, enabled: true },
@@ -25,7 +25,7 @@ const UserService = {
         })
     },
 
-    async createUser({ name, email, password, role }) {
+    async create({ name, email, password, role }) {
         const existingUser = await prisma.user.findUnique({
             where: { email }
         })
@@ -43,7 +43,7 @@ const UserService = {
                 },
             })
 
-            await this.setupUserDefaults(user.id, tx)
+            await this.setupDefaults(user.id, tx)
 
             return {
                 id: user.id,
@@ -56,7 +56,7 @@ const UserService = {
         return result
     },
 
-    async getUsers() {
+    async getAll() {
         return await prisma.user.findMany({
             where: { is_active: true },
             select: {
@@ -69,7 +69,7 @@ const UserService = {
         })
     },
 
-    async updateUser({ requesterUser, targetUserId, name, email, password, role }) {
+    async update({ requesterUser, targetUserId, name, email, password, role }) {
         const user = await prisma.user.findUnique({
             where: { id: targetUserId }
         })
@@ -126,7 +126,7 @@ const UserService = {
         })
     },
 
-    async deleteUser({ requesterUser, targetUserId }) {
+    async delete({ requesterUser, targetUserId }) {
         const isSelf = targetUserId === requesterUser.id
         if (isSelf) throw new AppError('Você não pode desativar sua própria conta!', 403)
 

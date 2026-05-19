@@ -22,6 +22,10 @@ const createBoardSchema = z.object({
     }).gt(0, 'O ID da Área de Trabalho não pode ser menor ou igual a 0')
 })
 
+const showBoardSchema = z.object({
+    board_id
+})
+
 const updateBoardSchema = z.object({
     board_id,
     name
@@ -52,6 +56,7 @@ const getHistorySchema = z.object({
 
 module.exports = {
     createBoardSchema,
+    showBoardSchema,
     updateBoardSchema,
     moveBoardSchema,
     deleteBoardSchema,

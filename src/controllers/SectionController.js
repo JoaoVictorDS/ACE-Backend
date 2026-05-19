@@ -10,7 +10,7 @@ const SectionController = {
             ...req.params
         })
 
-        const section = await SectionService.createSection({
+        const section = await SectionService.create({
             user: req.user,
             boardId,
             ...otherFields
@@ -25,7 +25,7 @@ const SectionController = {
     list: catchAsync(async (req, res, next) => {
         const { board_id: boardId } = listSectionsSchema.parse(req.params)
 
-        const sections = await SectionService.getSectionsByBoard({
+        const sections = await SectionService.getByBoard({
             user: req.user,
             boardId
         })
@@ -39,7 +39,7 @@ const SectionController = {
             ...req.params
         })
 
-        const updatedSection = await SectionService.updateSection({
+        const updatedSection = await SectionService.update({
             user: req.user,
             sectionId,
             ...otherFields
@@ -57,7 +57,7 @@ const SectionController = {
             ...req.query
         })
 
-        await SectionService.deleteSection({
+        await SectionService.delete({
             user: req.user,
             sectionId,
             force
@@ -74,7 +74,7 @@ const SectionController = {
             ...req.params
         })
 
-        const movedSection = await SectionService.moveSection({
+        const movedSection = await SectionService.move({
             user: req.user,
             sectionId,
             newOrder

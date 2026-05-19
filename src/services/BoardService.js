@@ -1,12 +1,13 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
 const LogService = require('./LogService')
+const { emitToRoom } = require('../config/socket')
 const AppError = require('../utils/AppError')
 
 const BoardService = {
 
-    async createBoard({ user, workspaceId, name }) {
-        await PermissionService.checkWorkspacePermission(workspaceId, user, PermissionService.LEVELS.ADMIN)
+    async create({ user, workspaceId, name }) {
+        await PermissionService.checkWorkspace(workspaceId, user, PermissionService.LEVELS.ADMIN)
 
         const userId = user.id
 
@@ -49,7 +50,7 @@ const BoardService = {
         return newBoard
     },
 
-    async getBoardsByUser({ user }) {
+    async getByUser({ user }) {
         const memberships = await prisma.boardMember.findMany({
             where: { user_id: user.id },
             include: {
@@ -74,8 +75,68 @@ const BoardService = {
         }))
     },
 
-    async updateBoard({ user, boardId, name }) {
-        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
+    async getFull({ user, boardId }) {
+        const board = await prisma.board.findUnique({
+            where: { id: boardId },
+            include: {
+                board_members: {
+                    where: { user_id: user.id }
+                },
+                columns: {
+                    orderBy: [{ order: 'asc' }, { id: 'asc' }],
+                    include: { restrictions: true }
+                },
+                sections: {
+                    orderBy: [{ order: 'asc' }, { id: 'asc' }],
+                    include: {
+                        items: {
+                            orderBy: [{ order: 'asc' }, { id: 'asc' }],
+                            include: { item_values: true }
+                        }
+                    }
+                },
+            }
+        })
+        if (!board) throw new AppError('Quadro não encontrado', 404)
+
+        const { board_members, ...boardData } = board
+        const isSystemAdmin = user.role === 'ADMIN'
+        const membership = board_members[0]
+
+        if (!isSystemAdmin && !membership) throw new AppError('Acesso negado: usuário não é membro deste quadro.', 403)
+
+        const userBoardRole = membership?.role
+        const isPrivilegedMember = isSystemAdmin || PermissionService.isPrivileged(userBoardRole)
+
+        const visibleColumns = boardData.columns.filter(col => {
+            if (isPrivilegedMember) return true
+
+            const restriction = col.restrictions.find(r => r.user_id === user.id || r.board_role === userBoardRole)
+
+            return !(restriction && restriction.can_view === false)
+        })
+
+        const visibleColumnIds = new Set(visibleColumns.map(c => c.id))
+
+        const cleanSections = boardData.sections.map(section => ({
+            ...section,
+            items: section.items.map(item => ({
+                ...item,
+                item_values: item.item_values.filter(val =>
+                    visibleColumnIds.has(val.column_id)
+                )
+            }))
+        }))
+
+        return {
+            ...boardData,
+            columns: visibleColumns,
+            sections: cleanSections
+        }
+    },
+
+    async update({ user, boardId, name }) {
+        const { workspaceId } = await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
 
         const currentBoard = await prisma.board.findUnique({
             where: { id: boardId },
@@ -102,11 +163,13 @@ const BoardService = {
             newValue: `Nome: ${name}`
         })
 
+        emitToRoom(`board:${boardId}`, 'board:updated', updatedBoard)
+
         return updatedBoard
     },
 
-    async deleteBoard({ user, boardId, force = false }) {
-        const { workspaceId } = await PermissionService.checkPermission(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.OWNER)
+    async delete({ user, boardId, force = false }) {
+        const { workspaceId } = await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.OWNER)
 
         const [board, items] = await Promise.all([
             prisma.board.findUnique({
@@ -156,6 +219,8 @@ const BoardService = {
             })
 
         })
+
+        emitToRoom(`board:${boardId}`, 'board:deleted', { boardId })
 
         return result
     },
