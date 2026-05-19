@@ -14,10 +14,7 @@ const WorkspaceController = {
             name
         })
 
-        return res.status(201).json({
-            message: 'Área de Trabalho criada com sucesso!',
-            workspace
-        })
+        return res.status(201).json(workspace)
     }),
 
     list: catchAsync(async (req, res, next) => {
@@ -40,10 +37,7 @@ const WorkspaceController = {
             ...otherFields
         })
 
-        return res.status(200).json({
-            message: 'Área de Trabalho atualizada com sucesso!',
-            updatedWorkspace
-        })
+        return res.status(200).json(updatedWorkspace)
     }),
 
     delete: catchAsync(async (req, res, next) => {
@@ -58,9 +52,7 @@ const WorkspaceController = {
             force
         })
 
-        return res.status(200).json({
-            message: 'Área de Trabalhado excluída com sucesso!'
-        })
+        return res.status(204).send()
     }),
 
     move: catchAsync(async (req, res, next) => {
@@ -75,10 +67,7 @@ const WorkspaceController = {
             newOrder,
         })
 
-        return res.status(200).json({
-            message: 'Ordem da Área de Trabalho atualizada com sucesso!',
-            movedWorkspaceship
-        })
+        return res.status(200).json(movedWorkspaceship)
     }),
 
     getHistory: catchAsync(async (req, res, next) => {

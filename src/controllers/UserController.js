@@ -11,10 +11,7 @@ const UserController = {
             ...fields
         })
 
-        return res.status(201).json({
-            message: 'Usuário criado com sucesso!',
-            user
-        })
+        return res.status(201).json(user)
     }),
 
     list: catchAsync(async (req, res, next) => {
@@ -35,10 +32,7 @@ const UserController = {
             ...otherFields
         })
 
-        return res.status(200).json({
-            message: 'Usuário atualizado com sucesso!',
-            updatedUser
-        })
+        return res.status(200).json(updatedUser)
     }),
 
     delete: catchAsync(async (req, res, next) => {
@@ -49,9 +43,7 @@ const UserController = {
             targetUserId
         })
 
-        return res.status(200).json({
-            message: 'Usuário desativado com sucesso!'
-        })
+        return res.status(204).send()
     }),
 
 }

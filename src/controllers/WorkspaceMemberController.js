@@ -17,10 +17,7 @@ const WorkspaceMemberController = {
             ...otherFields
         })
 
-        return res.status(200).json({
-            message: 'Permissão de membro atualizada/adicionada com sucesso!',
-            member
-        })
+        return res.status(200).json(member)
     }),
 
     list: catchAsync(async (req, res, next) => {
@@ -43,9 +40,7 @@ const WorkspaceMemberController = {
             memberIdToRemove
         })
 
-        return res.status(200).json({
-            message: 'Membro removido com sucesso!'
-        })
+        return res.status(204).send()
     }),
 
     leave: catchAsync(async (req, res, next) => {
@@ -56,9 +51,7 @@ const WorkspaceMemberController = {
             workspaceId
         })
 
-        return res.status(200).json({
-            message: 'Você saiu da área de trabalho com sucesso!'
-        })
+        return res.status(204).send()
     }),
 
 }

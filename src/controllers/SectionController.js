@@ -16,10 +16,7 @@ const SectionController = {
             ...otherFields
         })
 
-        return res.status(201).json({
-            message: 'Seção criada com sucesso!',
-            section
-        })
+        return res.status(201).json(section)
     }),
 
     list: catchAsync(async (req, res, next) => {
@@ -45,10 +42,7 @@ const SectionController = {
             ...otherFields
         })
 
-        return res.status(200).json({
-            message: 'Seção atualizada com sucesso!',
-            updatedSection
-        })
+        return res.status(200).json(updatedSection)
     }),
 
     delete: catchAsync(async (req, res, next) => {
@@ -63,9 +57,7 @@ const SectionController = {
             force
         })
 
-        return res.status(200).json({
-            message: 'Seção excluída com sucesso!'
-        })
+        return res.status(204).send()
     }),
 
     move: catchAsync(async (req, res, next) => {
@@ -80,10 +72,7 @@ const SectionController = {
             newOrder
         })
 
-        return res.status(200).json({
-            message: 'Ordem da seção atualizada com sucesso!',
-            movedSection
-        })
+        return res.status(200).json(movedSection)
     }),
 
 }

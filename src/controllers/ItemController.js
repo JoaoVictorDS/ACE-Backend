@@ -16,10 +16,7 @@ const ItemController = {
             ...otherFields
         })
 
-        return res.status(201).json({
-            message: 'Tarefa criada com sucesso!',
-            item
-        })
+        return res.status(201).json(item)
     }),
 
     show: catchAsync(async (req, res, next) => {
@@ -45,10 +42,7 @@ const ItemController = {
             ...otherFields
         })
 
-        return res.status(200).json({
-            message: 'Tarefa atualizada com sucesso!',
-            updatedItem
-        })
+        return res.status(200).json(updatedItem)
     }),
 
     delete: catchAsync(async (req, res, next) => {
@@ -59,9 +53,7 @@ const ItemController = {
             itemId
         })
 
-        return res.status(200).json({
-            message: 'Tarefa excluída com sucesso!'
-        })
+        return res.status(204).send()
     }),
 
     move: catchAsync(async (req, res, next) => {
@@ -77,10 +69,7 @@ const ItemController = {
             newOrder
         })
 
-        return res.status(200).json({
-            message: 'Ordem da tarefa atualizada com sucesso!',
-            movedItem
-        })
+        return res.status(200).json(movedItem)
     }),
 
 }

@@ -16,10 +16,7 @@ const CommentController = {
             ...otherFields
         })
 
-        return res.status(201).json({
-            message: 'Comentário criado com sucesso!',
-            comment
-        })
+        return res.status(201).json(comment)
     }),
 
     list: catchAsync(async (req, res, next) => {
@@ -45,10 +42,7 @@ const CommentController = {
             ...otherFields
         })
 
-        return res.status(200).json({
-            message: 'Comentário atualizado com sucesso!',
-            updatedComment
-        })
+        return res.status(200).json(updatedComment)
     }),
 
     delete: catchAsync(async (req, res, next) => {
@@ -59,9 +53,7 @@ const CommentController = {
             commentId
         })
 
-        return res.status(200).json({
-            message: 'Comentário excluído com sucesso!'
-        })
+        return res.status(204).send()
     }),
 
 }

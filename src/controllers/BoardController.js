@@ -18,10 +18,7 @@ const BoardController = {
             ...otherFields
         })
 
-        return res.status(201).json({
-            message: 'Quadro criado com sucesso!',
-            board
-        })
+        return res.status(201).json(board)
     }),
 
     list: catchAsync(async (req, res, next) => {
@@ -55,10 +52,7 @@ const BoardController = {
             ...otherFields,
         })
 
-        return res.status(200).json({
-            message: 'Quadro atualizado com sucesso!',
-            updatedBoard
-        })
+        return res.status(200).json(updatedBoard)
     }),
 
     delete: catchAsync(async (req, res, next) => {
@@ -73,9 +67,7 @@ const BoardController = {
             force
         })
 
-        return res.status(200).json({
-            message: 'Quadro excluído com sucesso!'
-        })
+        return res.status(204).send()
     }),
 
     move: catchAsync(async (req, res, next) => {
@@ -90,10 +82,7 @@ const BoardController = {
             newOrder
         })
 
-        return res.status(200).json({
-            message: 'Ordem do quadro atualizada com sucesso!',
-            movedMembership
-        })
+        return res.status(200).json(movedMembership)
     }),
 
     getHistory: catchAsync(async (req, res, next) => {

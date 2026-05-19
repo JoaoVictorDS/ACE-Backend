@@ -17,10 +17,7 @@ const BoardMemberController = {
             ...otherFields
         })
 
-        return res.status(200).json({
-            message: 'Permissão de membro atualizada/adicionada com sucesso!',
-            boardMember
-        })
+        return res.status(200).json(boardMember)
     }),
 
     list: catchAsync(async (req, res, next) => {
@@ -43,9 +40,7 @@ const BoardMemberController = {
             memberIdToRemove
         })
 
-        return res.status(200).json({
-            message: 'Membro removido com sucesso!'
-        })
+        return res.status(204).send()
     }),
 
     leave: catchAsync(async (req, res, next) => {
@@ -56,9 +51,7 @@ const BoardMemberController = {
             boardId
         })
 
-        return res.status(200).json({
-            message: 'Você saiu do quadro com sucesso!'
-        })
+        return res.status(204).send()
     }),
 
 }

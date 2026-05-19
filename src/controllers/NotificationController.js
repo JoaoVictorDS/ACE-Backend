@@ -16,16 +16,14 @@ const NotificationController = {
     }),
 
     markAsRead: catchAsync(async (req, res, next) => {
-        const { notification_id } = markAsReadSchema.parse(req.params)
+        const { notification_id: notificationId } = markAsReadSchema.parse(req.params)
+
         const updatedNotification = await NotificationService.markAsRead({
             user: req.user,
-            notificationId: notification_id
+            notificationId
         })
 
-        return res.status(204).json({
-            message: 'Notificação marcada como lida com sucesso!',
-            updatedNotification
-        })
+        return res.status(200).json(updatedNotification)
     })
 
 }
