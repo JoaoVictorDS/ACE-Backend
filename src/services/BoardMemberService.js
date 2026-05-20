@@ -1,7 +1,8 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
 const LogService = require('./LogService')
-const AppError = require('../utils/AppError')
+const { emitToRoom } = require('../config/socket')
+const AppError = require('../errors/AppError')
 
 const BoardMemberService = {
 

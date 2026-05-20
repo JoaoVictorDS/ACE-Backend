@@ -1,4 +1,4 @@
-const AppError = require("../utils/AppError")
+const AppError = require("../errors/AppError")
 
 function adminMiddleware(req, res, next) {
     const { user } = req

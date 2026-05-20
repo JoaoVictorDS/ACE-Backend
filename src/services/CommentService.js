@@ -3,7 +3,9 @@ const PermissionService = require('./PermissionService')
 const LogService = require('./LogService')
 const MentionService = require('./MentionService')
 const appEventEmitter = require('../config/events')
-const AppError = require('../utils/AppError')
+const { emitToRoom } = require('../config/socket')
+const { NOTIFICATION_TYPES } = require('../utils/constants')
+const AppError = require('../errors/AppError')
 
 const CommentService = {
 
@@ -52,7 +54,7 @@ const CommentService = {
             actor: user,
             boardId,
             itemId,
-            action: 'COMMENT_CREATED',
+            action: NOTIFICATION_TYPES.COMMENT_CREATED,
             content: { itemTitle: item.title }
         })
 
@@ -123,7 +125,7 @@ const CommentService = {
             actor: user,
             boardId,
             itemId: comment.item_id,
-            action: 'COMMENT_UPDATED',
+            action: NOTIFICATION_TYPES.COMMENT_UPDATED,
             content: { itemTitle: comment.item.title }
         })
 
@@ -165,7 +167,7 @@ const CommentService = {
             actor: user,
             boardId,
             itemId: comment.item_id,
-            action: 'COMMENT_DELETED',
+            action: NOTIFICATION_TYPES.COMMENT_DELETED,
             content: { itemTitle: comment.item.title }
         })
 

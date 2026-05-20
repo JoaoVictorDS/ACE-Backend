@@ -1,7 +1,7 @@
 const prisma = require('../config/prisma')
 const bcrypt = require('bcryptjs')
 const { NOTIFICATION_TYPES } = require('../utils/constants')
-const AppError = require('../utils/AppError')
+const AppError = require('../errors/AppError')
 
 const UserService = {
 
@@ -10,7 +10,9 @@ const UserService = {
             { user_id: userId, action_type: NOTIFICATION_TYPES.ITEM_CREATED, enabled: true },
             { user_id: userId, action_type: NOTIFICATION_TYPES.ITEM_DELETED, enabled: true },
             { user_id: userId, action_type: NOTIFICATION_TYPES.ITEM_UPDATED, enabled: true },
-            { user_id: userId, action_type: NOTIFICATION_TYPES.COMMENT_ADDED, enabled: true }
+            { user_id: userId, action_type: NOTIFICATION_TYPES.COMMENT_CREATED, enabled: true },
+            { user_id: userId, action_type: NOTIFICATION_TYPES.COMMENT_UPDATED, enabled: true },
+            { user_id: userId, action_type: NOTIFICATION_TYPES.COMMENT_DELETED, enabled: true },
         ]
 
         await tx.userNotificationSetting.createMany({

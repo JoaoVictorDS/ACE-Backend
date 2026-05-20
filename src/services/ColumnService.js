@@ -2,7 +2,7 @@ const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
 const LogService = require('./LogService')
 const { emitToRoom } = require('../config/socket')
-const AppError = require('../utils/AppError')
+const AppError = require('../errors/AppError')
 
 const isEmpty = (val) =>
     val === null || val === undefined || (Array.isArray(val) && val.length === 0) || String(val).trim() === '' || val === 'null' || val === '[]'

@@ -20,4 +20,7 @@ const refreshTokenCookieSchema = z.object({
     }).min(1)
 })
 
-module.exports = { loginSchema, refreshTokenCookieSchema }
+module.exports = {
+    loginSchema,
+    refreshTokenCookieSchema
+}

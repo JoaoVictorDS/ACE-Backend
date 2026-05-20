@@ -73,7 +73,7 @@ const WorkspaceController = {
     getHistory: catchAsync(async (req, res, next) => {
         const { workspace_id: workspaceId } = getHistorySchema.parse(req.params)
 
-        const logs = await LogService.getLogsByWorkspace({
+        const logs = await LogService.getByWorkspace({
             user: req.user,
             workspaceId
         })

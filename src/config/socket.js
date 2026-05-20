@@ -6,8 +6,9 @@ let io
 const initSocket = (httpServer) => {
     io = new Server(httpServer, {
         cors: {
-            origin: "*", // No futuro, colocar aqui a URL do Front-end
-            methods: ["GET", "POST"]
+            origin: process.env.CLIENT_URL,
+            methods: ['GET', 'POST'],
+            credentials: true
         }
     })
 

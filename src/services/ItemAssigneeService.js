@@ -1,4 +1,4 @@
-const AppError = require('../utils/AppError')
+const AppError = require('../errors/AppError')
 
 const ItemAssigneeService = {
 

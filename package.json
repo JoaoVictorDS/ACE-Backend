@@ -1,17 +1,28 @@
 {
-  "name": "backend",
+  "name": "ace-backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Backend da aplicação ACE - Sistema de gestão de quadros",
+  "main": "src/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "test": "jest --coverage",
+    "lint": "eslint src --fix",
+    "format": "prettier --write src"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "api",
+    "rest",
+    "express",
+    "postgresql",
+    "socket.io"
+  ],
+  "author": "João Victor Dos Santos",
+  "license": "MIT",
   "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
@@ -22,15 +33,12 @@
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.16.3",
     "socket.io": "^4.8.3",
+    "studio": "^0.13.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/dotenv": "^6.1.1",
-    "@types/node": "^24.10.1",
     "dotenv": "^17.2.3",
     "nodemon": "^3.1.11",
-    "prisma": "^7.8.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "prisma": "^7.8.0"
   }
 }

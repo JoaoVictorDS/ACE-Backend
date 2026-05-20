@@ -3,7 +3,8 @@ const PermissionService = require('./PermissionService')
 const LogService = require('./LogService')
 const appEventEmitter = require('../config/events')
 const { NOTIFICATION_TYPES } = require('../utils/constants')
-const AppError = require('../utils/AppError')
+const { emitToRoom } = require('../config/socket')
+const AppError = require('../errors/AppError')
 
 const ItemService = {
 
