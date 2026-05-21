@@ -1,8 +1,7 @@
 const express = require('express')
 const apiRouter = express.Router()
 
-const authMiddleware = require('./middlewares/authMiddleware')
-const adminMiddleware = require('./middlewares/adminMiddleware')
+const { authMiddleware, adminMiddleware, rateLimitMiddleware } = require('./middlewares')
 
 const AuthController = require('./controllers/AuthController')
 const UserController = require('./controllers/UserController')
@@ -17,8 +16,10 @@ const WorkspaceMemberController = require('./controllers/WorkspaceMemberControll
 const NotificationController = require('./controllers/NotificationController')
 const ItemValueController = require('./controllers/ItemValueController')
 
+apiRouter.use(rateLimitMiddleware.apiLimiter)
+
 // AUTH
-apiRouter.post('/login', AuthController.login)
+apiRouter.post('/login', rateLimitMiddleware.authLimiter, AuthController.login)
 apiRouter.post('/refresh', AuthController.refresh)
 apiRouter.post('/logout', authMiddleware, AuthController.logout)
 

@@ -7,4 +7,5 @@ module.exports = {
     ItemAssigneeRepository: require('./ItemAssigneeRepository'),
     BoardMemberRepository: require('./BoardMemberRepository'),
     UserNotificationSettingRepository: require('./UserNotificationSettingRepository'),
+    WorkspaceRepository: require('./WorkspaceRepository'),
 }

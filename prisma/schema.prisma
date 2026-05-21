@@ -222,6 +222,8 @@ model Item {
   assignees    ItemAssignee[]
   item_updates ItemUpdate[]
 
+  @@index([section_id])
+  @@index([order])
   @@map("items")
 }
 
@@ -236,6 +238,7 @@ model ItemValue {
   updated_at DateTime @updatedAt @map("updated_at")
 
   @@id([item_id, column_id])
+  @@index([column_id])
   @@map("item_values")
 }
 
@@ -285,6 +288,8 @@ model Comment {
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
+  @@index([item_id])
+  @@index([created_at])
   @@map("comments")
 }
 

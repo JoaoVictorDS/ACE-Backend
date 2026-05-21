@@ -3,6 +3,7 @@ const express = require('express')
 const cors = require('cors')
 const cookieParser = require('cookie-parser')
 const { createServer } = require('http')
+const helmet = require('helmet')
 
 const routes = require('./routes')
 const errorMiddleware = require('./middlewares/errorMiddleware')
@@ -22,6 +23,14 @@ const corsOptions = {
     credentials: true
 }
 
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'"],
+        }
+    }
+}))
 app.use(cors(corsOptions))
 app.use(express.json())
 app.use(cookieParser())
