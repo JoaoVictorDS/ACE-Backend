@@ -5,22 +5,20 @@ const { createItemSchema, showItemSchema, updateItemSchema, moveItemSchema, dele
 const ItemController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { section_id: sectionId, ...otherFields } = createItemSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { section_id: sectionId } = req.params
+        const { title } = req.body
 
         const item = await ItemService.create({
             user: req.user,
             sectionId,
-            ...otherFields
+            title
         })
 
         return res.status(201).json(item)
     }),
 
     show: catchAsync(async (req, res, next) => {
-        const { item_id: itemId } = showItemSchema.parse(req.params)
+        const { item_id: itemId } = req.params
 
         const item = await ItemService.getById({
             user: req.user,
@@ -31,22 +29,20 @@ const ItemController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const { item_id: itemId, ...otherFields } = updateItemSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { item_id: itemId } = req.params
+        const { title } = req.body
 
         const updatedItem = await ItemService.update({
             user: req.user,
             itemId,
-            ...otherFields
+            title
         })
 
         return res.status(200).json(updatedItem)
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { item_id: itemId } = deleteItemSchema.parse(req.params)
+        const { item_id: itemId } = req.params
 
         await ItemService.delete({
             user: req.user,
@@ -57,10 +53,8 @@ const ItemController = {
     }),
 
     move: catchAsync(async (req, res, next) => {
-        const { new_section_id: newSectionId, new_order: newOrder, item_id: itemId } = moveItemSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { item_id: itemId } = req.params
+        const { new_section_id: newSectionId, new_order: newOrder } = req.body
 
         const movedItem = await ItemService.move({
             user: req.user,

@@ -12,43 +12,49 @@ const title = z.string({
         : 'O Título deve ser string'
 }).trim().min(1, 'O Título não pode ser vazio')
 
-const createItemSchema = z.object({
-    section_id: z.coerce.number({
-        error: (issue) => issue.input === undefined
-            ? 'O parâmetro "section_id" é obrigatório'
-            : 'O ID da Seção deve ser number'
-    }).gt(0, 'O ID da Seção não pode ser menor ou igual a 0'),
+const createItemSchema = {
+    params: z.object({
+        section_id: z.coerce.number({
+            error: (issue) => issue.input === undefined
+                ? 'O parâmetro "section_id" é obrigatório'
+                : 'O ID da Seção deve ser number'
+        }).gt(0, 'O ID da Seção não pode ser menor ou igual a 0'),
+    }),
 
-    title
-})
+    body: z.object({ title })
+}
 
-const showItemSchema = z.object({
-    item_id
-})
+const showItemSchema = {
+    params: z.object({ item_id })
+}
 
-const updateItemSchema = z.object({
-    item_id,
+const updateItemSchema = {
+    params: z.object({ item_id }),
 
-    title: title.optional()
-})
+    body: z.object({
+        title
+    })
+}
 
-const moveItemSchema = z.object({
-    item_id,
+const moveItemSchema = {
+    params: z.object({ item_id }),
 
-    new_section_id: z.coerce.number()
-        .gt(0, 'O ID da Nova Seção não pode ser menor ou igual a 0')
-        .optional(),
+    body: z.object({
+        new_section_id: z.coerce.number()
+            .gt(0, 'O ID da Nova Seção não pode ser menor ou igual a 0')
+            .optional(),
 
-    new_order: z.coerce.number()
-        .min(0, 'A Nova Ordem não pode ser negativa')
-        .optional()
-}).refine(data => data.new_section_id !== undefined || data.new_order !== undefined, {
-    error: 'Você deve informar ao menos a "new_section_id" ou a "new_order" para mover o item'
-})
+        new_order: z.coerce.number()
+            .min(0, 'A Nova Ordem não pode ser negativa')
+            .optional()
+    }).refine(data => data.new_section_id !== undefined || data.new_order !== undefined, {
+        error: 'Você deve informar ao menos a "new_section_id" ou a "new_order" para mover o item'
+    })
+}
 
-const deleteItemSchema = z.object({
-    item_id
-})
+const deleteItemSchema = {
+    params: z.object({ item_id })
+}
 
 module.exports = {
     createItemSchema,
