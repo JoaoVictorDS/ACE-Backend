@@ -1,16 +1,16 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
+const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../constants')
 const LogService = require('./LogService')
 const MentionService = require('./MentionService')
 const appEventEmitter = require('../config/events')
 const { emitToRoom } = require('../config/socket')
-const { NOTIFICATION_TYPES } = require('../utils/constants')
 const AppError = require('../errors/AppError')
 
 const CommentService = {
 
     async create({ user, itemId, content }) {
-        const { boardId, workspaceId } = await PermissionService.check(PermissionService.TYPES.ITEM, itemId, user, PermissionService.LEVELS.VIEW)
+        const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.VIEW)
         const userId = user.id
 
         const item = await prisma.item.findUnique({
@@ -64,7 +64,7 @@ const CommentService = {
     },
 
     async getByItem({ user, itemId }) {
-        await PermissionService.check(PermissionService.TYPES.ITEM, itemId, user, PermissionService.LEVELS.VIEW)
+        await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.VIEW)
 
         return await prisma.comment.findMany({
             where: { item_id: itemId },
@@ -88,7 +88,7 @@ const CommentService = {
         const isOwner = comment.user_id === userId
         if (!isOwner) throw new AppError('Você não tem permissão para editar este comentário.', 403)
 
-        const { boardId, workspaceId } = await PermissionService._resolveBoardContext(PermissionService.TYPES.ITEM, comment.item_id)
+        const { boardId, workspaceId } = await PermissionService._resolveBoardContext(RESOURCE_TYPES.ITEM, comment.item_id)
 
         const updatedComment = await prisma.comment.update({
             where: { id: commentId },
@@ -141,7 +141,7 @@ const CommentService = {
         })
         if (!comment) throw new AppError('Comentário não encontrado!', 404)
 
-        const { boardId, workspaceId, creatorId } = await PermissionService._resolveBoardContext(PermissionService.TYPES.ITEM, comment.item_id)
+        const { boardId, workspaceId, creatorId } = await PermissionService._resolveBoardContext(RESOURCE_TYPES.ITEM, comment.item_id)
         const userId = user.id
         const isOwner = comment.user_id === userId
         const isBoardOwner = creatorId === userId

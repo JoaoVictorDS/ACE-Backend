@@ -1,6 +1,6 @@
 const { ZodError } = require('zod')
 const AppError = require('../errors/AppError')
-const { HTTP_STATUS, ERROR_MESSAGES } = require('../constants/http-status')
+const { HTTP_STATUS, ERROR_MESSAGES } = require('../constants')
 
 /**
  * @param {Error} err - Erro capturado

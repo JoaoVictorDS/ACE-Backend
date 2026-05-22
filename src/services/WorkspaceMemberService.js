@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
+const { PERMISSION_LEVELS } = require('../constants')
 const LogService = require('./LogService')
 const AppError = require('../errors/AppError')
 
@@ -53,7 +54,7 @@ const WorkspaceMemberService = {
     },
 
     async upsert({ user, workspaceId, memberEmail, role }) {
-        const { creatorId } = await PermissionService.checkWorkspace(workspaceId, user, PermissionService.LEVELS.ADMIN)
+        const { creatorId } = await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.ADMIN)
         const userId = user.id
 
         const targetUser = await prisma.user.findUnique({
@@ -139,7 +140,7 @@ const WorkspaceMemberService = {
     },
 
     async getByWorkspace({ user, workspaceId }) {
-        await PermissionService.checkWorkspace(workspaceId, user, PermissionService.LEVELS.VIEW)
+        await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.VIEW)
 
         return await prisma.workspaceMember.findMany({
             where: { workspace_id: workspaceId },
@@ -149,7 +150,7 @@ const WorkspaceMemberService = {
     },
 
     async remove({ user, workspaceId, memberIdToRemove }) {
-        await PermissionService.checkWorkspace(workspaceId, user, PermissionService.LEVELS.ADMIN)
+        await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.ADMIN)
 
         const userId = user.id
         const isSelf = memberIdToRemove === userId

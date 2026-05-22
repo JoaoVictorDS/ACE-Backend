@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
+const { PERMISSION_LEVELS, RESOURCE_TYPES } = require('../constants')
 
 const LogService = {
 
@@ -35,7 +36,7 @@ const LogService = {
     },
 
     async getByWorkspace({ user, workspaceId }) {
-        await PermissionService.checkWorkspace(workspaceId, user, PermissionService.LEVELS.VIEW)
+        await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.VIEW)
 
         return await prisma.activityLog.findMany({
             where: { workspace_id: workspaceId },
@@ -48,7 +49,7 @@ const LogService = {
     },
 
     async getByBoard({ user, boardId }) {
-        await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.VIEW)
+        await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.VIEW)
 
         return await prisma.activityLog.findMany({
             where: { board_id: boardId },

@@ -1,16 +1,16 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
-const LogService = require('./LogService')
 const ColumnService = require('./ColumnService')
 const ItemAssigneeService = require('./ItemAssigneeService')
+const { NOTIFICATION_TYPES } = require('../constants')
+const LogService = require('./LogService')
 const appEventEmitter = require('../config/events')
 const { emitToRoom } = require('../config/socket')
-const { NOTIFICATION_TYPES } = require('../utils/constants')
 
 const ItemValueService = {
 
     async upsert({ user, itemId, columnId, value }) {
-        const { workspaceId, boardId } = await PermissionService.check(PermissionService.TYPES.ITEM, itemId, user, PermissionService.LEVELS.EDIT)
+        const { workspaceId, boardId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.EDIT)
         const sanitizedValue = await ColumnService.validateValue(user, boardId, columnId, value)
 
         const [currentItemValue, column] = await Promise.all([

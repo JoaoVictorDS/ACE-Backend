@@ -1,15 +1,15 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
+const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../constants')
 const LogService = require('./LogService')
 const appEventEmitter = require('../config/events')
-const { NOTIFICATION_TYPES } = require('../utils/constants')
 const { emitToRoom } = require('../config/socket')
 const AppError = require('../errors/AppError')
 
 const ItemService = {
 
     async create({ user, sectionId, title }) {
-        const { boardId, workspaceId } = await PermissionService.check(PermissionService.TYPES.SECTION, sectionId, user, PermissionService.LEVELS.EDIT)
+        const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.SECTION, sectionId, user, PERMISSION_LEVELS.EDIT)
 
         const result = await prisma.$transaction(async (tx) => {
             const lastItem = await tx.item.findFirst({
@@ -52,7 +52,7 @@ const ItemService = {
     },
 
     async getById({ user, itemId }) {
-        await PermissionService.check(PermissionService.TYPES.ITEM, itemId, user, PermissionService.LEVELS.VIEW)
+        await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.VIEW)
 
         const item = await prisma.item.findUnique({
             where: { id: itemId },
@@ -67,7 +67,7 @@ const ItemService = {
     },
 
     async update({ user, itemId, title }) {
-        const { boardId, workspaceId } = await PermissionService.check(PermissionService.TYPES.ITEM, itemId, user, PermissionService.LEVELS.EDIT)
+        const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.EDIT)
 
         const currentItem = await prisma.item.findUnique({
             where: { id: itemId }
@@ -115,7 +115,7 @@ const ItemService = {
     },
 
     async delete({ user, itemId }) {
-        const { boardId, workspaceId } = await PermissionService.check(PermissionService.TYPES.ITEM, itemId, user, PermissionService.LEVELS.EDIT)
+        const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.EDIT)
 
         const item = await prisma.item.findUnique({
             where: {
@@ -162,7 +162,7 @@ const ItemService = {
     },
 
     async move({ user, itemId, newSectionId, newOrder }) {
-        const { boardId, workspaceId } = await PermissionService.check(PermissionService.TYPES.ITEM, itemId, user, PermissionService.LEVELS.EDIT)
+        const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.EDIT)
 
         const result = await prisma.$transaction(async (tx) => {
             const currentItem = await tx.item.findUnique({
@@ -177,7 +177,7 @@ const ItemService = {
             const hasSectionChanged = newSectionId && newSectionId !== oldSectionId
 
             if (hasSectionChanged) {
-                const { boardId: targetBoardId } = await PermissionService._resolveBoardContext(PermissionService.TYPES.SECTION, newSectionId)
+                const { boardId: targetBoardId } = await PermissionService._resolveBoardContext(RESOURCE_TYPES.SECTION, newSectionId)
                 const isDifferentBoard = targetBoardId !== boardId
 
                 if (isDifferentBoard) throw new AppError('Não é permitido mover tarefas entre quadros diferentes!', 400)

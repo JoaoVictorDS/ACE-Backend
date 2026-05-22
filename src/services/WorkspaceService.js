@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
+const { PERMISSION_LEVELS } = require('../constants')
 const LogService = require('./LogService')
 const AppError = require('../errors/AppError')
 
@@ -67,7 +68,7 @@ const WorkspaceService = {
     },
 
     async update({ user, workspaceId, name }) {
-        await PermissionService.checkWorkspace(workspaceId, user, PermissionService.LEVELS.ADMIN)
+        await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.ADMIN)
 
         const currentWorkspace = await prisma.workspace.findUnique({
             where: { id: workspaceId },

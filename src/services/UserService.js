@@ -1,6 +1,6 @@
 const prisma = require('../config/prisma')
 const bcrypt = require('bcryptjs')
-const { NOTIFICATION_TYPES } = require('../utils/constants')
+const { NOTIFICATION_TYPES } = require('../constants')
 const AppError = require('../errors/AppError')
 
 const UserService = {

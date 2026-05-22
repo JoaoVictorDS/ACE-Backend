@@ -1,33 +1,13 @@
 const prisma = require('../config/prisma')
 const AppError = require('../errors/AppError')
+const { ROLES } = require('../constants')
 
 const PermissionService = {
-
-    ROLES: {
-        VIEW: ['OWNER', 'ADMIN', 'EDITOR', 'VIEWER'],
-        EDIT: ['OWNER', 'ADMIN', 'EDITOR'],
-        ADMIN: ['OWNER', 'ADMIN'],
-        OWNER: ['OWNER']
-    },
-
-    TYPES: {
-        BOARD: 'BOARD',
-        SECTION: 'SECTION',
-        COLUMN: 'COLUMN',
-        ITEM: 'ITEM'
-    },
-
-    LEVELS: {
-        VIEW: 'VIEW',
-        EDIT: 'EDIT',
-        ADMIN: 'ADMIN',
-        OWNER: 'OWNER'
-    },
 
     isPrivileged(role) {
         if (!role) return false
 
-        return this.ROLES.ADMIN.includes(role.toUpperCase())
+        return ROLES.ADMIN.includes(role.toUpperCase())
     },
 
     async _resolveBoardContext(type, entityId) {
@@ -90,7 +70,7 @@ const PermissionService = {
             select: { role: true }
         })
         const role = context.creatorId === userId ? 'OWNER' : (member?.role || null)
-        const allowedRoles = this.ROLES[actionLevel.toUpperCase()]
+        const allowedRoles = ROLES[actionLevel.toUpperCase()]
 
         if (!role || !allowedRoles.includes(role)) throw new AppError(`Acesso negado: Permissão de ${actionLevel} insuficiente para este ${type}!`, 403)
 
@@ -124,7 +104,7 @@ const PermissionService = {
         }
 
         const role = workspace.creator_id === userId ? 'OWNER' : (workspace.workspace_members[0]?.role || null)
-        const allowedRoles = this.ROLES[actionLevel.toUpperCase()]
+        const allowedRoles = ROLES[actionLevel.toUpperCase()]
 
         if (!role || !allowedRoles.includes(role)) throw new AppError('Acesso negado à Área de Trabalho!', 403)
 

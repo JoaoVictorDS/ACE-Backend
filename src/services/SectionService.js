@@ -1,13 +1,14 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
+const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../constants')
 const LogService = require('./LogService')
-const AppError = require('../errors/AppError')
 const { emitToRoom } = require('../config/socket')
+const AppError = require('../errors/AppError')
 
 const SectionService = {
 
     async create({ user, boardId, name }) {
-        const { workspaceId } = await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
+        const { workspaceId } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.ADMIN)
 
         const result = await prisma.$transaction(async (tx) => {
             const maxOrderSection = await tx.section.findFirst({
@@ -43,7 +44,7 @@ const SectionService = {
     },
 
     async getByBoard({ user, boardId }) {
-        await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.VIEW)
+        await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.VIEW)
 
         const sections = await prisma.section.findMany({
             where: { board_id: boardId, },
@@ -59,7 +60,7 @@ const SectionService = {
     },
 
     async update({ user, sectionId, name }) {
-        const { boardId, workspaceId } = await PermissionService.check(PermissionService.TYPES.SECTION, sectionId, user, PermissionService.LEVELS.ADMIN)
+        const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.SECTION, sectionId, user, PERMISSION_LEVELS.ADMIN)
 
         const section = await prisma.section.findUnique({
             where: { id: sectionId },
@@ -93,7 +94,7 @@ const SectionService = {
     },
 
     async delete({ user, sectionId, force = false }) {
-        const { boardId, workspaceId } = await PermissionService.check(PermissionService.TYPES.SECTION, sectionId, user, PermissionService.LEVELS.ADMIN)
+        const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.SECTION, sectionId, user, PERMISSION_LEVELS.ADMIN)
 
         const sectionToDelete = await prisma.section.findUnique({
             where: { id: sectionId },
@@ -142,7 +143,7 @@ const SectionService = {
     },
 
     async move({ user, sectionId, newOrder }) {
-        const { boardId, workspaceId } = await PermissionService.check(PermissionService.TYPES.SECTION, sectionId, user, PermissionService.LEVELS.ADMIN)
+        const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.SECTION, sectionId, user, PERMISSION_LEVELS.ADMIN)
 
         const currentSection = await prisma.section.findUnique({
             where: { id: sectionId },

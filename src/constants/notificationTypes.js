@@ -8,6 +8,4 @@ const NOTIFICATION_TYPES = {
     COMMENT_DELETED: 'COMMENT_DELETED',
 }
 
-module.exports = {
-    NOTIFICATION_TYPES
-}
+module.exports = NOTIFICATION_TYPES

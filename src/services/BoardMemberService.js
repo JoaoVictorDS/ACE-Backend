@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
+const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../constants')
 const LogService = require('./LogService')
 const { emitToRoom } = require('../config/socket')
 const AppError = require('../errors/AppError')
@@ -37,7 +38,7 @@ const BoardMemberService = {
     },
 
     async upsert({ user, boardId, memberEmail, role }) {
-        const { workspaceId, creatorId } = await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
+        const { workspaceId, creatorId } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.ADMIN)
         const userId = user.id
 
         const targetUser = await prisma.user.findUnique({
@@ -135,7 +136,7 @@ const BoardMemberService = {
     },
 
     async getByBoard({ user, boardId }) {
-        await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.VIEW)
+        await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.VIEW)
 
         return await prisma.boardMember.findMany({
             where: { board_id: boardId },
@@ -145,7 +146,7 @@ const BoardMemberService = {
     },
 
     async remove({ user, boardId, memberIdToRemove }) {
-        await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
+        await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.ADMIN)
 
         const userId = user.id
         const isSelf = memberIdToRemove === userId

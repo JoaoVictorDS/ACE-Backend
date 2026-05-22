@@ -1,5 +1,5 @@
 const AppError = require('./AppError')
-const { HTTP_STATUS } = require('../constants/http-status')
+const { HTTP_STATUS } = require('../constants')
 
 class AuthenticationError extends AppError {
     constructor(message = 'Falha na autenticação!') {

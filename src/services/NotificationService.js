@@ -3,7 +3,7 @@ const appEventEmitter = require('../config/events')
 const NotificationDictionary = require('../utils/notificationDictionary')
 const { getIO } = require('../config/socket')
 const AppError = require('../errors/AppError')
-const { HTTP_STATUS } = require('../constants/http-status')
+const { HTTP_STATUS } = require('../constants')
 
 const NotificationService = {
     itemAssigneeRepository: new ItemAssigneeRepository(),

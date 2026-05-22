@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
+const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../constants')
 const LogService = require('./LogService')
 const { emitToRoom } = require('../config/socket')
 const AppError = require('../errors/AppError')
@@ -82,7 +83,7 @@ const ColumnService = {
     },
 
     async create({ user, boardId, name, dataType, options, formulaExpression }) {
-        const { workspaceId } = await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.ADMIN)
+        const { workspaceId } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.ADMIN)
 
         const result = await prisma.$transaction(async (tx) => {
             const maxOrderColumn = await tx.column.findFirst({
@@ -120,7 +121,7 @@ const ColumnService = {
     },
 
     async getByBoard({ user, boardId }) {
-        const { role } = await PermissionService.check(PermissionService.TYPES.BOARD, boardId, user, PermissionService.LEVELS.VIEW)
+        const { role } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.VIEW)
 
         const columns = await prisma.column.findMany({
             where: { board_id: boardId, },
@@ -140,7 +141,7 @@ const ColumnService = {
     },
 
     async update({ user, columnId, name, dataType, options, formulaExpression }) {
-        const { boardId, workspaceId } = await PermissionService.check(PermissionService.TYPES.COLUMN, columnId, user, PermissionService.LEVELS.ADMIN)
+        const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
         const column = await prisma.column.findUnique({
             where: { id: columnId }
@@ -215,7 +216,7 @@ const ColumnService = {
     },
 
     async delete({ user, columnId, force = false }) {
-        const { boardId, workspaceId } = await PermissionService.check(PermissionService.TYPES.COLUMN, columnId, user, PermissionService.LEVELS.ADMIN)
+        const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
         const columnToDelete = await prisma.column.findUnique({
             where: { id: columnId }
@@ -268,7 +269,7 @@ const ColumnService = {
     },
 
     async move({ user, columnId, newOrder }) {
-        const { boardId } = await PermissionService.check(PermissionService.TYPES.COLUMN, columnId, user, PermissionService.LEVELS.ADMIN)
+        const { boardId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
         const currentColumn = await prisma.column.findUnique({
             where: { id: columnId },
@@ -327,7 +328,7 @@ const ColumnService = {
     },
 
     async updateRestrictions({ user, columnId, restrictions }) {
-        const { boardId, workspaceId } = await PermissionService.check(PermissionService.TYPES.COLUMN, columnId, user, PermissionService.LEVELS.ADMIN)
+        const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
         const currentColumn = await prisma.column.findUnique({
             where: { id: columnId }

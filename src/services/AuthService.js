@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 const { UserRepository } = require('../repositories')
 const AuthenticationError = require('../errors/AuthenticationError')
-const { HTTP_STATUS, ERROR_MESSAGES } = require('../constants/http-status')
+const { HTTP_STATUS, ERROR_MESSAGES } = require('../constants')
 
 const AuthService = {
     userRepository: new UserRepository(),
