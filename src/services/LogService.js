@@ -1,6 +1,7 @@
 const prisma = require('../config/prisma')
 const PermissionService = require('./PermissionService')
 const { PERMISSION_LEVELS, RESOURCE_TYPES } = require('../constants')
+const logger = require('../config/logger')
 
 const LogService = {
 
@@ -31,7 +32,10 @@ const LogService = {
                 }
             })
         } catch (error) {
-            console.error('⚠️ [LOG ERROR]:', error.message)
+            logger.error(
+                { error: error.message, userId, workspaceId, boardId, action, entityType, entityId },
+                'Activity log registration failed'
+            )
         }
     },
 

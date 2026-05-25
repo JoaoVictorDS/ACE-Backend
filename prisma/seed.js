@@ -1,12 +1,13 @@
 const prisma = require('../src/config/prisma')
 const bcrypt = require('bcryptjs')
 const { setupDefaults } = require('../src/services/UserService')
+const logger = require('../src/config/logger')
 
 async function main() {
     const adminEmail = 'admin@admin.com'
     const passwordHash = await bcrypt.hash('admin123', 10)
 
-    console.log('🌱 Iniciando o seed...')
+    logger.info('Iniciando o seed...')
 
     await prisma.$transaction(async (tx) => {
         const admin = await tx.user.upsert({
@@ -23,13 +24,13 @@ async function main() {
 
         await setupDefaults(admin.id, tx)
 
-        console.log(`✅ Admin verificado: ${admin.email}`)
+        logger.info(`Admin verificado: ${admin.email}`)
     })
 }
 
 main()
     .catch((e) => {
-        console.error('❌ Erro no seed:', e)
+        logger.error('Erro no seed.')
         process.exit(1)
     })
     .finally(async () => {

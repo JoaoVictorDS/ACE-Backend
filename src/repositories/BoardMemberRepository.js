@@ -3,13 +3,9 @@ const BaseRepository = require('./BaseRepository')
 /**
  * Repositório de BoardMember
  * Gerencia todas as operações de membros de boards
- * Estende BaseRepository para herdar métodos comuns
  */
 class BoardMemberRepository extends BaseRepository {
-    /**
-     * Construtor
-     * Define o model como 'boardMember' para usar nas queries
-     */
+
     constructor() {
         super('boardMember')
     }
@@ -27,6 +23,7 @@ class BoardMemberRepository extends BaseRepository {
                     user: {
                         select: { id: true, name: true, email: true },
                     },
+                    orderBy: { role: 'asc' }
                 },
             }
         )
@@ -60,6 +57,52 @@ class BoardMemberRepository extends BaseRepository {
                     },
                 },
             }
+        )
+    }
+
+    /**
+    * Busca membro com todos os dados necessários para remoção
+    */
+    async findMembershipForRemoval(boardId, userId, tx = null) {
+        return await this.findUnique(
+            {
+                user_id_board_id: {
+                    user_id: userId,
+                    board_id: boardId
+                }
+            },
+            {
+                select: {
+                    id: true,
+                    user_id: true,
+                    role: true,
+                    order: true,
+                    board: {
+                        select: {
+                            workspace_id: true,
+                            id: true,
+                            creator_id: true
+                        }
+                    },
+                    user: { select: { name: true } }
+                }
+            },
+            tx
+        )
+    }
+
+    async findMembershipForMove(userId, boardId, tx = null) {
+        return await this.findUnique(
+            {
+                user_id_board_id: {
+                    user_id: userId,
+                    board_id: boardId
+                }
+            },
+            {
+                include: { board: { select: { workspace_id: true } } }
+            },
+            tx
         )
     }
 
@@ -118,12 +161,127 @@ class BoardMemberRepository extends BaseRepository {
     }
 
     /**
+     * Conta membros privilegiados de um board
+     * @param {number} boardId - ID do board
+     * @param {object} tx - Cliente de transação (opcional)
+     * @returns {Promise<number>} Total de membros privilegiados
+     */
+    async countPrivilegedMembers(boardId, tx) {
+        return await this.count({
+            board_id: boardId,
+            role: { in: ['ADMIN', 'OWNER'] }
+        }, tx)
+    }
+
+    async upsertMember(userId, boardId, role, order = 0, tx = null) {
+        return await this.upsert(
+            {
+                user_id_board_id: {
+                    user_id: userId,
+                    board_id: boardId
+                }
+            },
+            {
+                user_id: userId,
+                board_id: boardId,
+                role,
+                order
+            },
+            { role },
+            {
+                include: {
+                    user: { select: { id: true, name: true, email: true } }
+                }
+            },
+            tx
+        )
+    }
+
+    async findLastMemberInWorkspace(userId, workspaceId, tx = null) {
+        return await this.findOne(
+            {
+                user_id: userId,
+                board: { workspace_id: workspaceId }
+            },
+            {
+                orderBy: { order: 'desc' },
+                select: { order: true }
+            },
+            tx
+        )
+    }
+
+    async decrementOrderAfter(userId, workspaceId, order, tx = null) {
+        return await this.updateMany(
+            {
+                user_id: userId,
+                board: { workspace_id: workspaceId },
+                order: { gt: order }
+            },
+            { order: { decrement: 1 } },
+            tx
+        )
+    }
+
+    async removeById(id, tx = null) {
+        return await this.delete(id, tx)
+    }
+
+    async removeByUserAndBoard(userId, boardId, tx = null) {
+        return await this.deleteByUnique(
+            {
+                user_id_board_id: {
+                    user_id: userId,
+                    board_id: boardId
+                }
+            },
+            tx
+        )
+    }
+
+    /**
+     * Atualiza ordem em range (para movimento)
+     * @param {number} userId - ID do usuário
+     * @param {number} workspaceId - ID do workspace
+     * @param {object} orderCondition - Condição de where (ex: { gt: 5, lte: 10 })
+     * @param {boolean} increment - true para incrementar, false para decrementar
+     * @param {object} tx - Transação opcional
+     */
+    async updateOrderInRange(userId, workspaceId, orderCondition, increment = true, tx = null) {
+        return await this.updateMany(
+            {
+                user_id: userId,
+                board: { workspace_id: workspaceId },
+                order: orderCondition
+            },
+            {
+                order: increment ? { increment: 1 } : { decrement: 1 }
+            },
+            tx
+        )
+    }
+
+    async updateMemberOrder(userId, boardId, newOrder, tx = null) {
+        return await this.updateByUnique(
+            {
+                user_id_board_id: {
+                    user_id: userId,
+                    board_id: boardId
+                }
+            },
+            { order: newOrder },
+            {},
+            tx
+        )
+    }
+
+    /**
      * Busca membros com role específico em um board
      * @param {number} boardId - ID do board
      * @param {string} role - Role a filtrar
      * @returns {Promise<array>} Array de membros
      */
-    async findByBoardAndRole(boardId, role) {
+    async findByBoardAndRole(boardId, role, tx) {
         return await this.findMany(
             { board_id: boardId, role },
             {

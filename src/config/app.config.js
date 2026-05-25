@@ -1,3 +1,5 @@
+const logger = require('./logger')
+
 const requiredEnvVars = [
     'PORT',
     'NODE_ENV',
@@ -12,10 +14,7 @@ const missingEnvVars = requiredEnvVars.filter(
 )
 
 if (missingEnvVars.length > 0) {
-    console.error(
-        `❌ Variáveis de ambiente obrigatórias não configuradas: ${missingEnvVars.join(', ')}`
-    )
-    console.error('📄 Configure-as no arquivo .env')
+    logger.fatal({ missingEnvVars }, 'Variaveis de ambiente obrigatórias não configuradas')
     process.exit(1)
 }
 
@@ -79,21 +78,16 @@ const appConfig = {
 }
 
 if (appConfig.jwt.secret.length < 32) {
-    console.warn(
-        '⚠️  JWT_SECRET deve ter pelo menos 32 caracteres para segurança!'
-    )
+    logger.warn('JWT_SECRET deve ter pelo menos 32 caracteres')
 }
 
 if (appConfig.jwt.refreshSecret.length < 32) {
-    console.warn(
-        '⚠️  JWT_REFRESH_SECRET deve ter pelo menos 32 caracteres para segurança!'
-    )
+    logger.warn('JWT_REFRESH_SECRET deve ter pelo menos 32 caracteres')
+
 }
 
 if (appConfig.isProduction && !appConfig.cookies.refreshToken.secure) {
-    console.warn(
-        '⚠️  Em produção, cookies devem ter secure: true para HTTPS!'
-    )
+    logger.warn('Em producao, cookies devem ter secure: true para HTTPS')
 }
 
 module.exports = appConfig

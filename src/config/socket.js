@@ -1,5 +1,6 @@
 const { Server } = require('socket.io')
 const AuthService = require('../services/AuthService')
+const logger = require('./logger')
 
 let io
 
@@ -28,20 +29,20 @@ const initSocket = (httpServer) => {
         const userId = socket.user.id;
 
         socket.join(`user:${userId}`)
-        console.log(`⚡ Socket: Usuário ${userId} está conectado e ouvindo na sala user:${userId}`)
+        logger.info({ userId }, 'Socket: usuario conectado')
 
         socket.on('board:join', (boardId) => {
             socket.join(`board:${boardId}`)
-            console.log(`👀 Usuário ${userId} abriu o quadro ${boardId}`)
+            logger.debug({ userId, boardId }, 'Socket: usuario entrou no board')
         })
 
         socket.on('board:leave', (boardId) => {
             socket.leave(`board:${boardId}`)
-            console.log(`👋 Usuário ${userId} fechou o quadro ${boardId}`)
+            logger.debug({ userId, boardId }, 'Socket: usuario saiu do board')
         })
 
         socket.on('disconnect', () => {
-            console.log(`🔌 Socket: Usuário ${userId} foi desconectado`)
+            logger.info({ userId }, 'Socket: usuario desconectado')
         })
     })
 
@@ -58,7 +59,7 @@ const emitToRoom = (room, event, payload) => {
         if (!io) throw new Error('Socket.io não inicializado')
         io.to(room).emit(event, payload)
     } catch (error) {
-        console.error(`⚠️ Erro ao emitir socket para [${room}] no evento [${event}]:`, error.message)
+        logger.error({ error: error.message, room, event }, 'Falha ao emitir evento socket')
     }
 }
 

@@ -18,7 +18,7 @@ router.post('/:board_id/sections', authMiddleware, SectionController.create)
 router.get('/:board_id/sections', authMiddleware, SectionController.list)
 
 router.post('/:board_id/members', authMiddleware, BoardMemberController.upsert)
-router.get('/board_id/members', authMiddleware, BoardMemberController.list)
+router.get('/:board_id/members', authMiddleware, BoardMemberController.list)
 router.delete('/:board_id/members/:member_id', authMiddleware, BoardMemberController.remove)
 router.delete('/:board_id/members', authMiddleware, BoardMemberController.leave)
 

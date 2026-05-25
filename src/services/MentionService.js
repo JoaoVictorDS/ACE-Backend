@@ -1,5 +1,6 @@
 const prisma = require('../config/prisma')
 const appEventEmitter = require('../config/events')
+const logger = require('../config/logger')
 
 const MentionService = {
 
@@ -66,7 +67,7 @@ const MentionService = {
                 }
             })
         } catch (error) {
-            console.error('⚠️ [MENTION ERROR]:', error.message)
+            logger.warn({ error: error.message, boardId, itemId, actorId: actor?.id }, 'Mention processing failed')
         }
     }
 }

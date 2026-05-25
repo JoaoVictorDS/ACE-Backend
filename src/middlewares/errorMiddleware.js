@@ -1,6 +1,7 @@
 const { ZodError } = require('zod')
 const AppError = require('../errors/AppError')
 const { HTTP_STATUS, ERROR_MESSAGES } = require('../constants')
+const logger = require('../config/logger')
 
 /**
  * @param {Error} err - Erro capturado
@@ -26,30 +27,32 @@ const errorMiddleware = (err, req, res, next) => {
         const isCritical = err.statusCode >= 500
 
         if (isCritical) {
-            console.error(
-                `❌ [ERROR] ${req.method} ${req.path}:`,
-                err.toLog()
-            )
+            logger.error({
+                method: req.method,
+                path: req.path,
+                statusCode: err.statusCode,
+                error: err.toLog?.() ?? err.message,
+            }, 'AppError crítico')
         } else {
-            console.warn(
-                `⚠️  [WARN] ${req.method} ${req.path}: ${err.message}`
-            )
+            logger.warn({
+                method: req.method,
+                path: req.path,
+                statusCode: err.statusCode,
+                message: err.message,
+            }, 'AppError operacional')
         }
 
         return res.status(err.statusCode).json(err.toJSON())
     }
 
     const isCritical = true
-    console.error(
-        `❌ [CRITICAL] ${req.method} ${req.path}:`,
-        {
-            name: err.name,
-            message: err.message,
-            statusCode: err.statusCode || 500,
-            stack: err.stack,
-            timestamp: new Date().toISOString(),
-        }
-    )
+    logger.error({
+        method: req.method,
+        path: req.path,
+        statusCode: err.statusCode || 500,
+        error: err.message,
+        stack: err.stack,
+    }, 'Erro inesperado')
 
     const statusCode = err.statusCode || HTTP_STATUS.INTERNAL_SERVER_ERROR
     const response = {

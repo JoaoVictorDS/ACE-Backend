@@ -1,4 +1,3 @@
-
 class AppError extends Error {
     /**
      * @param {string} message - Mensagem de erro

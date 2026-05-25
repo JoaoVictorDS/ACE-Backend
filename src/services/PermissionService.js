@@ -20,10 +20,10 @@ const PermissionService = {
 
         switch (type.toUpperCase()) {
             case 'BOARD':
-                data = this.boardRepository.findPermissionContext(entityId)
+                data = await this.boardRepository.findPermissionContext(entityId)
                 break
             case 'SECTION':
-                data = this.sectionRepository.findPermissionContext(entityId)
+                data = await this.sectionRepository.findPermissionContext(entityId)
                 break
             case 'COLUMN':
                 data = await this.columnRepository.findPermissionContext(entityId)

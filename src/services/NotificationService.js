@@ -4,6 +4,7 @@ const NotificationDictionary = require('../utils/notificationDictionary')
 const { getIO } = require('../config/socket')
 const AppError = require('../errors/AppError')
 const { HTTP_STATUS } = require('../constants')
+const logger = require('../config/logger')
 
 const NotificationService = {
     itemAssigneeRepository: new ItemAssigneeRepository(),
@@ -13,7 +14,7 @@ const NotificationService = {
 
     init() {
         appEventEmitter.on('item.action', (payload) => this.handleItem(payload))
-        console.log('✅ Sistema de Notificações: Listeners ativos')
+        logger.info('Notifications: Listeners ativos')
     },
 
     async handleItem(payload) {
@@ -95,7 +96,7 @@ const NotificationService = {
                 })
             })
         } catch (error) {
-            console.error('❌ Erro crítico no NotificationService:', error)
+            logger.error({ error: error.message, stack: error.stack }, 'Erro critico no NotificationService')
         }
     },
 

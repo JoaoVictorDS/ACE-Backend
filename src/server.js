@@ -9,6 +9,7 @@ const routes = require('./routes')
 const errorMiddleware = require('./middlewares/errorMiddleware')
 const NotificationService = require('./services/NotificationService')
 const { initSocket } = require('./config/socket')
+const logger = require('./config/logger')
 
 const app = express()
 const httpServer = createServer(app)
@@ -40,6 +41,6 @@ app.use(errorMiddleware)
 const PORT = process.env.PORT
 
 httpServer.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando em http://localhost:${PORT}/api/status`)
-    console.log(`⚡ Socket.io habilitado e ouvindo na mesma porta!`)
+    logger.info('Servidor iniciado na porta %d', PORT)
+    logger.info('Socket.io habilitado na mesma porta')
 })

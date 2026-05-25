@@ -1,40 +1,27 @@
-const prisma = require('../config/prisma')
-const PermissionService = require('./PermissionService')
+const { BoardMemberRepository } = require('../repositories')
+const { PermissionService } = require('./')
 const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../constants')
 const LogService = require('./LogService')
 const { emitToRoom } = require('../config/socket')
-const AppError = require('../errors/AppError')
+const { AppError, AuthorizationError, NotFoundError } = require('../errors')
 
 const BoardMemberService = {
+    boardMemberRepository: new BoardMemberRepository(),
 
     async _performRemoval(tx, { membership }) {
         const { role, order, user_id, id, board: { workspace_id, id: board_id } } = membership
         const isPrivilegedMember = PermissionService.isPrivileged(role)
 
         if (isPrivilegedMember) {
-            const privilegedMembersCount = await tx.boardMember.count({
-                where: {
-                    board_id,
-                    role: { in: ['ADMIN', 'OWNER'] }
-                }
-            })
+            const privilegedMembersCount = await this.boardMemberRepository.countPrivilegedMembers(board_id, tx)
             const isLastPrivilegedMember = privilegedMembersCount <= 1
 
             if (isLastPrivilegedMember) throw new AppError('Não é possível remover o último membro privilegiado do quadro!', 400)
         }
 
-        await tx.boardMember.updateMany({
-            where: {
-                user_id,
-                board: { workspace_id },
-                order: { gt: order }
-            },
-            data: { order: { decrement: 1 } }
-        })
+        await this.boardMemberRepository.decrementOrderAfter(user_id, workspace_id, order, tx)
 
-        return await tx.boardMember.delete({
-            where: { id }
-        })
+        return await this.boardMemberRepository.removeById(id, tx)
     },
 
     async upsert({ user, boardId, memberEmail, role }) {
@@ -45,7 +32,7 @@ const BoardMemberService = {
             where: { email: memberEmail },
             select: { id: true, name: true }
         })
-        if (!targetUser) throw new AppError('Usuário com este e-mail não encontrado!', 404)
+        if (!targetUser) throw new NotFoundError('Usuário com este e-mail')
 
         const { id: targetUserId, name: targetUserName } = targetUser
         const isWorkspaceMember = await prisma.workspaceMember.findUnique({
@@ -54,9 +41,9 @@ const BoardMemberService = {
         const isSelf = targetUserId === userId
         const isTargetOwner = targetUserId === creatorId
 
-        if (!isWorkspaceMember) throw new AppError('Este usuário não faz parte do Workspace!', 403)
+        if (!isWorkspaceMember) throw new AuthorizationError('Este usuário não faz parte do workspace')
         if (isSelf) throw new AppError('Não é permitido alterar sua própria permissão!', 400)
-        if (isTargetOwner) throw new AppError('O proprietário do quadro não pode ter seu cargo alterado!', 403)
+        if (isTargetOwner) throw new AuthorizationError('O proprietário do quadro não pode ter seu cargo alterado')
 
         const existingMember = await prisma.boardMember.findUnique({
             where: {
