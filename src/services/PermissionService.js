@@ -1,8 +1,13 @@
-const prisma = require('../config/prisma')
-const AppError = require('../errors/AppError')
+const { BoardRepository, ColumnRepository, SectionRepository, ItemRepository, WorkspaceRepository } = require('../repositories')
+const { NotFoundError, AuthorizationError } = require('../errors')
 const { ROLES } = require('../constants')
 
 const PermissionService = {
+    boardRepository: new BoardRepository(),
+    columnRepository: new ColumnRepository(),
+    sectionRepository: new SectionRepository(),
+    itemRepository: new ItemRepository(),
+    workspaceRepository: new WorkspaceRepository(),
 
     isPrivileged(role) {
         if (!role) return false
@@ -15,29 +20,20 @@ const PermissionService = {
 
         switch (type.toUpperCase()) {
             case 'BOARD':
-                data = await prisma.board.findUnique({
-                    where: { id: entityId },
-                    select: { id: true, workspace_id: true, creator_id: true }
-                })
+                data = this.boardRepository.findPermissionContext(entityId)
                 break
             case 'SECTION':
+                data = this.sectionRepository.findPermissionContext(entityId)
+                break
             case 'COLUMN':
-                data = await prisma[type.toLowerCase()].findUnique({
-                    where: { id: entityId },
-                    select: { board_id: true, board: { select: { workspace_id: true, creator_id: true } } }
-                })
+                data = await this.columnRepository.findPermissionContext(entityId)
                 break
             case 'ITEM':
-                data = await prisma.item.findUnique({
-                    where: { id: entityId },
-                    select: {
-                        section: { select: { board_id: true, board: { select: { workspace_id: true, creator_id: true } } } }
-                    }
-                })
+                data = await this.itemRepository.findPermissionContext(entityId)
                 break
         }
 
-        if (!data) throw new AppError(`${type} não encontrado!`, 404)
+        if (!data) throw new NotFoundError(type)
 
         if (type === 'BOARD') return {
             boardId: data.id,
@@ -60,19 +56,15 @@ const PermissionService = {
     async check(type, entityId, user, actionLevel = 'EDIT') {
         const userId = user.id
         const isSystemAdmin = user.role === 'ADMIN'
-
         const context = await this._resolveBoardContext(type, entityId)
 
         if (isSystemAdmin) return { ...context, role: 'OWNER' }
 
-        const member = await prisma.boardMember.findUnique({
-            where: { user_id_board_id: { user_id: userId, board_id: context.boardId } },
-            select: { role: true }
-        })
+        const member = await this.boardRepository.findUserRoleInBoard(context.boardId, userId)
         const role = context.creatorId === userId ? 'OWNER' : (member?.role || null)
         const allowedRoles = ROLES[actionLevel.toUpperCase()]
 
-        if (!role || !allowedRoles.includes(role)) throw new AppError(`Acesso negado: Permissão de ${actionLevel} insuficiente para este ${type}!`, 403)
+        if (!role || !allowedRoles.includes(role)) throw new AuthorizationError()
 
         return {
             ...context,
@@ -83,19 +75,9 @@ const PermissionService = {
     async checkWorkspace(workspaceId, user, actionLevel = 'VIEW') {
         const userId = user.id
         const isSystemAdmin = user.role === 'ADMIN'
-        const workspace = await prisma.workspace.findUnique({
-            where: { id: workspaceId },
-            select: {
-                id: true,
-                creator_id: true,
-                workspace_members: {
-                    where: { user_id: userId },
-                    select: { role: true }
-                }
-            }
-        })
+        const workspace = await this.workspaceRepository.findPermissionContext(workspaceId, userId)
 
-        if (!workspace) throw new AppError('Área de Trabalho não encontrada!', 404)
+        if (!workspace) throw new NotFoundError()
         if (isSystemAdmin) return {
             boardId: null,
             workspaceId: workspace.id,
@@ -106,7 +88,7 @@ const PermissionService = {
         const role = workspace.creator_id === userId ? 'OWNER' : (workspace.workspace_members[0]?.role || null)
         const allowedRoles = ROLES[actionLevel.toUpperCase()]
 
-        if (!role || !allowedRoles.includes(role)) throw new AppError('Acesso negado à Área de Trabalho!', 403)
+        if (!role || !allowedRoles.includes(role)) throw new AuthorizationError()
 
         return {
             creatorId: workspace.creator_id,

@@ -9,6 +9,27 @@ class WorkspaceRepository extends BaseRepository {
         super('workspace')
     }
 
+
+    /**
+    * Busca workspace por ID para verificar permissão
+    * @param {number} workspaceId - ID do workspace
+    * @param {number} userId - ID do usuário
+    * @returns {Promise<object>} Workspace ou null
+    */
+    async findPermissionContext(workspaceId, userId) {
+        return await this.prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            select: {
+                id: true,
+                creator_id: true,
+                workspace_members: {
+                    where: { user_id: userId },
+                    select: { role: true }
+                }
+            }
+        })
+    }
+
     /**
      * Busca workspaces de um usuário através de memberships
      * @param {number} userId - ID do usuário

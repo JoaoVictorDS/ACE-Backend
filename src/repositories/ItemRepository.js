@@ -15,6 +15,19 @@ class ItemRepository extends BaseRepository {
     }
 
     /**
+    * Busca item por ID para verificar permissão
+    * @param {number} itemId - ID do item
+    * @returns {Promise<object>} Item ou null
+    */
+    async findPermissionContext(itemId) {
+        return await this.findById(itemId, {
+            select: {
+                section: { select: { board_id: true, board: { select: { workspace_id: true, creator_id: true } } } }
+            }
+        })
+    }
+
+    /**
      * Busca itens de um board com paginação
      * @param {number} boardId - ID do board
      * @param {number} page - Número da página (começa em 1)

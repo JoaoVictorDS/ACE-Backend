@@ -8,4 +8,6 @@ module.exports = {
     BoardMemberRepository: require('./BoardMemberRepository'),
     UserNotificationSettingRepository: require('./UserNotificationSettingRepository'),
     WorkspaceRepository: require('./WorkspaceRepository'),
+    ColumnRepository: require('./ColumnRepository'),
+    SectionRepository: require('./SectionRepository'),
 }

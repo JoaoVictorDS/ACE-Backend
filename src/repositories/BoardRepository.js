@@ -6,12 +6,20 @@ const BaseRepository = require('./BaseRepository')
  * Estende BaseRepository para herdar métodos comuns
  */
 class BoardRepository extends BaseRepository {
-    /**
-     * Construtor
-     * Define o model como 'board' para usar nas queries
-     */
+
     constructor() {
         super('board')
+    }
+
+    /**
+    * Busca board por ID para verificar permissão
+    * @param {number} boardId - ID do board
+    * @returns {Promise<object>} Board ou null
+    */
+    async findPermissionContext(boardId) {
+        return await this.findById(boardId, {
+            select: { id: true, workspace_id: true, creator_id: true }
+        })
     }
 
     /**
