@@ -1,5 +1,5 @@
 const { Server } = require('socket.io')
-const AuthService = require('../services/AuthService')
+const AuthService = require('../modules/auth/auth.service')
 const logger = require('./logger')
 
 let io
