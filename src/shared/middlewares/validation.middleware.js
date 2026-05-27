@@ -12,44 +12,21 @@ const validationMiddleware = (schemas = {}) => {
     return (req, res, next) => {
         try {
             const errors = {}
+            const sources = { body: req.body, query: req.query, params: req.params, cookies: req.cookies }
 
-            if (schemas.body) {
-                try {
-                    req.body = schemas.body.parse(req.body)
-                } catch (error) {
-                    errors.body = error.issues[0]?.message || 'Erro ao validar body'
-                }
-            }
+            for (const [key, schema] of Object.entries(schemas)) {
+                if (!schema) continue
+                const result = schema.safeParse(sources[key])
 
-            if (schemas.query) {
-                try {
-                    req.query = schemas.query.parse(req.query)
-                } catch (error) {
-                    errors.query = error.issues[0]?.message || 'Erro ao validar query'
-                }
-            }
-
-            if (schemas.params) {
-                try {
-                    req.params = schemas.params.parse(req.params)
-                } catch (error) {
-                    errors.params = error.issues[0]?.message || 'Erro ao validar params'
-                }
-            }
-
-            if (schemas.cookies) {
-                try {
-                    req.cookies = schemas.cookies.parse(req.cookies)
-                } catch (error) {
-                    errors.cookies = error.issues[0]?.message || 'Erro ao validar cookies'
+                if (!result.success) {
+                    errors[key] = result.error.issues.map(i => i.message)
+                } else {
+                    req[key] = result.data
                 }
             }
 
             if (Object.keys(errors).length > 0) {
-                throw new ValidationError(
-                    'Erro na validação dos dados',
-                    errors
-                )
+                return next(new ValidationError('Erro na validação dos dados', errors))
             }
 
             next()

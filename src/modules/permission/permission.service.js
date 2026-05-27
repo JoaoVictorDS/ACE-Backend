@@ -20,16 +20,16 @@ const PermissionService = {
 
         switch (type.toUpperCase()) {
             case 'BOARD':
-                data = await this.boardRepository.findPermissionContext(entityId)
+                data = await BoardRepository.findPermissionContext(entityId)
                 break
             case 'SECTION':
-                data = await this.sectionRepository.findPermissionContext(entityId)
+                data = await SectionRepository.findPermissionContext(entityId)
                 break
             case 'COLUMN':
-                data = await this.columnRepository.findPermissionContext(entityId)
+                data = await ColumnRepository.findPermissionContext(entityId)
                 break
             case 'ITEM':
-                data = await this.itemRepository.findPermissionContext(entityId)
+                data = await ItemRepository.findPermissionContext(entityId)
                 break
         }
 
@@ -60,7 +60,7 @@ const PermissionService = {
 
         if (isSystemAdmin) return { ...context, role: 'OWNER' }
 
-        const member = await this.boardRepository.findUserRoleInBoard(context.boardId, userId)
+        const member = await BoardRepository.findUserRoleInBoard(context.boardId, userId)
         const role = context.creatorId === userId ? 'OWNER' : (member?.role || null)
         const allowedRoles = ROLES[actionLevel.toUpperCase()]
 
@@ -75,7 +75,7 @@ const PermissionService = {
     async checkWorkspace(workspaceId, user, actionLevel = 'VIEW') {
         const userId = user.id
         const isSystemAdmin = user.role === 'ADMIN'
-        const workspace = await this.workspaceRepository.findPermissionContext(workspaceId, userId)
+        const workspace = await WorkspaceRepository.findPermissionContext(workspaceId, userId)
 
         if (!workspace) throw new NotFoundError()
         if (isSystemAdmin) return {

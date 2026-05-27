@@ -1,3 +1,5 @@
+const prisma = require('../../config/prisma')
+
 const SectionRepository = {
 
     /**
@@ -6,7 +8,8 @@ const SectionRepository = {
     * @returns {Promise<object>} Section ou null
     */
     async findPermissionContext(sectionId) {
-        return await this.findById(sectionId, {
+        return prisma.section.findUnique({
+            where: { id: sectionId },
             select: {
                 board_id: true,
                 board: { select: { workspace_id: true, creator_id: true } }

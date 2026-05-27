@@ -2,64 +2,70 @@ const prisma = require('../../config/prisma')
 
 const UserRepository = {
 
-    /**
-     * Busca usuário por email
-     * @param {string} email - Email do usuário
-     * @param {object} options - Opções (select, include)
-     * @returns {Promise<object>} Usuário ou null
-     */
-    async findByEmail(email, options = {}) {
-        return await this.findOne(
-            { email: email.toLowerCase() },
-            options
-        )
-    },
-
-    /**
-     * Busca usuário por email com todos os dados
-     * @param {string} email - Email do usuário
-     * @returns {Promise<object>} Usuário com password_hash ou null
-     */
-    async findByEmailWithPassword(email) {
-        return await this.findOne(
-            { email: email.toLowerCase() },
-            {
-                select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    password_hash: true,
-                    is_active: true,
-                    role: true,
-                    refresh_token: true,
-                },
-            }
-        )
-    },
-
-    /**
-     * Busca usuário por ID para autenticação
-     * @param {number} userId - ID do usuário
-     * @returns {Promise<object>} Usuário ou null
-     */
     async findByIdForAuth(userId) {
-        return await this.findById(userId, {
+        return prisma.user.findFirst({
+            where: { id: userId },
             select: {
                 id: true,
                 role: true,
                 name: true,
                 is_active: true,
+            }
+        })
+    },
+
+    async findByEmailWithPassword(email) {
+        return prisma.user.findUnique({
+            where: { email: email.toLowerCase() },
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                password_hash: true,
+                is_active: true,
+                role: true,
+                refresh_token: true,
+            }
+        })
+    },
+
+    async updateRefreshToken(userId, refreshToken) {
+        return prisma.user.update({
+            where: { id: userId },
+            data: { refresh_token: refreshToken }
+        })
+    },
+
+    async findRefreshToken(userId) {
+        return prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                refresh_token: true,
+                is_active: true,
             },
         })
     },
 
-    /**
-     * Busca usuário por ID para perfil
-     * @param {number} userId - ID do usuário
-     * @returns {Promise<object>} Usuário ou null
-     */
+    async revokeAllSessions(userId) {
+        return prisma.user.update({
+            where: { id: userId },
+            data: { refresh_token: null }
+        })
+    },
+
+    async findByEmail(email, options = {}) {
+        return prisma.user.findUnique({
+            where: { email: email.toLowerCase() }
+        },
+            options
+        )
+    },
+
+    // atualizar
+
     async findByIdForProfile(userId) {
-        return await this.findById(userId, {
+        return prisma.user.findUnique(userId, {
             select: {
                 id: true,
                 name: true,
@@ -71,51 +77,8 @@ const UserRepository = {
         })
     },
 
-    /**
-     * Atualiza refresh token do usuário
-     * @param {number} userId - ID do usuário
-     * @param {string} refreshToken - Novo refresh token
-     * @returns {Promise<object>} Usuário atualizado
-     */
-    async updateRefreshToken(userId, refreshToken) {
-        return await this.update(userId, {
-            refresh_token: refreshToken,
-        })
-    },
-
-    /**
-     * Busca refresh token do usuário
-     * @param {number} userId - ID do usuário
-     * @returns {Promise<object>} Usuário com refresh_token ou null
-     */
-    async findRefreshToken(userId) {
-        return await this.findById(userId, {
-            select: {
-                id: true,
-                refresh_token: true,
-                is_active: true,
-            },
-        })
-    },
-
-    /**
-     * Revoga todas as sessões do usuário (limpa refresh token)
-     * @param {number} userId - ID do usuário
-     * @returns {Promise<object>} Usuário atualizado
-     */
-    async revokeAllSessions(userId) {
-        return await this.update(userId, {
-            refresh_token: null,
-        })
-    },
-
-    /**
-     * Busca usuários ativos
-     * @param {number} limit - Limite de resultados
-     * @returns {Promise<array>} Array de usuários ativos
-     */
     async findActive(limit = 10) {
-        return await this.findMany(
+        return prisma.user.findMany(
             { is_active: true },
             {
                 select: {
@@ -129,17 +92,13 @@ const UserRepository = {
         )
     },
 
-    /**
-     * Desativa um usuário
-     * @param {number} userId - ID do usuário
-     * @returns {Promise<object>} Usuário atualizado
-     */
     async deactivate(userId) {
-        return await this.update(userId, {
+        return prisma.user.update(userId, {
             is_active: false,
             refresh_token: null,
         })
     }
+
 }
 
 module.exports = UserRepository

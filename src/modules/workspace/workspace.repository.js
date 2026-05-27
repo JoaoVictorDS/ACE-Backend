@@ -1,3 +1,5 @@
+const prisma = require('../../config/prisma')
+
 const WorkspaceRepository = {
     /**
     * Busca workspace por ID para verificar permissão
@@ -6,7 +8,7 @@ const WorkspaceRepository = {
     * @returns {Promise<object>} Workspace ou null
     */
     async findPermissionContext(workspaceId, userId) {
-        return await this.prisma.workspace.findUnique({
+        return prisma.workspace.findUnique({
             where: { id: workspaceId },
             select: {
                 id: true,

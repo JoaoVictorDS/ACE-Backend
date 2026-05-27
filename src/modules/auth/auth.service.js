@@ -6,12 +6,6 @@ const ERROR_MESSAGES = require('../../shared/constants/errorMessages')
 
 const AuthService = {
 
-    /**
-     * Extrai token do header Authorization
-     * @param {string} authHeader - Header Authorization (ex: "Bearer token123")
-     * @returns {string} Token extraído
-     * @throws {AuthenticationError} Se formato inválido
-     */
     extractTokenFromHeader(authHeader) {
         if (!authHeader) {
             throw new AuthenticationError(ERROR_MESSAGES.TOKEN_NOT_PROVIDED)
@@ -32,12 +26,6 @@ const AuthService = {
         return token
     },
 
-    /**
-     * Valida um token JWT
-     * @param {string} token - Token a validar
-     * @returns {Promise<object>} Usuário decodificado
-     * @throws {AuthenticationError} Se token inválido ou expirado
-     */
     async validateToken(token) {
         if (!token) {
             throw new AuthenticationError(ERROR_MESSAGES.TOKEN_NOT_PROVIDED)
