@@ -31,15 +31,15 @@ const BoardMemberService = {
         const { workspaceId, creatorId } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.ADMIN)
         const userId = user.id
 
-        const targetUser = await UserRepository.findByEmail(memberEmail, { select: { id: true, name: true } })
-        if (!targetUser) throw new NotFoundError('Usuário com este e-mail')  // ✅
+        const targetUser = await UserRepository.findByEmail(memberEmail)
+        if (!targetUser) throw new NotFoundError('Usuário com este e-mail')
 
         const { id: targetUserId, name: targetUserName } = targetUser
         const isWorkspaceMember = await WorkspaceMemberRepository.isWorkspaceMember(targetUserId, workspaceId)
 
-        if (!isWorkspaceMember) throw new AuthorizationError('Este usuário não faz parte do workspace')  // ✅
+        if (!isWorkspaceMember) throw new AuthorizationError('Este usuário não faz parte do workspace')
         if (targetUserId === userId) throw new AppError('Não é permitido alterar sua própria permissão!', 400)
-        if (targetUserId === creatorId) throw new AuthorizationError('O proprietário do quadro não pode ter seu cargo alterado')  // ✅
+        if (targetUserId === creatorId) throw new AuthorizationError('O proprietário do quadro não pode ter seu cargo alterado')
 
         const existingMember = await BoardMemberRepository.findMembership(targetUserId, boardId)
         const isDowngradingAdmin = existingMember?.role === 'ADMIN' && role !== 'ADMIN'
@@ -80,7 +80,7 @@ const BoardMemberService = {
             throw new AppError('Não é permitido remover a si mesmo do quadro!', 400)
 
         const membership = await BoardMemberRepository.findMembershipWithBoardAndUser(boardId, memberIdToRemove)
-        if (!membership) throw new NotFoundError('Membro')  // ✅
+        if (!membership) throw new NotFoundError('Membro')
 
         if (membership.role === 'OWNER')
             throw new AppError('O proprietário do quadro não pode ser removido!', 400)

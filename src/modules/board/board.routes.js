@@ -3,16 +3,16 @@ const router = express.Router()
 
 const authMiddleware = require('../../shared/middlewares/auth.middleware')
 const validationMiddleware = require('../../shared/middlewares/validation.middleware')
-
+const { showBoardSchema, updateBoardSchema, deleteBoardSchema, moveBoardSchema, getHistorySchema } = require('./board.validator')
 const BoardController = require('./board.controller')
 
 router.get('/', authMiddleware, BoardController.list)
-router.get('/:board_id', authMiddleware, BoardController.show)
-router.patch('/:board_id', authMiddleware, BoardController.update)
-router.delete('/:board_id', authMiddleware, BoardController.delete)
-router.patch('/:board_id/move', authMiddleware, BoardController.move)
+router.get('/:board_id', authMiddleware, validationMiddleware(showBoardSchema), BoardController.show)
+router.patch('/:board_id', authMiddleware, validationMiddleware(updateBoardSchema), BoardController.update)
+router.delete('/:board_id', authMiddleware, validationMiddleware(deleteBoardSchema), BoardController.delete)
+router.patch('/:board_id/move', authMiddleware, validationMiddleware(moveBoardSchema), BoardController.move)
 
-router.get('/:board_id/logs', authMiddleware, BoardController.getHistory)
+router.get('/:board_id/logs', authMiddleware, validationMiddleware(getHistorySchema), BoardController.getHistory)
 
 router.use('/:board_id/columns', require('../column/column.board.routes'))
 router.use('/:board_id/sections', require('../section/section.board.routes'))

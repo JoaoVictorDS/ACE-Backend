@@ -1,17 +1,16 @@
 const { z } = require('zod')
+const { page, limit, notification_id, } = require('../../shared/validators/common.fields')
 
-const listNotificationsSchema = z.object({
-    page: z.coerce.number().gt(0, 'A página não pode ser menor ou igual a 0').default(1),
-    limit: z.coerce.number().gt(0, 'O limite não pode ser menor ou igual a 0').max(100).default(20)
-})
+const listNotificationsSchema = {
+    query: z.object({
+        page,
+        limit
+    })
+}
 
-const markAsReadSchema = z.object({
-    notification_id: z.coerce.number({
-        error: (issue) => issue.input === undefined
-            ? 'O parâmetro "notification_id" é obrigatório'
-            : 'O ID da notificação deve ser number'
-    }).gt(0, 'O ID da notificação não pode ser menor ou igual a 0')
-})
+const markAsReadSchema = {
+    params: z.object({ notification_id })
+}
 
 module.exports = {
     listNotificationsSchema,

@@ -1,44 +1,29 @@
 const { z } = require('zod')
+const { workspace_id, member_email, role, member_id } = require('../../shared/validators/common.fields')
 
-const workspace_id = z.coerce.number({
-    error: (issue) => issue.input === undefined
-        ? 'O parâmetro "workspace_id" é obrigatório'
-        : 'O ID da Área de Trabalho deve ser number'
-}).gt(0, 'O ID da Área de Trabalho não pode ser menor ou igual a 0')
+const upsertMemberSchema = {
+    params: z.object({ workspace_id }),
 
-const upsertMemberSchema = z.object({
-    workspace_id,
+    body: z.object({
+        member_email,
 
-    member_email: z.string({
-        error: (issue) => issue.input === undefined
-            ? 'O campo "member_email" é obrigatório'
-            : 'O E-mail do Membro deve ser string'
-    }).trim().toLowerCase().min(1, 'O E-mail do Membro não pode ser vazio').pipe(z.email('E-mail inválido')),
-
-    role: z.enum(['ADMIN', 'EDITOR', 'VIEWER'], {
-        error: (issue) => issue.input === undefined
-            ? 'O campo "role" é obrigatório'
-            : 'Role inválida. Use "ADMIN", "EDITOR" ou "VIEWER"'
+        role
     })
-})
+}
 
-const listMemberSchema = z.object({
-    workspace_id
-})
+const listMemberSchema = {
+    params: z.object({ workspace_id }),
+}
 
-const removeMemberSchema = z.object({
-    workspace_id,
+const removeMemberSchema = {
+    params: z.object({ workspace_id }),
 
-    member_id: z.coerce.number({
-        error: (issue) => issue.input === undefined
-            ? 'O parâmetro "member_id" é obrigatório'
-            : 'O ID do Membro deve ser number'
-    }).gt(0, 'O ID do Membro não pode ser menor ou igual a 0')
-})
+    body: z.object({ member_id })
+}
 
-const leaveWorkspaceSchema = z.object({
-    workspace_id
-})
+const leaveWorkspaceSchema = {
+    params: z.object({ workspace_id }),
+}
 
 module.exports = {
     upsertMemberSchema,

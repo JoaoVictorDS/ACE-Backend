@@ -1,57 +1,33 @@
 const { z } = require('zod')
+const { section_id, board_id, name, new_order, force } = require('../../shared/validators/common.fields')
 
-const section_id = z.coerce.number({
-    error: (issue) => issue.input === undefined
-        ? 'O parâmetro "section_id" é obrigatório'
-        : 'O ID da Seção deve ser number'
-}).gt(0, 'O ID da Seção não pode ser menor ou igual a 0')
+const createSectionSchema = {
+    params: z.object({ board_id }),
 
-const board_id = z.coerce.number({
-    error: (issue) => issue.input === undefined
-        ? 'O parâmetro "board_id" é obrigatório'
-        : 'O ID do Quadro deve ser number'
-}).gt(0, 'O ID do Quadro não pode ser menor ou igual a 0')
+    body: z.object({ name })
+}
 
-const name = z.string({
-    error: (issue) => issue.input === undefined
-        ? 'O campo "name" é obrigatório'
-        : 'O Nome deve ser string'
-}).trim().min(1, 'O Nome não pode ser vazio')
+const updateSectionSchema = {
+    params: z.object({ section_id }),
 
-const createSectionSchema = z.object({
-    board_id,
+    body: z.object({ name })
+}
 
-    name
-})
+const moveSectionSchema = {
+    params: z.object({ section_id }),
 
-const updateSectionSchema = z.object({
-    section_id,
+    body: z.object({ new_order })
+}
 
-    name
-})
+const listSectionsSchema = {
+    params: z.object({ board_id })
+}
 
-const moveSectionSchema = z.object({
-    section_id,
+const deleteSectionSchema = {
+    params: z.object({ section_id }),
 
-    new_order: z.coerce.number({
-        error: (issue) => issue.input === undefined
-            ? 'O campo "new_order" é obrigatório'
-            : 'A Nova Ordem deve ser number'
-    }).min(0, 'A Nova Ordem não pode ser negativa')
-})
-
-const listSectionsSchema = z.object({
-    board_id
-})
-
-const deleteSectionSchema = z.object({
-    section_id,
-
-    force: z.preprocess(
-        (val) => val === 'true' || val === true,
-        z.boolean().default(false)
-    )
-})
+    query: z.object({ force })
+}
 
 module.exports = {
     createSectionSchema,

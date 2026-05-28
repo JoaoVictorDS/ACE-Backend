@@ -61,20 +61,17 @@ const AuthService = {
      * @throws {AuthenticationError} Se credenciais inválidas
      */
     async authenticateUser({ email, password }) {
-        // Busca usuário por email
         const user = await UserRepository.findByEmailWithPassword(email)
 
         if (!user || !user.is_active) {
             throw new AuthenticationError(ERROR_MESSAGES.INVALID_CREDENTIALS)
         }
 
-        // Valida senha
         const isValidPassword = await bcrypt.compare(password, user.password_hash)
         if (!isValidPassword) {
             throw new AuthenticationError(ERROR_MESSAGES.INVALID_CREDENTIALS)
         }
 
-        // Valida variáveis de ambiente
         const secret = process.env.JWT_SECRET
         const refreshSecret = process.env.JWT_REFRESH_SECRET
 
@@ -82,7 +79,6 @@ const AuthService = {
             throw new Error('Erro interno: Chave de segurança não configurada!')
         }
 
-        // Gera tokens
         const token = jwt.sign(
             { id: user.id, role: user.role },
             secret,
@@ -95,7 +91,6 @@ const AuthService = {
             { expiresIn: '7d' }
         )
 
-        // Salva refresh token no banco
         await UserRepository.updateRefreshToken(user.id, refreshToken)
 
         return {
@@ -126,34 +121,29 @@ const AuthService = {
         try {
             const decoded = jwt.verify(oldRefreshToken, process.env.JWT_REFRESH_SECRET)
 
-            // Busca usuário com refresh token
             const user = await UserRepository.findRefreshToken(decoded.id)
 
             if (!user || !user.is_active) {
                 throw new AuthenticationError(ERROR_MESSAGES.USER_INACTIVE)
             }
 
-            // Valida refresh token armazenado
             if (user.refresh_token !== oldRefreshToken) {
                 await this.revokeAllSessions(user.id)
                 throw new AuthenticationError('Sessão inválida. Faça login novamente.')
             }
 
-            // Gera novo access token
             const newAccessToken = jwt.sign(
                 { id: user.id, role: user.role },
                 process.env.JWT_SECRET,
                 { expiresIn: '7d' }
             )
 
-            // Gera novo refresh token
             const newRefreshToken = jwt.sign(
                 { id: user.id },
                 process.env.JWT_REFRESH_SECRET,
                 { expiresIn: '7d' }
             )
 
-            // Atualiza refresh token no banco
             await UserRepository.updateRefreshToken(user.id, newRefreshToken)
 
             return {

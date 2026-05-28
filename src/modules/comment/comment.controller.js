@@ -1,26 +1,23 @@
 const CommentService = require('./comment.service')
 const catchAsync = require('../../shared/utils/catchAsync')
-const { createCommentSchema, updateCommentSchema, deleteCommentSchema, listCommentsSchema } = require('./comment.validator')
 
 const CommentController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { item_id: itemId, ...otherFields } = createCommentSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { item_id: itemId } = req.params
+        const { content } = req.body
 
         const comment = await CommentService.create({
             user: req.user,
             itemId,
-            ...otherFields
+            content
         })
 
         return res.status(201).json(comment)
     }),
 
     list: catchAsync(async (req, res, next) => {
-        const { item_id: itemId } = listCommentsSchema.parse(req.params)
+        const { item_id: itemId } = req.params
 
         const comments = await CommentService.getByItem({
             user: req.user,
@@ -31,22 +28,20 @@ const CommentController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const { comment_id: commentId, ...otherFields } = updateCommentSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { comment_id: commentId } = req.params
+        const { content } = req.body
 
         const updatedComment = await CommentService.update({
             user: req.user,
             commentId,
-            ...otherFields
+            content
         })
 
         return res.status(200).json(updatedComment)
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { comment_id: commentId } = deleteCommentSchema.parse(req.params)
+        const { comment_id: commentId } = req.params
 
         await CommentService.delete({
             user: req.user,

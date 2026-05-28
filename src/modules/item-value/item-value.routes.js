@@ -5,6 +5,6 @@ const authMiddleware = require('../../shared/middlewares/auth.middleware')
 const validationMiddleware = require('../../shared/middlewares/validation.middleware')
 const ItemValueController = require('./item-value.controller')
 
-router.patch('/', authMiddleware, ItemValueController.upsert)
+router.post('/', authMiddleware, ItemValueController.upsert)
 
 module.exports = router

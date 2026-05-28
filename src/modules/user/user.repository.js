@@ -54,12 +54,11 @@ const UserRepository = {
         })
     },
 
-    async findByEmail(email, options = {}) {
+    async findByEmail(email) {
         return prisma.user.findUnique({
-            where: { email: email.toLowerCase() }
-        },
-            options
-        )
+            where: { email: email.toLowerCase() },
+            select: { id: true, name: true, role: true }
+        })
     },
 
     // atualizar
