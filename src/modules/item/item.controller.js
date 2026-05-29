@@ -1,6 +1,5 @@
 const ItemService = require('./item.service')
 const catchAsync = require('../../shared/utils/catchAsync')
-const { createItemSchema, showItemSchema, updateItemSchema, moveItemSchema, deleteItemSchema } = require('./item.validator')
 
 const ItemController = {
 

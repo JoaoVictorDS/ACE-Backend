@@ -2,20 +2,17 @@ const BoardService = require('./board.service')
 const BoardMemberService = require('../board-member/board-member.service')
 const LogService = require('../log/log.service')
 const catchAsync = require('../../shared/utils/catchAsync')
-const { createBoardSchema, showBoardSchema, updateBoardSchema, moveBoardSchema, deleteBoardSchema, getHistorySchema } = require('./board.validator')
 
 const BoardController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { workspace_id: workspaceId, ...otherFields } = createBoardSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { workspace_id: workspaceId } = req.params
+        const { name } = req.body
 
         const board = await BoardService.create({
             user: req.user,
             workspaceId,
-            ...otherFields
+            name
         })
 
         return res.status(201).json(board)
@@ -30,7 +27,7 @@ const BoardController = {
     }),
 
     show: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = showBoardSchema.parse(req.params)
+        const { board_id: boardId } = req.params
 
         const board = await BoardService.getFull({
             user: req.user,
@@ -41,25 +38,21 @@ const BoardController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const { board_id: boardId, ...otherFields } = updateBoardSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { board_id: boardId } = req.params
+        const { name } = req.body
 
         const updatedBoard = await BoardService.update({
             user: req.user,
             boardId,
-            ...otherFields,
+            name
         })
 
         return res.status(200).json(updatedBoard)
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { board_id: boardId, force } = deleteBoardSchema.parse({
-            ...req.params,
-            ...req.query
-        })
+        const { board_id: boardId } = req.params
+        const { force } = req.query
 
         await BoardService.delete({
             user: req.user,
@@ -71,10 +64,8 @@ const BoardController = {
     }),
 
     move: catchAsync(async (req, res, next) => {
-        const { board_id: boardId, new_order: newOrder } = moveBoardSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { board_id: boardId } = req.params
+        const { new_order: newOrder } = req.body
 
         const movedMembership = await BoardMemberService.move({
             user: req.user,
@@ -86,7 +77,7 @@ const BoardController = {
     }),
 
     getHistory: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = getHistorySchema.parse(req.params)
+        const { board_id: boardId } = req.params
 
         const logs = await LogService.getByBoard({
             user: req.user,

@@ -1,11 +1,10 @@
 const UserService = require('./user.service')
 const catchAsync = require('../../shared/utils/catchAsync')
-const { createUserSchema, updateUserSchema, deleteUserSchema } = require('./user.validator')
 
 const UserController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { ...fields } = createUserSchema.parse(req.body)
+        const { ...fields } = req.body
 
         const user = await UserService.create({
             ...fields
@@ -21,10 +20,8 @@ const UserController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const { user_id: targetUserId, ...otherFields } = updateUserSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { user_id: targetUserId } = req.params
+        const { ...otherFields } = req.body
 
         const updatedUser = await UserService.update({
             requesterUser: req.user,
@@ -36,7 +33,7 @@ const UserController = {
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { user_id: targetUserId } = deleteUserSchema.parse(req.params)
+        const { user_id: targetUserId } = req.params
 
         await UserService.delete({
             requesterUser: req.user,

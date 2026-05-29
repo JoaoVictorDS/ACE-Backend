@@ -16,9 +16,10 @@ const listMemberSchema = {
 }
 
 const removeMemberSchema = {
-    params: z.object({ workspace_id }),
-
-    body: z.object({ member_id })
+    params: z.object({
+        workspace_id,
+        member_id
+    }),
 }
 
 const leaveWorkspaceSchema = {

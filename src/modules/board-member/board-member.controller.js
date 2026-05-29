@@ -5,13 +5,13 @@ const BoardMemberController = {
 
     upsert: catchAsync(async (req, res, next) => {
         const { board_id: boardId } = req.params
-        const { member_email: memberEmail, ...otherFields } = req.body
+        const { member_email: memberEmail, role } = req.body
 
         const boardMember = await BoardMemberService.upsert({
             user: req.user,
             boardId,
             memberEmail,
-            ...otherFields
+            role
         })
 
         return res.status(200).json(boardMember)

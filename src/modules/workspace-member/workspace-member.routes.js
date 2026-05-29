@@ -2,12 +2,13 @@ const express = require('express')
 const router = express.Router({ mergeParams: true })
 
 const authMiddleware = require('../../shared/middlewares/auth.middleware')
-
+const validationMiddleware = require('../../shared/middlewares/validation.middleware')
+const { upsertMemberSchema, listMemberSchema, removeMemberSchema, leaveWorkspaceSchema } = require('./workspace-member.validator')
 const WorkspaceMemberController = require('../../modules/workspace-member/workspace-member.controller')
 
-router.post('/', authMiddleware, WorkspaceMemberController.upsert)
-router.get('/', authMiddleware, WorkspaceMemberController.list)
-router.delete('/:member_id', authMiddleware, WorkspaceMemberController.remove)
-router.delete('/', authMiddleware, WorkspaceMemberController.leave)
+router.post('/', authMiddleware, validationMiddleware(upsertMemberSchema), WorkspaceMemberController.upsert)
+router.get('/', authMiddleware, validationMiddleware(listMemberSchema), WorkspaceMemberController.list)
+router.delete('/:member_id', authMiddleware, validationMiddleware(removeMemberSchema), WorkspaceMemberController.remove)
+router.delete('/', authMiddleware, validationMiddleware(leaveWorkspaceSchema), WorkspaceMemberController.leave)
 
 module.exports = router

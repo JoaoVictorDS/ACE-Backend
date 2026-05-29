@@ -1,11 +1,11 @@
 const NotificationService = require('./notification.service')
 const catchAsync = require('../../shared/utils/catchAsync')
-const { listNotificationsSchema, markAsReadSchema } = require('./notification.validator')
 
 const NotificationController = {
 
     list: catchAsync(async (req, res, next) => {
-        const { limit, page } = listNotificationsSchema.parse(req.query)
+        const { limit, page } = req.query
+
         const notifications = await NotificationService.getByUser({
             user: req.user,
             limit,
@@ -16,7 +16,7 @@ const NotificationController = {
     }),
 
     markAsRead: catchAsync(async (req, res, next) => {
-        const { notification_id: notificationId } = markAsReadSchema.parse(req.params)
+        const { notification_id: notificationId } = req.params
 
         const updatedNotification = await NotificationService.markAsRead({
             user: req.user,

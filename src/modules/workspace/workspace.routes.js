@@ -3,18 +3,17 @@ const router = express.Router()
 
 const authMiddleware = require('../../shared/middlewares/auth.middleware')
 const adminMiddleware = require('../../shared/middlewares/admin.middleware')
-
+const validationMiddleware = require('../../shared/middlewares/validation.middleware')
+const { createWorkspaceSchema, updateWorkspaceSchema, deleteWorkspaceSchema, movedWorkspaceSchema, getHistorySchema } = require('./workspace.validator')
 const WorkspaceController = require('../../modules/workspace/workspace.controller')
 
-const BoardController = require('../../modules/board/board.controller')
-
-router.post('/', authMiddleware, adminMiddleware, WorkspaceController.create)
+router.post('/', authMiddleware, adminMiddleware, validationMiddleware(createWorkspaceSchema), WorkspaceController.create)
 router.get('/', authMiddleware, WorkspaceController.list)
-router.patch('/:workspace_id', authMiddleware, WorkspaceController.update)
-router.delete('/:workspace_id', authMiddleware, adminMiddleware, WorkspaceController.delete)
-router.patch('/:workspace_id/move', authMiddleware, WorkspaceController.move)
+router.patch('/:workspace_id', authMiddleware, validationMiddleware(updateWorkspaceSchema), WorkspaceController.update)
+router.delete('/:workspace_id', authMiddleware, adminMiddleware, validationMiddleware(deleteWorkspaceSchema), WorkspaceController.delete)
+router.patch('/:workspace_id/move', authMiddleware, validationMiddleware(movedWorkspaceSchema), WorkspaceController.move)
 
-router.get('/:workspace_id/logs', authMiddleware, WorkspaceController.getHistory)
+router.get('/:workspace_id/logs', authMiddleware, validationMiddleware(getHistorySchema), WorkspaceController.getHistory)
 
 router.use('/:workspace_id/boards', require('../board/board.workspace.routes'))
 router.use('/:workspace_id/members', require('../workspace-member/workspace-member.routes'))

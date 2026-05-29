@@ -1,14 +1,11 @@
 const SectionService = require('./section.service')
 const catchAsync = require('../../shared/utils/catchAsync')
-const { createSectionSchema, updateSectionSchema, moveSectionSchema, deleteSectionSchema, listSectionsSchema } = require('./section.validator')
 
 const SectionController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { board_id: boardId, ...otherFields } = createSectionSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { board_id: boardId } = req.params
+        const { ...otherFields } = req.body
 
         const section = await SectionService.create({
             user: req.user,
@@ -20,7 +17,7 @@ const SectionController = {
     }),
 
     list: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = listSectionsSchema.parse(req.params)
+        const { board_id: boardId } = req.params
 
         const sections = await SectionService.getByBoard({
             user: req.user,
@@ -31,10 +28,8 @@ const SectionController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const { section_id: sectionId, ...otherFields } = updateSectionSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { section_id: sectionId } = req.params
+        const { ...otherFields } = req.body
 
         const updatedSection = await SectionService.update({
             user: req.user,
@@ -46,10 +41,8 @@ const SectionController = {
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { section_id: sectionId, force } = deleteSectionSchema.parse({
-            ...req.params,
-            ...req.query
-        })
+        const { section_id: sectionId } = req.params
+        const { force } = req.query
 
         await SectionService.delete({
             user: req.user,
@@ -61,10 +54,8 @@ const SectionController = {
     }),
 
     move: catchAsync(async (req, res, next) => {
-        const { new_order: newOrder, section_id: sectionId } = moveSectionSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { section_id: sectionId } = req.params
+        const { new_order: newOrder } = req.body
 
         const movedSection = await SectionService.move({
             user: req.user,

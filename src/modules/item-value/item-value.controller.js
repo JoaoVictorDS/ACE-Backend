@@ -1,14 +1,11 @@
 const ItemValueService = require('./item-value.service')
 const catchAsync = require('../../shared/utils/catchAsync')
-const { upsertItemValueSchema } = require('./item-value.validator')
 
 const ItemValueController = {
 
     upsert: catchAsync(async (req, res, next) => {
-        const { item_id: itemId, column_id: columnId, value } = upsertItemValueSchema.parse({
-            ...req.body,
-            ...req.params,
-        })
+        const { item_id: itemId, column_id: columnId } = req.params
+        const { value } = req.body
 
         const result = await ItemValueService.upsert({
             user: req.user,
@@ -23,7 +20,6 @@ const ItemValueController = {
             'DELETED': 200,
             'UNCHANGED': 200
         }
-
         const statusCode = statusMap[result.action] || 200
 
         return res.status(statusCode).json(result.data)

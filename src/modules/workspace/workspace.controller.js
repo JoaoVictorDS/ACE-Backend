@@ -2,12 +2,11 @@ const WorkspaceService = require('./workspace.service')
 const WorkspaceMemberService = require('../workspace-member/workspace-member.service')
 const LogService = require('../log/log.service')
 const catchAsync = require('../../shared/utils/catchAsync')
-const { createWorkspaceSchema, deleteWorkspaceSchema, updateWorkspaceSchema, movedWorkspaceSchema, getHistorySchema } = require('./workspace.validator')
 
 const WorkspaceController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { name } = createWorkspaceSchema.parse(req.body)
+        const { name } = req.body
 
         const workspace = await WorkspaceService.create({
             user: req.user,
@@ -26,10 +25,8 @@ const WorkspaceController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const { workspace_id: workspaceId, ...otherFields } = updateWorkspaceSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { workspace_id: workspaceId } = req.params
+        const { ...otherFields } = req.body
 
         const updatedWorkspace = await WorkspaceService.update({
             user: req.user,
@@ -41,10 +38,8 @@ const WorkspaceController = {
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { workspace_id: workspaceId, force } = deleteWorkspaceSchema.parse({
-            ...req.params,
-            ...req.query
-        })
+        const { workspace_id: workspaceId } = req.params
+        const { force } = req.query
 
         await WorkspaceService.delete({
             user: req.user,
@@ -56,10 +51,8 @@ const WorkspaceController = {
     }),
 
     move: catchAsync(async (req, res, next) => {
-        const { workspace_id: workspaceId, new_order: newOrder } = movedWorkspaceSchema.parse({
-            ...req.body,
-            ...req.params
-        })
+        const { workspace_id: workspaceId } = req.params
+        const { new_order: newOrder } = req.body
 
         const movedWorkspaceship = await WorkspaceMemberService.move({
             user: req.user,
@@ -71,7 +64,7 @@ const WorkspaceController = {
     }),
 
     getHistory: catchAsync(async (req, res, next) => {
-        const { workspace_id: workspaceId } = getHistorySchema.parse(req.params)
+        const { workspace_id: workspaceId } = req.params
 
         const logs = await LogService.getByWorkspace({
             user: req.user,
