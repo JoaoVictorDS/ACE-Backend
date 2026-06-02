@@ -4,8 +4,8 @@ const catchAsync = require('../../shared/utils/catchAsync')
 const ColumnController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = req.params
-        const { data_type: dataType, formula_expression: formulaExpression, ...otherFields } = req.body
+        const { board_id: boardId } = req.validated.params
+        const { data_type: dataType, formula_expression: formulaExpression, ...otherFields } = req.validated.body
 
         const column = await ColumnService.create({
             user: req.user,
@@ -19,7 +19,7 @@ const ColumnController = {
     }),
 
     list: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = req.params
+        const { board_id: boardId } = req.validated.params
 
         const columns = await ColumnService.getByBoard({
             user: req.user,
@@ -30,8 +30,8 @@ const ColumnController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const { column_id: columnId } = req.params
-        const { data_type: dataType, formula_expression: formulaExpression, ...otherFields } = req.body
+        const { column_id: columnId } = req.validated.params
+        const { data_type: dataType, formula_expression: formulaExpression, ...otherFields } = req.validated.body
 
         const updatedColumn = await ColumnService.update({
             user: req.user,
@@ -45,8 +45,8 @@ const ColumnController = {
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { column_id: columnId } = req.params
-        const { force } = req.query
+        const { column_id: columnId } = req.validated.params
+        const { force } = req.validated.query
 
         await ColumnService.delete({
             user: req.user,
@@ -58,8 +58,8 @@ const ColumnController = {
     }),
 
     move: catchAsync(async (req, res, next) => {
-        const { column_id: columnId } = req.params
-        const { new_order: newOrder } = req.body
+        const { column_id: columnId } = req.validated.params
+        const { new_order: newOrder } = req.validated.body
 
         const movedColumn = await ColumnService.move({
             user: req.user,
@@ -71,8 +71,8 @@ const ColumnController = {
     }),
 
     updateRestrictions: catchAsync(async (req, res, next) => {
-        const { column_id: columnId } = req.params
-        const { restrictions } = req.body
+        const { column_id: columnId } = req.validated.params
+        const { restrictions } = req.validated.body
 
         const updatedRestrictions = await ColumnService.updateRestrictions({
             user: req.user,

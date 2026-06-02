@@ -6,8 +6,8 @@ const catchAsync = require('../../shared/utils/catchAsync')
 const BoardController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { workspace_id: workspaceId } = req.params
-        const { name } = req.body
+        const { workspace_id: workspaceId } = req.validated.params
+        const { name } = req.validated.body
 
         const board = await BoardService.create({
             user: req.user,
@@ -27,7 +27,7 @@ const BoardController = {
     }),
 
     show: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = req.params
+        const { board_id: boardId } = req.validated.params
 
         const board = await BoardService.getFull({
             user: req.user,
@@ -38,8 +38,8 @@ const BoardController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = req.params
-        const { name } = req.body
+        const { board_id: boardId } = req.validated.params
+        const { name } = req.validated.body
 
         const updatedBoard = await BoardService.update({
             user: req.user,
@@ -51,8 +51,8 @@ const BoardController = {
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = req.params
-        const { force } = req.query
+        const { board_id: boardId } = req.validated.params
+        const { force } = req.validated.query
 
         await BoardService.delete({
             user: req.user,
@@ -64,8 +64,8 @@ const BoardController = {
     }),
 
     move: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = req.params
-        const { new_order: newOrder } = req.body
+        const { board_id: boardId } = req.validated.params
+        const { new_order: newOrder } = req.validated.body
 
         const movedMembership = await BoardMemberService.move({
             user: req.user,
@@ -77,7 +77,7 @@ const BoardController = {
     }),
 
     getHistory: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = req.params
+        const { board_id: boardId } = req.validated.params
 
         const logs = await LogService.getByBoard({
             user: req.user,

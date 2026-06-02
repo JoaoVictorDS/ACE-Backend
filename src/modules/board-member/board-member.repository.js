@@ -214,6 +214,20 @@ const BoardMemberRepository = {
         })
     },
 
+    /**
+     * Busca membros de um board por Roles
+     * @param {number} boardId
+     * @param {array} roles
+     */
+    async findByBoardAndRoles(boardId, roles = []) {
+        return prisma.boardMember.findMany({
+            where: {
+                board_id: boardId,
+                role: { in: roles }
+            }
+        })
+    },
+
 }
 
 module.exports = BoardMemberRepository

@@ -6,7 +6,7 @@ const COOKIE_OPTIONS = require('./auth.constants')
 const AuthController = {
 
     login: catchAsync(async (req, res) => {
-        const { email, password } = req.body
+        const { email, password } = req.validated.body
         const { token, refreshToken, user } = await AuthService.authenticateUser({ email, password })
 
         res.cookie('refreshToken', refreshToken, COOKIE_OPTIONS)
@@ -14,7 +14,7 @@ const AuthController = {
     }),
 
     refresh: catchAsync(async (req, res) => {
-        const { refreshToken: oldRefreshToken } = req.cookies
+        const { refreshToken: oldRefreshToken } = req.validated.cookies
         const { token, refreshToken: newRefreshToken } = await AuthService.refreshAccessToken(oldRefreshToken)
 
         res.cookie('refreshToken', newRefreshToken, COOKIE_OPTIONS)

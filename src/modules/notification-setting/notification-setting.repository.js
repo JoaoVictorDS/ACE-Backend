@@ -1,4 +1,26 @@
+const prisma = require('../../config/prisma')
+
 const NotificationSettingRepository = {
+
+    /**
+     * Busca configurações de notificação para usuários
+     * @param {number} usersIds - IDs de usuários
+     * @param {number} boardId - ID do board
+     * @returns {Promise<object>} Configuração global ou null
+     */
+    async findUserSettings(usersIds, boardId) {
+        return prisma.userNotificationSetting.findMany({
+            where: {
+                user_id: { in: usersIds },
+                OR: [
+                    { board_id: boardId },
+                    { board_id: null }
+                ]
+            },
+        })
+    },
+
+    // atualiar
 
     /**
      * Busca configurações de notificação de um usuário

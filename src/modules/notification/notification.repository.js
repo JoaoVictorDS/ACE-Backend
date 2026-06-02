@@ -1,3 +1,5 @@
+const prisma = require('../../config/prisma')
+
 const NotificationRepository = {
 
     /**
@@ -8,20 +10,66 @@ const NotificationRepository = {
      * @returns {Promise<object>} { data, total, page, totalPages }
      */
     async findByUserPaginated(userId, page = 1, limit = 20) {
-        return await this.paginate(
-            { user_id: userId },
+        const skip = (page - 1) * limit
+
+        const [data, total] = await Promise.all([
+            prisma.notification.findMany({
+                where: { user_id: userId },
+                take: limit,
+                skip,
+                include: { actor: { select: { id: true, name: true } } },
+            }),
+            prisma.notification.count({ where: { user_id: userId } })
+        ])
+
+        return {
+            data,
+            total,
             page,
             limit,
-            {
-                include: {
-                    actor: {
-                        select: { id: true, name: true },
-                    },
-                },
-                orderBy: { created_at: 'desc' },
-            }
-        )
+            totalPages: Math.ceil(total / limit),
+        }
     },
+
+    /**
+     * Busca notificação por ID
+     * @param {number} notificationId - ID da notificação
+     * @returns {Promise<object>} Notificação
+     */
+    async findById(notificationId) {
+        return prisma.notification.findUnique({
+            where: { id: notificationId }
+        })
+    },
+
+    /**
+     * Marca uma notificação como lida
+     * @param {number} notificationId - ID da notificação
+     * @returns {Promise<object>} Notificação atualizada
+     */
+    async markAsRead(notificationId) {
+        return prisma.notification.update({
+            where: { id: notificationId },
+            data: { is_read: true }
+        })
+    },
+
+    /**
+     * Cria múltiplas notificações
+     * @param {array} notificationsData - Array de dados de notificações
+     * @returns {Promise<object>} Resultado da criação
+     */
+    async createMany(notificationsData) {
+        return prisma.notification.createMany({
+            data: notificationsData
+        })
+    },
+
+
+
+
+
+    // atualizar
 
     /**
      * Busca notificações não lidas de um usuário
@@ -53,17 +101,6 @@ const NotificationRepository = {
         return await this.count({
             user_id: userId,
             is_read: false,
-        })
-    },
-
-    /**
-     * Marca uma notificação como lida
-     * @param {number} notificationId - ID da notificação
-     * @returns {Promise<object>} Notificação atualizada
-     */
-    async markAsRead(notificationId) {
-        return await this.update(notificationId, {
-            is_read: true,
         })
     },
 

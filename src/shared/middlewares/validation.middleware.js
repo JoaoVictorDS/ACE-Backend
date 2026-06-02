@@ -12,7 +12,14 @@ const validationMiddleware = (schemas = {}) => {
     return (req, res, next) => {
         try {
             const errors = {}
-            const sources = { body: req.body, query: req.query, params: req.params, cookies: req.cookies }
+            const sources = {
+                body: req.body,
+                query: req.query,
+                params: req.params,
+                cookies: req.cookies
+            }
+
+            req.validated = {}
 
             for (const [key, schema] of Object.entries(schemas)) {
                 if (!schema) continue
@@ -21,7 +28,7 @@ const validationMiddleware = (schemas = {}) => {
                 if (!result.success) {
                     errors[key] = result.error.issues.map(i => i.message)
                 } else {
-                    req[key] = result.data
+                    req.validated[key] = result.data
                 }
             }
 

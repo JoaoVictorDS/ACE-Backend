@@ -5,7 +5,8 @@ const NotificationSettingRepository = require('../notification-setting/notificat
 const appEventEmitter = require('../../config/events')
 const NotificationDictionary = require('./notification.dictionary')
 const { getIO } = require('../../config/socket')
-const AppError = require('../../shared/errors/AppError')
+const NotFoundError = require('../../shared/errors/NotFoundError')
+const AuthorizationError = require('../../shared/errors/AuthorizationError')
 const HTTP_STATUS = require('../../shared/constants/httpStatus')
 const logger = require('../../config/logger')
 
@@ -25,8 +26,8 @@ const NotificationService = {
             if (specificRecipients && specificRecipients.length > 0) {
                 specificRecipients.forEach(id => assignedUsersIdsSet.add(id))
             } else {
-                const assignees = await this.itemAssigneeRepository.findByItem(itemId)
-                const admins = await this.boardMemberRepository.findByBoardAndRole(boardId, 'ADMIN, OWNER')
+                const assignees = await ItemAssigneeRepository.findByItem(itemId)
+                const admins = await BoardMemberRepository.findByBoardAndRoles(boardId, ['ADMIN', 'OWNER'])
 
                 assignees.forEach(a => assignedUsersIdsSet.add(a.user_id))
                 admins.forEach(a => assignedUsersIdsSet.add(a.user_id))
@@ -45,7 +46,7 @@ const NotificationService = {
 
             const assignedUsersIds = Array.from(assignedUsersIdsSet)
 
-            const userSettings = await this.NotificationSettingRepository.findByUserAndBoard(
+            const userSettings = await NotificationSettingRepository.findUserSettings(
                 assignedUsersIds,
                 boardId
             )
@@ -79,7 +80,7 @@ const NotificationService = {
                 content: contentString,
             }))
 
-            await this.notificationRepository.createMany(notificationsData)
+            await NotificationRepository.createMany(notificationsData)
 
             const io = getIO()
             const template = NotificationDictionary[action] || NotificationDictionary['DEFAULT']
@@ -99,8 +100,8 @@ const NotificationService = {
         }
     },
 
-    async getByUser({ user, page = 1, limit = 20 }) {
-        const { data, total } = await this.notificationRepository.findByUserPaginated(
+    async getByUser({ user, page, limit }) {
+        const { data, total } = await NotificationRepository.findByUserPaginated(
             user.id,
             page,
             limit
@@ -142,17 +143,17 @@ const NotificationService = {
     },
 
     async markAsRead({ user, notificationId }) {
-        const notification = await this.notificationRepository.findById(notificationId)
+        const notification = await NotificationRepository.findById(notificationId)
 
         if (!notification) {
-            throw new AppError('Notificação não encontrada!', HTTP_STATUS.NOT_FOUND)
+            throw new NotFoundError()
         }
 
         if (notification.user_id !== user.id) {
-            throw new AppError('Você não tem permissão!', HTTP_STATUS.FORBIDDEN)
+            throw new AuthorizationError()
         }
 
-        return await this.notificationRepository.markAsRead(notificationId)
+        return await NotificationRepository.markAsRead(notificationId)
     },
 }
 

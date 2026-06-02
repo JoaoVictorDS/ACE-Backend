@@ -1,4 +1,4 @@
-const prisma = require('../../config/prisma')
+const UserRepository = require('../user/user.repository')
 const appEventEmitter = require('../../config/events')
 const logger = require('../../config/logger')
 
@@ -39,19 +39,7 @@ const MentionService = {
 
             if (idsToNotify.length === 0) return
 
-            const validUsers = await prisma.user.findMany({
-                where: {
-                    id: {
-                        in: idsToNotify,
-                        not: actor.id
-                    },
-                    is_active: true,
-                    board_members: {
-                        some: { board_id: boardId }
-                    }
-                },
-                select: { id: true }
-            })
+            const validUsers = await UserRepository.validUsersForMention(idsToNotify, actor.id, boardId)
             const finalIds = validUsers.map(u => u.id)
             if (finalIds.length === 0) return
 

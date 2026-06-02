@@ -61,6 +61,22 @@ const UserRepository = {
         })
     },
 
+    async validUsersForMention(usersIds, actorId, boardId) {
+        return prisma.user.findMany({
+            where: {
+                id: {
+                    in: usersIds,
+                    not: actorId
+                },
+                is_active: true,
+                board_members: {
+                    some: { board_id: boardId }
+                }
+            },
+            select: { id: true }
+        })
+    },
+
     // atualizar
 
     async findByIdForProfile(userId) {

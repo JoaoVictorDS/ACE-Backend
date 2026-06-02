@@ -4,8 +4,8 @@ const catchAsync = require('../../shared/utils/catchAsync')
 const WorkspaceMemberController = {
 
     upsert: catchAsync(async (req, res, next) => {
-        const { workspace_id: workspaceId } = req.params
-        const { member_email: memberEmail, ...otherFields } = req.body
+        const { workspace_id: workspaceId } = req.validated.params
+        const { member_email: memberEmail, ...otherFields } = req.validated.body
 
         const member = await WorkspaceMemberService.upsert({
             user: req.user,
@@ -18,7 +18,7 @@ const WorkspaceMemberController = {
     }),
 
     list: catchAsync(async (req, res, next) => {
-        const { workspace_id: workspaceId } = req.params
+        const { workspace_id: workspaceId } = req.validated.params
 
         const members = await WorkspaceMemberService.getByWorkspace({
             user: req.user,
@@ -29,7 +29,7 @@ const WorkspaceMemberController = {
     }),
 
     remove: catchAsync(async (req, res, next) => {
-        const { workspace_id: workspaceId, member_id: memberIdToRemove } = req.params
+        const { workspace_id: workspaceId, member_id: memberIdToRemove } = req.validated.params
 
         await WorkspaceMemberService.remove({
             user: req.user,
@@ -41,7 +41,7 @@ const WorkspaceMemberController = {
     }),
 
     leave: catchAsync(async (req, res, next) => {
-        const { workspace_id: workspaceId } = req.params
+        const { workspace_id: workspaceId } = req.validated.params
 
         await WorkspaceMemberService.leave({
             user: req.user,

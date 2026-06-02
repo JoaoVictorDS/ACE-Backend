@@ -4,8 +4,8 @@ const catchAsync = require('../../shared/utils/catchAsync')
 const ItemController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { section_id: sectionId } = req.params
-        const { title } = req.body
+        const { section_id: sectionId } = req.validated.params
+        const { title } = req.validated.body
 
         const item = await ItemService.create({
             user: req.user,
@@ -17,7 +17,7 @@ const ItemController = {
     }),
 
     show: catchAsync(async (req, res, next) => {
-        const { item_id: itemId } = req.params
+        const { item_id: itemId } = req.validated.params
 
         const item = await ItemService.getById({
             user: req.user,
@@ -28,8 +28,8 @@ const ItemController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const { item_id: itemId } = req.params
-        const { title } = req.body
+        const { item_id: itemId } = req.validated.params
+        const { title } = req.validated.body
 
         const updatedItem = await ItemService.update({
             user: req.user,
@@ -41,7 +41,7 @@ const ItemController = {
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { item_id: itemId } = req.params
+        const { item_id: itemId } = req.validated.params
 
         await ItemService.delete({
             user: req.user,
@@ -52,8 +52,8 @@ const ItemController = {
     }),
 
     move: catchAsync(async (req, res, next) => {
-        const { item_id: itemId } = req.params
-        const { new_section_id: newSectionId, new_order: newOrder } = req.body
+        const { item_id: itemId } = req.validated.params
+        const { new_section_id: newSectionId, new_order: newOrder } = req.validated.body
 
         const movedItem = await ItemService.move({
             user: req.user,

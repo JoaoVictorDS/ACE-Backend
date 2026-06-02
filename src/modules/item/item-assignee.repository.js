@@ -1,3 +1,5 @@
+const prisma = require('../../config/prisma')
+
 const ItemAssigneeRepository = {
 
     /**
@@ -6,16 +8,10 @@ const ItemAssigneeRepository = {
      * @returns {Promise<array>} Array de usuários atribuídos
      */
     async findByItem(itemId) {
-        return await this.findMany(
-            { item_id: itemId },
-            {
-                include: {
-                    user: {
-                        select: { id: true, name: true, email: true },
-                    },
-                },
-            }
-        )
+        return prisma.itemAssignee.findMany({
+            where: { item_id: itemId },
+            include: { user: { select: { id: true, name: true, email: true } } }
+        })
     },
 
     /**

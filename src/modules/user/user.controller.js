@@ -4,7 +4,7 @@ const catchAsync = require('../../shared/utils/catchAsync')
 const UserController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { ...fields } = req.body
+        const { ...fields } = req.validated.body
 
         const user = await UserService.create({
             ...fields
@@ -20,8 +20,8 @@ const UserController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const { user_id: targetUserId } = req.params
-        const { ...otherFields } = req.body
+        const { user_id: targetUserId } = req.validated.params
+        const { ...otherFields } = req.validated.body
 
         const updatedUser = await UserService.update({
             requesterUser: req.user,
@@ -33,7 +33,7 @@ const UserController = {
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { user_id: targetUserId } = req.params
+        const { user_id: targetUserId } = req.validated.params
 
         await UserService.delete({
             requesterUser: req.user,

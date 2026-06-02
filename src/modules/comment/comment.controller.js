@@ -4,8 +4,8 @@ const catchAsync = require('../../shared/utils/catchAsync')
 const CommentController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { item_id: itemId } = req.params
-        const { content } = req.body
+        const { item_id: itemId } = req.validated.params
+        const { content } = req.validated.body
 
         const comment = await CommentService.create({
             user: req.user,
@@ -17,7 +17,7 @@ const CommentController = {
     }),
 
     list: catchAsync(async (req, res, next) => {
-        const { item_id: itemId } = req.params
+        const { item_id: itemId } = req.validated.params
 
         const comments = await CommentService.getByItem({
             user: req.user,
@@ -28,8 +28,8 @@ const CommentController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const { comment_id: commentId } = req.params
-        const { content } = req.body
+        const { comment_id: commentId } = req.validated.params
+        const { content } = req.validated.body
 
         const updatedComment = await CommentService.update({
             user: req.user,
@@ -41,7 +41,7 @@ const CommentController = {
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { comment_id: commentId } = req.params
+        const { comment_id: commentId } = req.validated.params
 
         await CommentService.delete({
             user: req.user,

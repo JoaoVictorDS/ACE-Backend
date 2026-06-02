@@ -4,8 +4,8 @@ const catchAsync = require('../../shared/utils/catchAsync')
 const ItemValueController = {
 
     upsert: catchAsync(async (req, res, next) => {
-        const { item_id: itemId, column_id: columnId } = req.params
-        const { value } = req.body
+        const { item_id: itemId, column_id: columnId } = req.validated.params
+        const { value } = req.validated.body
 
         const result = await ItemValueService.upsert({
             user: req.user,

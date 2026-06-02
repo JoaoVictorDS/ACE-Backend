@@ -4,8 +4,8 @@ const catchAsync = require('../../shared/utils/catchAsync')
 const SectionController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = req.params
-        const { ...otherFields } = req.body
+        const { board_id: boardId } = req.validated.params
+        const { ...otherFields } = req.validated.body
 
         const section = await SectionService.create({
             user: req.user,
@@ -17,7 +17,7 @@ const SectionController = {
     }),
 
     list: catchAsync(async (req, res, next) => {
-        const { board_id: boardId } = req.params
+        const { board_id: boardId } = req.validated.params
 
         const sections = await SectionService.getByBoard({
             user: req.user,
@@ -28,8 +28,8 @@ const SectionController = {
     }),
 
     update: catchAsync(async (req, res, next) => {
-        const { section_id: sectionId } = req.params
-        const { ...otherFields } = req.body
+        const { section_id: sectionId } = req.validated.params
+        const { ...otherFields } = req.validated.body
 
         const updatedSection = await SectionService.update({
             user: req.user,
@@ -41,8 +41,8 @@ const SectionController = {
     }),
 
     delete: catchAsync(async (req, res, next) => {
-        const { section_id: sectionId } = req.params
-        const { force } = req.query
+        const { section_id: sectionId } = req.validated.params
+        const { force } = req.validated.query
 
         await SectionService.delete({
             user: req.user,
@@ -54,8 +54,8 @@ const SectionController = {
     }),
 
     move: catchAsync(async (req, res, next) => {
-        const { section_id: sectionId } = req.params
-        const { new_order: newOrder } = req.body
+        const { section_id: sectionId } = req.validated.params
+        const { new_order: newOrder } = req.validated.body
 
         const movedSection = await SectionService.move({
             user: req.user,
