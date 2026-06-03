@@ -1,7 +1,7 @@
 const BoardService = require('./board.service')
 const BoardMemberService = require('../board-member/board-member.service')
 const LogService = require('../log/log.service')
-const catchAsync = require('../../shared/utils/catchAsync')
+const { catchAsync } = require('../../shared/utils')
 
 const BoardController = {
 
@@ -39,12 +39,12 @@ const BoardController = {
 
     update: catchAsync(async (req, res, next) => {
         const { board_id: boardId } = req.validated.params
-        const { name } = req.validated.body
+        const data = req.validated.body
 
         const updatedBoard = await BoardService.update({
             user: req.user,
             boardId,
-            name
+            data
         })
 
         return res.status(200).json(updatedBoard)

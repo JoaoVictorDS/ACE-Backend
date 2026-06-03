@@ -3,9 +3,8 @@ const ColumnRepository = require('../column/column.repository')
 const SectionRepository = require('../section/section.repository')
 const ItemRepository = require('../item/item.repository')
 const WorkspaceRepository = require('../workspace/workspace.repository')
-const NotFoundError = require('../../shared/errors/NotFoundError')
-const AuthorizationError = require('../../shared/errors/AuthorizationError')
-const ROLES = require('../../shared/constants/roles')
+const { NotFoundError, AuthorizationError } = require('../../shared/errors')
+const { ROLES } = require('../../shared/constants')
 
 const PermissionService = {
 

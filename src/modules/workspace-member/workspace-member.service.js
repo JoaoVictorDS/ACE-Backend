@@ -1,8 +1,8 @@
-const prisma = require('../../config/prisma')
+const { prisma } = require('../../config')
 const PermissionService = require('../permission/permission.service')
-const PERMISSION_LEVELS = require('../../shared/constants/permissionLevels')
+const { PERMISSION_LEVELS } = require('../../shared/constants')
 const LogService = require('../log/log.service')
-const AppError = require('../../shared/errors/AppError')
+const { AppError } = require('../../shared/errors')
 
 const WorkspaceMemberService = {
 

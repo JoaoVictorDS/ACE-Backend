@@ -1,5 +1,5 @@
 const UserService = require('./user.service')
-const catchAsync = require('../../shared/utils/catchAsync')
+const { catchAsync } = require('../../shared/utils')
 
 const UserController = {
 

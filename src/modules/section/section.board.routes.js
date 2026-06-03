@@ -1,8 +1,7 @@
 const express = require('express')
 const router = express.Router({ mergeParams: true })
 
-const authMiddleware = require('../../shared/middlewares/auth.middleware')
-const validationMiddleware = require('../../shared/middlewares/validation.middleware')
+const { authMiddleware, validationMiddleware } = require('../../shared/middlewares')
 const { createSectionSchema, listSectionsSchema, moveSectionSchema } = require('./section.validator')
 const SectionController = require('./section.controller')
 

@@ -1,7 +1,7 @@
-const prisma = require('../src/config/prisma')
+require('dotenv').config()
+const { prisma, logger } = require('../src/config')
 const bcrypt = require('bcryptjs')
-const { setupDefaults } = require('../src/services/UserService')
-const logger = require('../src/config/logger')
+const { setupDefaults } = require('../src/modules/user/user.service')
 
 async function main() {
     const adminEmail = 'admin@admin.com'

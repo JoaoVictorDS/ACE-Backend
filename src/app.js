@@ -5,7 +5,7 @@ const cookieParser = require('cookie-parser')
 const helmet = require('helmet')
 
 const router = require('./router')
-const errorMiddleware = require('./shared/middlewares/error.middleware')
+const { errorMiddleware } = require('./shared/middlewares')
 
 const app = express()
 

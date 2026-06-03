@@ -1,8 +1,7 @@
 const { createServer } = require('http')
 const app = require('./app')
-const { initSocket } = require('./config/socket')
+const { initSocket, logger } = require('./config')
 const NotificationService = require('./modules/notification/notification.service')
-const logger = require('./config/logger')
 
 const httpServer = createServer(app)
 

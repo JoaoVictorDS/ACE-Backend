@@ -1,10 +1,8 @@
-const prisma = require('../../config/prisma')
+const { prisma, emitToRoom } = require('../../config')
 const PermissionService = require('../permission/permission.service')
-const RESOURCE_TYPES = require('../../shared/constants/resourceTypes')
-const PERMISSION_LEVELS = require('../../shared/constants/permissionLevels')
+const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const LogService = require('../log/log.service')
-const { emitToRoom } = require('../../config/socket')
-const AppError = require('../../shared/errors/AppError')
+const { AppError } = require('../../shared/errors')
 
 const isEmpty = (val) =>
     val === null || val === undefined || (Array.isArray(val) && val.length === 0) || String(val).trim() === '' || val === 'null' || val === '[]'

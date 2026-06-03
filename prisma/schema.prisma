@@ -129,19 +129,17 @@ model Workspace {
 }
 
 model Board {
-  id       Int     @id @default(autoincrement())
-  name     String
-  color    String? @default("#3b82f6")
-  settings Json?
+  id                  Int     @id @default(autoincrement())
+  name                String
+  color               String? @default("#3b82f6")
+  item_label_singular String  @default("Item")
+  item_label_plural   String  @default("Itens")
 
   creator_id Int  @map("creator_id")
   creator    User @relation("BoardCreator", fields: [creator_id], references: [id])
 
   workspace_id Int       @map("workspace_id")
   workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
-
-  item_label_singular String @default("Item")
-  item_label_plural   String @default("Itens")
 
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")

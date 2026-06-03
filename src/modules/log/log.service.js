@@ -1,8 +1,6 @@
-const prisma = require('../../config/prisma')
+const { prisma, logger } = require('../../config')
 const PermissionService = require('../permission/permission.service')
-const PERMISSION_LEVELS = require('../../shared/constants/permissionLevels')
-const RESOURCE_TYPES = require('../../shared/constants/resourceTypes')
-const logger = require('../../config/logger')
+const { PERMISSION_LEVELS, RESOURCE_TYPES } = require('../../shared/constants')
 
 const LogService = {
 

@@ -1,6 +1,6 @@
-const prisma = require('../../config/prisma')
+const { prisma } = require('../../config')
 
-const NotificationSettingRepository = {
+const UserNotificationSettingRepository = {
 
     /**
      * Busca configurações de notificação para usuários
@@ -19,6 +19,8 @@ const NotificationSettingRepository = {
             },
         })
     },
+
+
 
     // atualiar
 
@@ -185,4 +187,4 @@ const NotificationSettingRepository = {
     }
 }
 
-module.exports = NotificationSettingRepository
+module.exports = UserNotificationSettingRepository

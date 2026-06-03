@@ -1,5 +1,5 @@
 const AppError = require('./AppError')
-const HTTP_STATUS = require('../constants/httpStatus')
+const { HTTP_STATUS } = require('../constants')
 
 class ValidationError extends AppError {
     constructor(message, details = null) {

@@ -1,4 +1,4 @@
-const prisma = require('../../config/prisma')
+const { prisma } = require('../../config')
 
 const BoardMemberRepository = {
 
@@ -84,6 +84,25 @@ const BoardMemberRepository = {
     async findMembership(userId, boardId) {
         return prisma.boardMember.findUnique({
             where: { user_id_board_id: { user_id: userId, board_id: boardId } }
+        })
+    },
+
+    async findMemberships(userId) {
+        return prisma.boardMember.findMany({
+            where: { user_id: userId },
+            include: {
+                board: {
+                    select: {
+                        id: true,
+                        name: true,
+                        creator_id: true,
+                        workspace_id: true
+                    }
+                }
+            },
+            orderBy: {
+                order: 'asc'
+            }
         })
     },
 

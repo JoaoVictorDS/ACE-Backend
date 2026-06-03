@@ -1,9 +1,7 @@
 const express = require('express')
 const router = express.Router()
 
-const authMiddleware = require('../../shared/middlewares/auth.middleware')
-const adminMiddleware = require('../../shared/middlewares/admin.middleware')
-const validationMiddleware = require('../../shared/middlewares/validation.middleware')
+const { authMiddleware, adminMiddleware, validationMiddleware } = require('../../shared/middlewares')
 const { createUserSchema, updateUserSchema, deleteUserSchema } = require('./user.validator')
 const UserController = require('../../modules/user/user.controller')
 

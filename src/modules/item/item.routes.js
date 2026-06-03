@@ -1,8 +1,7 @@
 const express = require('express')
 const router = express.Router()
 
-const authMiddleware = require('../../shared/middlewares/auth.middleware')
-const validationMiddleware = require('../../shared/middlewares/validation.middleware')
+const { authMiddleware, validationMiddleware } = require('../../shared/middlewares')
 const ItemController = require('./item.controller')
 const { showItemSchema, updateItemSchema, deleteItemSchema, moveItemSchema } = require('./item.validator')
 

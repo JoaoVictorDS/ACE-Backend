@@ -1,5 +1,4 @@
-const AuthenticationError = require('../errors/AuthenticationError')
-const AuthorizationError = require('../errors/AuthorizationError')
+const { AuthenticationError, AuthorizationError } = require('../errors')
 
 function adminMiddleware(req, res, next) {
     const { user } = req

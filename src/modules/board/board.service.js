@@ -1,43 +1,21 @@
-const prisma = require('../../config/prisma')
+const { prisma, emitToRoom } = require('../../config')
 const PermissionService = require('../permission/permission.service')
-const RESOURCE_TYPES = require('../../shared/constants/resourceTypes')
-const PERMISSION_LEVELS = require('../../shared/constants/permissionLevels')
+const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const LogService = require('../log/log.service')
-const { emitToRoom } = require('../../config/socket')
-const AppError = require('../../shared/errors/AppError')
+const { AppError, NotFoundError, AuthorizationError } = require('../../shared/errors')
+const BoardMemberRepository = require('../board-member/board-member.repository')
+const BoardRepository = require('./board.repository')
 
 const BoardService = {
 
     async create({ user, workspaceId, name }) {
         await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.ADMIN)
-
         const userId = user.id
 
-        const lastMemberEntry = await prisma.boardMember.findFirst({
-            where: {
-                user_id: userId,
-                board: { workspace_id: workspaceId }
-            },
-            orderBy: { order: 'desc' },
-            select: { order: true }
-        })
-
+        const lastMemberEntry = await BoardMemberRepository.findLastMemberInWorkspace(userId, workspaceId)
         const nextOrder = lastMemberEntry ? lastMemberEntry.order + 1 : 0
 
-        const newBoard = await prisma.board.create({
-            data: {
-                name,
-                workspace_id: workspaceId,
-                creator_id: userId,
-                board_members: {
-                    create: {
-                        user_id: userId,
-                        role: 'OWNER',
-                        order: nextOrder
-                    }
-                }
-            }
-        })
+        const newBoard = await BoardRepository.create(name, workspaceId, userId, nextOrder)
 
         LogService.register({
             userId,
@@ -53,22 +31,7 @@ const BoardService = {
     },
 
     async getByUser({ user }) {
-        const memberships = await prisma.boardMember.findMany({
-            where: { user_id: user.id },
-            include: {
-                board: {
-                    select: {
-                        id: true,
-                        name: true,
-                        creator_id: true,
-                        workspace_id: true
-                    }
-                }
-            },
-            orderBy: {
-                order: 'asc'
-            }
-        })
+        const memberships = await BoardMemberRepository.findMemberships(user.id)
 
         return memberships.map(m => ({
             ...m.board,
@@ -78,34 +41,14 @@ const BoardService = {
     },
 
     async getFull({ user, boardId }) {
-        const board = await prisma.board.findUnique({
-            where: { id: boardId },
-            include: {
-                board_members: {
-                    where: { user_id: user.id }
-                },
-                columns: {
-                    orderBy: [{ order: 'asc' }, { id: 'asc' }],
-                    include: { restrictions: true }
-                },
-                sections: {
-                    orderBy: [{ order: 'asc' }, { id: 'asc' }],
-                    include: {
-                        items: {
-                            orderBy: [{ order: 'asc' }, { id: 'asc' }],
-                            include: { item_values: true }
-                        }
-                    }
-                },
-            }
-        })
-        if (!board) throw new AppError('Quadro não encontrado', 404)
+        const board = await BoardRepository.findByIdWithStructure(boardId, user.id)
+        if (!board) throw new NotFoundError('Quadro')
 
         const { board_members, ...boardData } = board
         const isSystemAdmin = user.role === 'ADMIN'
         const membership = board_members[0]
 
-        if (!isSystemAdmin && !membership) throw new AppError('Acesso negado: usuário não é membro deste quadro.', 403)
+        if (!isSystemAdmin && !membership) throw new AuthorizationError('Acesso negado: usuário não é membro deste quadro.')
 
         const userBoardRole = membership?.role
         const isPrivilegedMember = isSystemAdmin || PermissionService.isPrivileged(userBoardRole)
@@ -137,22 +80,51 @@ const BoardService = {
         }
     },
 
-    async update({ user, boardId, name }) {
+    async update({ user, boardId, data }) {
         const { workspaceId } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.ADMIN)
 
-        const currentBoard = await prisma.board.findUnique({
-            where: { id: boardId },
-            select: { name: true }
-        })
+        const currentBoard = await BoardRepository.findById(boardId)
         if (!currentBoard) throw new AppError('Quadro não encontrado!', 404)
 
-        const isSameName = currentBoard.name === name
-        if (isSameName) return currentBoard
+        const hasChanges = Object.keys(data).some(
+            (key) => data[key] !== undefined && data[key] !== currentBoard[key]
+        )
 
-        const updatedBoard = await prisma.board.update({
-            where: { id: boardId },
-            data: { name }
-        })
+        if (!hasChanges) {
+            return currentBoard
+        }
+
+        const changes = []
+        if (data.name && data.name !== currentBoard.name) {
+            changes.push({
+                field: 'name',
+                old: currentBoard.name,
+                new: data.name
+            })
+        }
+        if (data.color && data.color !== currentBoard.color) {
+            changes.push({
+                field: 'color',
+                old: currentBoard.color,
+                new: data.color
+            })
+        }
+        if (data.item_label_singular && data.item_label_singular !== currentBoard.item_label_singular) {
+            changes.push({
+                field: 'item_label_singular',
+                old: currentBoard.item_label_singular,
+                new: data.item_label_singular
+            })
+        }
+        if (data.item_label_plural && data.item_label_plural !== currentBoard.item_label_plural) {
+            changes.push({
+                field: 'item_label_plural',
+                old: currentBoard.item_label_plural,
+                new: data.item_label_plural
+            })
+        }
+
+        const updatedBoard = await BoardRepository.update(boardId, data)
 
         LogService.register({
             userId: user.id,
@@ -161,8 +133,8 @@ const BoardService = {
             action: 'UPDATE',
             entityType: 'BOARD',
             entityId: boardId,
-            oldValue: `Nome: ${currentBoard.name}`,
-            newValue: `Nome: ${name}`
+            oldValue: changes.map(c => `${c.field}: "${c.old}"`).join(' | '),
+            newValue: changes.map(c => `${c.field}: "${c.new}"`).join(' | ')
         })
 
         emitToRoom(`board:${boardId}`, 'board:updated', updatedBoard)

@@ -1,5 +1,4 @@
-const prisma = require('../../config/prisma')
-const logger = require('../../config/logger')
+const { prisma, logger } = require('../../config')
 
 class TransactionManager {
 

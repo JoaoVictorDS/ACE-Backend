@@ -1,5 +1,5 @@
 const AppError = require('./AppError')
-const HTTP_STATUS = require('../constants/httpStatus')
+const { HTTP_STATUS } = require('../constants')
 
 class AuthorizationError extends AppError {
     constructor(message = 'Você não tem permissão para fazer isto!') {

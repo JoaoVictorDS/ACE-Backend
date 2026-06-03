@@ -1,8 +1,8 @@
 const express = require('express')
 const router = express.Router()
-const rateLimitMiddleware = require('./shared/middlewares/rateLimit.middleware')
+const { apiLimiter } = require('./shared/middlewares')
 
-router.use(rateLimitMiddleware.apiLimiter)
+router.use(apiLimiter)
 
 router.get('/status', (req, res) => res.json({
     message: 'Backend Online',

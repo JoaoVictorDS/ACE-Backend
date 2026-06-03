@@ -1,5 +1,5 @@
 const ColumnService = require('./column.service')
-const catchAsync = require('../../shared/utils/catchAsync')
+const { catchAsync } = require('../../shared/utils')
 
 const ColumnController = {
 

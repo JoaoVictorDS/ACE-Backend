@@ -1,5 +1,5 @@
 const ItemValueService = require('./item-value.service')
-const catchAsync = require('../../shared/utils/catchAsync')
+const { catchAsync } = require('../../shared/utils')
 
 const ItemValueController = {
 

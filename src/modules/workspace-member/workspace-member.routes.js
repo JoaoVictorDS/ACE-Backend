@@ -1,8 +1,7 @@
 const express = require('express')
 const router = express.Router({ mergeParams: true })
 
-const authMiddleware = require('../../shared/middlewares/auth.middleware')
-const validationMiddleware = require('../../shared/middlewares/validation.middleware')
+const { authMiddleware, validationMiddleware } = require('../../shared/middlewares')
 const { upsertMemberSchema, listMemberSchema, removeMemberSchema, leaveWorkspaceSchema } = require('./workspace-member.validator')
 const WorkspaceMemberController = require('../../modules/workspace-member/workspace-member.controller')
 

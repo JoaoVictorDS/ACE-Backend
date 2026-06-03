@@ -1,14 +1,10 @@
 const ItemAssigneeRepository = require('../item/item-assignee.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const NotificationRepository = require('./notification.repository')
-const NotificationSettingRepository = require('../notification-setting/notification-setting.repository')
-const appEventEmitter = require('../../config/events')
+const UserNotificationSettingRepository = require('../user-notification-setting/user-notification-setting.repository')
+const { appEventEmitter, getIO, logger } = require('../../config')
 const NotificationDictionary = require('./notification.dictionary')
-const { getIO } = require('../../config/socket')
-const NotFoundError = require('../../shared/errors/NotFoundError')
-const AuthorizationError = require('../../shared/errors/AuthorizationError')
-const HTTP_STATUS = require('../../shared/constants/httpStatus')
-const logger = require('../../config/logger')
+const { NotFoundError, AuthorizationError } = require('../../shared/errors')
 
 const NotificationService = {
 
@@ -46,7 +42,7 @@ const NotificationService = {
 
             const assignedUsersIds = Array.from(assignedUsersIdsSet)
 
-            const userSettings = await NotificationSettingRepository.findUserSettings(
+            const userSettings = await UserNotificationSettingService.findUserSettings(
                 assignedUsersIds,
                 boardId
             )
