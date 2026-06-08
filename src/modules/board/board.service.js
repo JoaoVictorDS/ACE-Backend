@@ -1,10 +1,11 @@
-const { prisma, emitToRoom } = require('../../config')
+const { emitToRoom } = require('../../config')
 const PermissionService = require('../permission/permission.service')
 const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const LogService = require('../log/log.service')
 const { AppError, NotFoundError, AuthorizationError } = require('../../shared/errors')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const BoardRepository = require('./board.repository')
+const TransactionManager = require('../../shared/database/TransactionManager')
 
 const BoardService = {
 
@@ -30,10 +31,12 @@ const BoardService = {
         return newBoard
     },
 
-    async getByUser({ user }) {
-        const memberships = await BoardMemberRepository.findMemberships(user.id)
+    async getByUserAndWorkspace({ user, workspaceId }) {
+        await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.VIEW)
 
-        return memberships.map(m => ({
+        const membership = await BoardMemberRepository.findMembershipsInWorkspace(user.id, workspaceId)
+
+        return membership.map(m => ({
             ...m.board,
             user_role: m.role,
             personal_order: m.order
@@ -144,54 +147,25 @@ const BoardService = {
 
     async delete({ user, boardId, force = false }) {
         const { workspaceId } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.OWNER)
+        const { boardName, columnsCount, sectionsCount, itemsCount } = await BoardRepository.findBoardDeletionContext(boardId)
+        const hasContent = columnsCount > 0 || sectionsCount > 0 || itemsCount > 0
+        if (!force && hasContent) throw new AppError(`Não é possível excluir o quadro: existem ${columnsCount} colunas, ${sectionsCount} seções e ${itemsCount} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir.`, 409)
 
-        const [board, items] = await Promise.all([
-            prisma.board.findUnique({
-                where: { id: boardId },
-                select: {
-                    name: true,
-                    _count: { select: { columns: true, sections: true } }
-                }
-            }),
+        const result = await TransactionManager.run(async (tx) => {
+            await BoardMemberRepository.decrementOrderAfterBoardDeletion(boardId, workspaceId, tx)
 
-            prisma.item.count({
-                where: { section: { board_id: boardId } }
-            })
-        ])
-        if (!board) throw new AppError('Quadro não encontrado!', 404)
-
-        const { columns, sections } = board._count
-        const hasContent = columns > 0 || sections > 0 || items > 0
-        if (!force && hasContent) throw new AppError(`Não é possível excluir o quadro: existem ${columns} colunas, ${sections} seções e ${items} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir.`, 409)
-
-        const result = await prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`
-                UPDATE "board_members" AS bm
-                SET "order" = bm."order" - 1
-                FROM "board_members" AS deleted_bm, "boards" AS b
-                WHERE bm.user_id = deleted_bm.user_id
-                AND deleted_bm.board_id = ${boardId}
-                AND bm.board_id = b.id
-                AND b.workspace_id = ${workspaceId}
-                AND bm."order" > deleted_bm."order"
-            `
-
-            await tx.activityLog.create({
-                data: {
-                    user_id: user.id,
-                    board_id: boardId,
-                    workspace_id: workspaceId,
-                    action: 'DELETE',
-                    entity_type: 'BOARD',
-                    entity_id: boardId,
-                    old_value: `Quadro removido: ${board.name}`
-                }
+            await LogService.register({
+                userId: user.id,
+                boardId: boardId,
+                workspaceId: workspaceId,
+                action: 'DELETE',
+                entityType: 'BOARD',
+                entityId: boardId,
+                oldValue: `Quadro removido: ${boardName}`,
+                tx
             })
 
-            return await tx.board.delete({
-                where: { id: boardId }
-            })
-
+            return await BoardRepository.delete(boardId, tx)
         })
 
         emitToRoom(`board:${boardId}`, 'board:deleted', { boardId })

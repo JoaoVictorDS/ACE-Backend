@@ -101,6 +101,38 @@ const BoardRepository = {
         })
     },
 
+    async findBoardDeletionContext(boardId) {
+        const [board, itemsCount] = await Promise.all([
+            prisma.board.findUnique({
+                where: { id: boardId },
+                select: {
+                    name: true,
+                    _count: { select: { columns: true, sections: true } }
+                }
+            }),
+            prisma.item.count({
+                where: { section: { board_id: boardId } }
+            })
+        ])
+
+        if (!board) return null
+
+        return {
+            boardId,
+            boardName: board.name,
+            itemsCount,
+            columnsCount: board._count.columns,
+            sectionsCount: board._count.sections
+        }
+    },
+
+    async delete(boardId, tx = null) {
+        const client = tx || prisma
+        return client.board.delete({
+            where: { id: boardId }
+        })
+    },
+
 }
 
 module.exports = BoardRepository

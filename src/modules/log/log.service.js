@@ -1,10 +1,11 @@
 const { prisma, logger } = require('../../config')
+const LogRepository = require('./log.repository')
 const PermissionService = require('../permission/permission.service')
 const { PERMISSION_LEVELS, RESOURCE_TYPES } = require('../../shared/constants')
 
 const LogService = {
 
-    async register({ userId, workspaceId, boardId, action, entityType, entityId, oldValue = null, newValue = null }) {
+    async register({ userId, workspaceId, boardId, action, entityType, entityId, oldValue = null, newValue = null, tx = null }) {
         try {
             const formatValue = (val) => {
                 if (val === null || val === undefined) return null
@@ -18,18 +19,17 @@ const LogService = {
                 return String(val).substring(0, 500)
             }
 
-            await prisma.activityLog.create({
-                data: {
-                    user_id: userId,
-                    workspace_id: workspaceId,
-                    board_id: boardId,
-                    action,
-                    entity_type: entityType,
-                    entity_id: parseInt(entityId),
-                    old_value: formatValue(oldValue),
-                    new_value: formatValue(newValue),
-                }
-            })
+            await LogRepository.create({
+                user_id: userId,
+                workspace_id: workspaceId,
+                board_id: boardId,
+                action,
+                entity_type: entityType,
+                entity_id: parseInt(entityId),
+                old_value: formatValue(oldValue),
+                new_value: formatValue(newValue),
+            }, tx)
+
         } catch (error) {
             logger.error(
                 { error: error.message, userId, workspaceId, boardId, action, entityType, entityId },

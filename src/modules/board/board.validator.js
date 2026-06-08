@@ -7,6 +7,10 @@ const createBoardSchema = {
     body: z.object({ name })
 }
 
+const listBoardSchema = {
+    params: z.object({ workspace_id })
+}
+
 const showBoardSchema = {
     params: z.object({ board_id })
 }
@@ -43,6 +47,7 @@ const getHistorySchema = {
 
 module.exports = {
     createBoardSchema,
+    listBoardSchema,
     showBoardSchema,
     updateBoardSchema,
     moveBoardSchema,

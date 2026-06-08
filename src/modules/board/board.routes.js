@@ -5,7 +5,6 @@ const { authMiddleware, validationMiddleware } = require('../../shared/middlewar
 const { showBoardSchema, updateBoardSchema, deleteBoardSchema, moveBoardSchema, getHistorySchema } = require('./board.validator')
 const BoardController = require('./board.controller')
 
-router.get('/', authMiddleware, BoardController.list)
 router.get('/:board_id', authMiddleware, validationMiddleware(showBoardSchema), BoardController.show)
 router.patch('/:board_id', authMiddleware, validationMiddleware(updateBoardSchema), BoardController.update)
 router.delete('/:board_id', authMiddleware, validationMiddleware(deleteBoardSchema), BoardController.delete)

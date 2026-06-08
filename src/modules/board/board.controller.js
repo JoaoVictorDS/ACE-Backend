@@ -19,8 +19,11 @@ const BoardController = {
     }),
 
     list: catchAsync(async (req, res, next) => {
-        const boards = await BoardService.getByUser({
-            user: req.user
+        const { workspace_id: workspaceId } = req.validated.params
+
+        const boards = await BoardService.getByUserAndWorkspace({
+            user: req.user,
+            workspaceId
         })
 
         return res.status(200).json(boards)

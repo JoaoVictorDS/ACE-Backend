@@ -65,6 +65,27 @@ const BoardMemberRepository = {
     },
 
     /**
+     * Decrementa ordem dos boards_members após exclusão de um board
+     * Mantém a sequência contínua após remoção
+     * @param {number} boardId - board sendo removido
+     * @param {number} workspaceId
+     * @param {object} tx
+     */
+    async decrementOrderAfterBoardDeletion(boardId, workspaceId, tx = null) {
+        const client = tx || prisma
+        return client.$executeRaw`
+        UPDATE "board_members" AS bm
+        SET "order" = bm."order" - 1
+        FROM "board_members" AS deleted_bm, "boards" AS b
+        WHERE bm.user_id = deleted_bm.user_id
+        AND deleted_bm.board_id = ${boardId}
+        AND bm.board_id = b.id
+        AND b.workspace_id = ${workspaceId}
+        AND bm."order" > deleted_bm."order"
+    `
+    },
+
+    /**
      * Remove um vínculo board-membro pelo ID do vínculo
      * @param {number} id - ID do boardMember
      * @param {object} tx - cliente de transação (opcional)
@@ -87,22 +108,24 @@ const BoardMemberRepository = {
         })
     },
 
-    async findMemberships(userId) {
+    async findMembershipsInWorkspace(userId, workspaceId) {
         return prisma.boardMember.findMany({
-            where: { user_id: userId },
+            where: {
+                user_id: userId,
+                board: { workspace_id: workspaceId }
+            },
             include: {
                 board: {
                     select: {
                         id: true,
                         name: true,
+                        color: true,
                         creator_id: true,
-                        workspace_id: true
+                        workspace_id: true,
                     }
                 }
             },
-            orderBy: {
-                order: 'asc'
-            }
+            orderBy: { order: 'asc' }
         })
     },
 
