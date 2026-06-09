@@ -1,108 +1,64 @@
-const { prisma, emitToRoom } = require('../../config')
+const ColumnRepository = require('./column.repository')
 const PermissionService = require('../permission/permission.service')
-const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const LogService = require('../log/log.service')
-const { AppError } = require('../../shared/errors')
-
-const isEmpty = (val) =>
-    val === null || val === undefined || (Array.isArray(val) && val.length === 0) || String(val).trim() === '' || val === 'null' || val === '[]'
+const ColumnValueValidator = require('./column.value-validator')
+const { AppError, NotFoundError, AuthorizationError } = require('../../shared/errors')
+const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { emitToRoom } = require('../../config')
 
 const ColumnService = {
 
     async validateValue(user, boardId, columnId, value) {
         const [membership, column] = await Promise.all([
-            prisma.boardMember.findUnique({
-                where: { user_id_board_id: { user_id: user.id, board_id: boardId } },
-                select: { role: true }
-            }),
-            prisma.column.findFirst({
-                where: { id: columnId, board_id: boardId },
-                include: { restrictions: true }
-            })
+            ColumnRepository.findMembership(user.id, boardId),
+            ColumnRepository.findById(columnId)
         ])
-        if (!column) throw new AppError('Coluna não encontrada.', 404)
+
+        if (!column) {
+            throw new NotFoundError()
+        }
 
         const isSystemAdmin = user.role === 'ADMIN'
-        if (!isSystemAdmin && !membership) throw new AppError('Acesso negado: usuário não é membro deste quadro.', 403)
+        if (!isSystemAdmin && !membership) {
+            throw new AuthorizationError('Acesso negado: usuário não é membro deste quadro.')
+        }
 
         const userBoardRole = membership?.role
         const isPrivilegedMember = isSystemAdmin || PermissionService.isPrivileged(userBoardRole)
+
         if (!isPrivilegedMember) {
-            const restriction = column.restrictions.find(r => r.user_id === user.id || r.board_role === userBoardRole)
+            const restriction = column.restrictions.find(
+                r => r.user_id === user.id || r.board_role === userBoardRole
+            )
+
             if (restriction) {
-                if (restriction.can_view === false) throw new AppError(`Você não tem permissão sequer para visualizar esta coluna.`, 403)
-                if (restriction.can_edit === false) throw new AppError('Você não tem permissão para editar esta coluna.', 403)
+                if (restriction.can_view === false) {
+                    throw new AuthorizationError(`Você não tem permissão sequer para visualizar esta coluna.`)
+                }
+                if (restriction.can_edit === false) {
+                    throw new AuthorizationError('Você não tem permissão para editar esta coluna.')
+                }
             }
         }
 
-        if (isEmpty(value)) return ''
-
-        const sentValue = String(value).trim()
-
-        switch (column.data_type) {
-            case 'SELECT':
-                const allowedOptions = column.options || []
-                if (!allowedOptions.includes(sentValue)) throw new AppError(`O valor "${sentValue}" não é permitido para "${column.name}". Opções válidas: ${allowedOptions.join(', ')}`, 400)
-                return sentValue
-
-            case 'NUMBER':
-                const parsedNum = parseFloat(sentValue)
-                if (isNaN(parsedNum) || !Number.isFinite(parsedNum)) throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${column.name}". Opções válidas: Number`, 400)
-                return String(parsedNum)
-
-            case 'DATE':
-                const date = new Date(sentValue)
-                if (isNaN(date.getTime())) throw new AppError(`O valor "${sentValue}" não é permitido para a coluna "${column.name}". Opções válidas: Date`, 400)
-                return date.toISOString()
-
-            case 'USER':
-                const rawIds = Array.isArray(value) ? value : sentValue.split(',')
-
-                const numericIds = rawIds.map(id => {
-                    const parsed = Number(String(id).trim())
-                    if (isNaN(parsed) || parsed <= 0) throw new AppError(`O valor "${id}" não é um ID de usuário válido.`, 400)
-                    return parsed
-                })
-
-                const cleanIds = [...new Set(numericIds)].sort((a, b) => a - b)
-
-                if (cleanIds.length === 0) throw new AppError('Nenhum usuário válido foi enviado.', 400)
-
-                const validMembersCount = await prisma.boardMember.count({
-                    where: { board_id: boardId, user_id: { in: cleanIds } }
-                })
-
-                if (validMembersCount !== cleanIds.length) throw new AppError('Um ou mais usuários não pertencem ao quadro.', 400)
-
-                return cleanIds.join(', ')
-
-            default:
-                return sentValue
-        }
+        return ColumnValueValidator.validate(column, value)
     },
 
     async create({ user, boardId, name, dataType, options, formulaExpression }) {
         const { workspaceId } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.ADMIN)
 
-        const result = await prisma.$transaction(async (tx) => {
-            const maxOrderColumn = await tx.column.findFirst({
-                where: { board_id: boardId },
-                orderBy: { order: 'desc' },
-                select: { order: true }
-            })
-            const nextOrder = maxOrderColumn ? maxOrderColumn.order + 1 : 0
+        const nextOrder = await ColumnRepository.findMaxOrder(boardId)
 
-            return await tx.column.create({
-                data: {
-                    board_id: boardId,
-                    name,
-                    data_type: dataType,
-                    formula_expression: dataType === 'FORMULA' ? formulaExpression : null,
-                    options: dataType === 'SELECT' ? options : null,
-                    order: nextOrder,
-                },
-            })
-        })
+        const columnData = {
+            board_id: boardId,
+            name,
+            data_type: dataType,
+            formula_expression: dataType === 'FORMULA' ? formulaExpression : null,
+            options: dataType === 'SELECT' ? options : null,
+            order: nextOrder,
+        }
+
+        const result = await ColumnRepository.create(columnData)
 
         LogService.register({
             userId: user.id,
@@ -122,18 +78,17 @@ const ColumnService = {
     async getByBoard({ user, boardId }) {
         const { role } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.VIEW)
 
-        const columns = await prisma.column.findMany({
-            where: { board_id: boardId, },
-            orderBy: [{ order: 'asc' }, { id: 'asc' }],
-            include: { restrictions: true }
-        })
+        const columns = await ColumnRepository.findByBoard(boardId)
+
         const isSystemAdmin = user.role === 'ADMIN'
         const isPrivilegedMember = isSystemAdmin || PermissionService.isPrivileged(role)
 
         return columns.filter(col => {
             if (isPrivilegedMember) return true
 
-            const restriction = col.restrictions.find(r => r.user_id === user.id || r.board_role === role)
+            const restriction = col.restrictions.find(
+                r => r.user_id === user.id || r.board_role === role
+            )
 
             return !(restriction && restriction.can_view === false)
         })
@@ -142,59 +97,51 @@ const ColumnService = {
     async update({ user, columnId, name, dataType, options, formulaExpression }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
-        const column = await prisma.column.findUnique({
-            where: { id: columnId }
-        })
-        if (!column) throw new AppError('Coluna não encontrada!', 404)
+        const column = await ColumnRepository.findByIdBasic(columnId)
+        if (!column) {
+            throw new NotFoundError()
+        }
 
         const hasDataTypeChanged = dataType && dataType !== column.data_type
         const hasNameChanged = name && name !== column.name
         const hasOptionsChanged = options && JSON.stringify(options) !== JSON.stringify(column.options)
+
         const finalDataType = dataType ?? column.data_type
         const finalOptions = finalDataType === 'SELECT' ? (options ?? column.options) : null
         const finalFormula = finalDataType === 'FORMULA' ? (formulaExpression ?? column.formula_expression) : null
+
         const changes = []
-        const addChange = (label, oldValue, newValue) => {
+        if (hasNameChanged) {
+            changes.push({ old: `Nome: "${column.name}"`, new: `Nome: "${name}"` })
+        }
+        if (hasDataTypeChanged) {
             changes.push({
-                old: `${label}: "${oldValue || ''}"`,
-                new: `${label}: "${newValue || ''}"`
+                old: `Tipo: "${column.data_type}"`,
+                new: `Tipo: "${dataType} (Dados anteriores resetados por segurança)"`
             })
         }
-        const result = await prisma.$transaction(async (tx) => {
-            if (hasDataTypeChanged) {
-                await tx.itemValue.deleteMany({
-                    where: { column_id: columnId }
-                })
-
-                if (column.data_type === 'USER') {
-                    await tx.itemAssignee.deleteMany({
-                        where: { column_id: columnId }
-                    })
-                }
-            }
-
-            return await tx.column.update({
-                where: { id: columnId },
-                data: {
-                    name: name ?? undefined,
-                    data_type: finalDataType,
-                    options: finalOptions,
-                    formula_expression: finalFormula
-                }
+        if (hasOptionsChanged) {
+            changes.push({
+                old: `Opções: "${Array.isArray(column.options) ? column.options.join(', ') : ''}"`,
+                new: `Opções: "${Array.isArray(options) ? options.join(', ') : ''}"`
             })
-        })
-
-        if (hasNameChanged) {
-            addChange('Nome', column.name, name)
         }
 
         if (hasDataTypeChanged) {
-            addChange('Tipo', column.data_type, `${dataType} (Dados anteriores resetados por segurança)`)
+            await Promise.all([
+                ColumnRepository.deleteItemValues(columnId),
+                column.data_type === 'USER'
+                    ? ColumnRepository.deleteItemAssignees(columnId)
+                    : Promise.resolve()
+            ])
         }
 
-        if (hasOptionsChanged) {
-            addChange('Opções', Array.isArray(column.options) ? column.options.join(', ') : '', Array.isArray(options) ? options.join(', ') : '')
-        }
+        const result = await ColumnRepository.update(columnId, {
+            name: name ?? undefined,
+            data_type: finalDataType,
+            options: finalOptions,
+            formula_expression: finalFormula
+        })
 
         if (changes.length > 0) {
             LogService.register({
@@ -217,40 +164,27 @@ const ColumnService = {
     async delete({ user, columnId, force = false }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
-        const columnToDelete = await prisma.column.findUnique({
-            where: { id: columnId }
-        })
-        if (!columnToDelete) throw new AppError('Coluna não encontrada!', 404)
+        const columnToDelete = await ColumnRepository.findByIdBasic(columnId)
+        if (!columnToDelete) {
+            throw new NotFoundError()
+        }
 
-        const affectedValuesCount = await prisma.itemValue.count({
-            where: { column_id: columnId }
-        })
+        const affectedValuesCount = await ColumnRepository.countItemValues(columnId)
 
-        if (!force && affectedValuesCount > 0) throw new AppError(`Não é possível excluir a coluna: existem ${affectedValuesCount} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir!`, 409)
+        if (!force && affectedValuesCount > 0) {
+            throw new AppError(
+                `Não é possível excluir a coluna: existem ${affectedValuesCount} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir!`,
+                409
+            )
+        }
 
-        const result = await prisma.$transaction(async (tx) => {
-            await tx.itemValue.deleteMany({
-                where: { column_id: columnId }
-            })
+        await Promise.all([
+            ColumnRepository.deleteItemValues(columnId),
+            ColumnRepository.deleteItemAssignees(columnId)
+        ])
 
-            await tx.itemAssignee.deleteMany({
-                where: { column_id: columnId }
-            })
-
-            await tx.column.delete({
-                where: { id: columnId }
-            })
-
-            await tx.column.updateMany({
-                where: {
-                    board_id: boardId,
-                    order: { gt: columnToDelete.order }
-                },
-                data: { order: { decrement: 1 } }
-            })
-
-            return { deletedCount: affectedValuesCount }
-        })
+        await ColumnRepository.delete(columnId)
+        await ColumnRepository.decrementOrderAfter(boardId, columnToDelete.order)
 
         LogService.register({
             userId: user.id,
@@ -264,62 +198,33 @@ const ColumnService = {
 
         emitToRoom(`board:${boardId}`, 'column:deleted', { columnId })
 
-        return result
+        return { deletedCount: affectedValuesCount }
     },
 
     async move({ user, columnId, newOrder }) {
         const { boardId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
-        const currentColumn = await prisma.column.findUnique({
-            where: { id: columnId },
-            select: { order: true, name: true }
-        })
-        if (!currentColumn) throw new AppError('Coluna não encontrada!', 404)
+        const currentColumn = await ColumnRepository.findByIdBasic(columnId)
+        if (!currentColumn) {
+            throw new NotFoundError()
+        }
 
         const oldOrder = currentColumn.order
 
-        const totalColumns = await prisma.column.count({
-            where: { board_id: boardId }
-        })
+        const totalColumns = await ColumnRepository.countByBoard(boardId)
         const finalOrder = Math.max(0, Math.min(newOrder, totalColumns - 1))
-        const isSamePosition = oldOrder === finalOrder
 
-        if (isSamePosition) return currentColumn
+        if (oldOrder === finalOrder) {
+            return currentColumn
+        }
 
-        const result = await prisma.$transaction(async (tx) => {
-            if (finalOrder > oldOrder) {
-                await tx.column.updateMany({
-                    where: {
-                        board_id: boardId,
-                        order: {
-                            gt: oldOrder,
-                            lte: finalOrder,
-                        },
-                    },
-                    data: {
-                        order: { decrement: 1 },
-                    },
-                })
-            } else {
-                await tx.column.updateMany({
-                    where: {
-                        board_id: boardId,
-                        order: {
-                            gte: finalOrder,
-                            lt: oldOrder,
-                        },
-                    },
-                    data: {
-                        order: { increment: 1 },
-                    },
-                })
-            }
+        if (finalOrder > oldOrder) {
+            await ColumnRepository.decrementOrderRange(boardId, oldOrder, finalOrder)
+        } else {
+            await ColumnRepository.incrementOrderRange(boardId, oldOrder, finalOrder)
+        }
 
-            return await tx.column.update({
-                where: { id: columnId },
-                data: { order: finalOrder },
-            })
-        })
+        const result = await ColumnRepository.updateOrder(columnId, finalOrder)
 
         emitToRoom(`board:${boardId}`, 'column:moved', result)
 
@@ -329,30 +234,24 @@ const ColumnService = {
     async updateRestrictions({ user, columnId, restrictions }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
-        const currentColumn = await prisma.column.findUnique({
-            where: { id: columnId }
-        })
-        if (!currentColumn) throw new AppError('Coluna não encontrada.', 404)
+        const currentColumn = await ColumnRepository.findByIdBasic(columnId)
+        if (!currentColumn) {
+            throw new NotFoundError()
+        }
 
-        const result = await prisma.$transaction(async (tx) => {
-            await tx.columnRestriction.deleteMany({
-                where: { column_id: columnId }
-            })
+        await ColumnRepository.deleteRestrictions(columnId)
 
-            await tx.columnRestriction.createMany({
-                data: restrictions.map(r => ({
-                    column_id: columnId,
-                    user_id: r.user_id || null,
-                    board_role: r.board_role || null,
-                    can_view: r.can_view ?? true,
-                    can_edit: r.can_edit ?? false
-                }))
-            })
+        const restrictionData = restrictions.map(r => ({
+            column_id: columnId,
+            user_id: r.user_id || null,
+            board_role: r.board_role || null,
+            can_view: r.can_view ?? true,
+            can_edit: r.can_edit ?? false
+        }))
 
-            return await tx.columnRestriction.findMany({
-                where: { column_id: columnId }
-            })
-        })
+        await ColumnRepository.createRestrictions(restrictionData)
+
+        const result = await ColumnRepository.findRestrictions(columnId)
 
         LogService.register({
             userId: user.id,
