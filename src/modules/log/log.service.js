@@ -1,7 +1,8 @@
-const { prisma, logger } = require('../../config')
 const LogRepository = require('./log.repository')
 const PermissionService = require('../permission/permission.service')
+const { logger } = require('../../config')
 const { PERMISSION_LEVELS, RESOURCE_TYPES } = require('../../shared/constants')
+const PaginationService = require('../../shared/services/PaginationService')
 
 const LogService = {
 
@@ -38,30 +39,20 @@ const LogService = {
         }
     },
 
-    async getByWorkspace({ user, workspaceId }) {
+    async getByWorkspace({ user, workspaceId, page, limit }) {
         await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.VIEW)
 
-        return await prisma.activityLog.findMany({
-            where: { workspace_id: workspaceId },
-            include: {
-                user: { select: { name: true, email: true } }
-            },
-            orderBy: { created_at: 'desc' },
-            take: 100
-        })
+        const { data, total } = await LogRepository.findByWorkspacePaginated(workspaceId, page, limit)
+
+        return PaginationService.createPaginatedResponse(data, total, page, limit)
     },
 
-    async getByBoard({ user, boardId }) {
+    async getByBoard({ user, boardId, page, limit }) {
         await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.VIEW)
 
-        return await prisma.activityLog.findMany({
-            where: { board_id: boardId },
-            include: {
-                user: { select: { name: true, email: true } }
-            },
-            orderBy: { created_at: 'desc' },
-            take: 100
-        })
+        const { data, total } = await LogRepository.findByBoardPaginated(boardId, page, limit)
+
+        return PaginationService.createPaginatedResponse(data, total, page, limit)
     },
 
 }

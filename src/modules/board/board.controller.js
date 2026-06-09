@@ -81,10 +81,13 @@ const BoardController = {
 
     getHistory: catchAsync(async (req, res, next) => {
         const { board_id: boardId } = req.validated.params
+        const { limit, page } = req.validated.query
 
         const logs = await LogService.getByBoard({
             user: req.user,
-            boardId
+            boardId,
+            limit,
+            page
         })
 
         return res.status(200).json(logs)

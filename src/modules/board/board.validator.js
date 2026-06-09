@@ -1,5 +1,5 @@
 const { z } = require('zod')
-const { board_id, color, name, item_label_singular, item_label_plural, workspace_id, force, new_order } = require('../../shared/validators/common.fields')
+const { board_id, color, name, item_label_singular, item_label_plural, workspace_id, force, new_order, page, limit } = require('../../shared/validators/common.fields')
 
 const createBoardSchema = {
     params: z.object({ workspace_id }),
@@ -42,7 +42,9 @@ const moveBoardSchema = {
 }
 
 const getHistorySchema = {
-    params: z.object({ board_id })
+    params: z.object({ board_id }),
+
+    query: z.object({ limit, page })
 }
 
 module.exports = {

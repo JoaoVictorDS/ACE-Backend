@@ -1,4 +1,5 @@
 const { prisma } = require('../../config')
+const PaginationService = require('../../shared/services/PaginationService')
 
 const NotificationRepository = {
 
@@ -9,8 +10,8 @@ const NotificationRepository = {
      * @param {number} limit - Itens por página
      * @returns {Promise<object>} { data, total, page, totalPages }
      */
-    async findByUserPaginated(userId, page = 1, limit = 20) {
-        const skip = (page - 1) * limit
+    async findByUserPaginated(userId, page, limit) {
+        const skip = PaginationService.calculateSkip(page, limit)
 
         const [data, total] = await Promise.all([
             prisma.notification.findMany({
@@ -18,16 +19,14 @@ const NotificationRepository = {
                 take: limit,
                 skip,
                 include: { actor: { select: { id: true, name: true } } },
+                orderBy: { created_at: 'desc' }
             }),
             prisma.notification.count({ where: { user_id: userId } })
         ])
 
         return {
             data,
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
+            total
         }
     },
 

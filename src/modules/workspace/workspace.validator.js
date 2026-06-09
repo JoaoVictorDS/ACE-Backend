@@ -1,5 +1,5 @@
 const { z } = require('zod')
-const { name, workspace_id, force, new_order } = require('../../shared/validators/common.fields')
+const { name, workspace_id, force, new_order, limit, page } = require('../../shared/validators/common.fields')
 
 const createWorkspaceSchema = {
     body: z.object({ name })
@@ -25,6 +25,8 @@ const movedWorkspaceSchema = {
 
 const getHistorySchema = {
     params: z.object({ workspace_id }),
+
+    query: z.object({ limit, page })
 }
 
 module.exports = {

@@ -65,10 +65,13 @@ const WorkspaceController = {
 
     getHistory: catchAsync(async (req, res, next) => {
         const { workspace_id: workspaceId } = req.validated.params
+        const { page, limit } = req.validated.query
 
         const logs = await LogService.getByWorkspace({
             user: req.user,
-            workspaceId
+            workspaceId,
+            page,
+            limit
         })
 
         return res.status(200).json(logs)

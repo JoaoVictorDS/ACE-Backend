@@ -2,9 +2,11 @@ const ItemAssigneeRepository = require('../item/item-assignee.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const NotificationRepository = require('./notification.repository')
 const UserNotificationSettingRepository = require('../user-notification-setting/user-notification-setting.repository')
-const { appEventEmitter, getIO, logger } = require('../../config')
 const NotificationDictionary = require('./notification.dictionary')
+const { appEventEmitter, getIO, logger } = require('../../config')
 const { NotFoundError, AuthorizationError } = require('../../shared/errors')
+const PaginationService = require('../../shared/services/PaginationService')
+const NotificationPresenter = require('./notification.presenter')
 
 const NotificationService = {
 
@@ -103,39 +105,9 @@ const NotificationService = {
             limit
         )
 
-        const formattedNotifications = data.map(notif => {
-            const meta = notif.content ? JSON.parse(notif.content) : {}
-            const templateFunction = NotificationDictionary[notif.action]
-                || NotificationDictionary[`${notif.entity_type}_${notif.action}`]
-                || NotificationDictionary['DEFAULT']
+        const formattedNotifications = NotificationPresenter.formatMany(data)
 
-            const messageText = templateFunction(notif.actor.name, meta, notif.user_id)
-
-            return {
-                id: notif.id,
-                is_read: notif.is_read,
-                created_at: notif.created_at,
-                actor: {
-                    id: notif.actor.id,
-                    name: notif.actor.name,
-                },
-                entity: {
-                    type: notif.entity_type,
-                    id: notif.entity_id,
-                },
-                message: messageText,
-                changes: meta.changes || null,
-            }
-        })
-
-        return {
-            data: formattedNotifications,
-            meta: {
-                total,
-                page,
-                totalPages: Math.ceil(total / limit),
-            },
-        }
+        return PaginationService.createPaginatedResponse(formattedNotifications, total, page, limit)
     },
 
     async markAsRead({ user, notificationId }) {
