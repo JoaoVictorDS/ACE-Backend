@@ -1,5 +1,5 @@
 const { prisma, appEventEmitter, emitToRoom } = require('../../config')
-const PermissionService = require('../permission/permission.service')
+const PermissionService = require('../../shared/services/permission.service')
 const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const LogService = require('../log/log.service')
 const { AppError } = require('../../shared/errors')
@@ -175,7 +175,7 @@ const ItemService = {
             const hasSectionChanged = newSectionId && newSectionId !== oldSectionId
 
             if (hasSectionChanged) {
-                const { boardId: targetBoardId } = await PermissionService._resolveBoardContext(RESOURCE_TYPES.SECTION, newSectionId)
+                const { boardId: targetBoardId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.SECTION, newSectionId)
                 const isDifferentBoard = targetBoardId !== boardId
 
                 if (isDifferentBoard) throw new AppError('Não é permitido mover tarefas entre quadros diferentes!', 400)

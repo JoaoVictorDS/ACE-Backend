@@ -1,5 +1,5 @@
 const ColumnRepository = require('./column.repository')
-const PermissionService = require('../permission/permission.service')
+const PermissionService = require('../../shared/services/permission.service')
 const LogService = require('../log/log.service')
 const ColumnValueValidator = require('./column.value-validator')
 const { AppError, NotFoundError, AuthorizationError } = require('../../shared/errors')

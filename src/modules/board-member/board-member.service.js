@@ -1,7 +1,7 @@
 const BoardMemberRepository = require('./board-member.repository')
 const UserRepository = require('../user/user.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
-const PermissionService = require('../permission/permission.service')
+const PermissionService = require('../../shared/services/permission.service')
 const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const LogService = require('../log/log.service')
 const { emitToRoom } = require('../../config')

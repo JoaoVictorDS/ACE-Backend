@@ -1,10 +1,10 @@
 const { emitToRoom } = require('../../config')
-const PermissionService = require('../permission/permission.service')
-const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const PermissionService = require('../../shared/services/permission.service')
 const LogService = require('../log/log.service')
-const { AppError, NotFoundError, AuthorizationError } = require('../../shared/errors')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const BoardRepository = require('./board.repository')
+const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { AppError, NotFoundError, AuthorizationError } = require('../../shared/errors')
 const TransactionManager = require('../../shared/database/TransactionManager')
 
 const BoardService = {

@@ -1,5 +1,5 @@
-const prisma = require('../../config/prisma')
-const PaginationService = require('../../shared/services/PaginationService')
+const { prisma } = require('../../config')
+const PaginationService = require('../../shared/services/pagination.service')
 
 const LogRepository = {
 

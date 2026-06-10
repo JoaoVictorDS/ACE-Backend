@@ -1,5 +1,5 @@
 const { prisma, appEventEmitter, emitToRoom } = require('../../config')
-const PermissionService = require('../permission/permission.service')
+const PermissionService = require('../../shared/services/permission.service')
 const ColumnService = require('../column/column.service')
 const ItemAssigneeService = require('../item/item-assignee.service')
 const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')

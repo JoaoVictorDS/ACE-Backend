@@ -1,8 +1,8 @@
 const LogRepository = require('./log.repository')
-const PermissionService = require('../permission/permission.service')
+const PermissionService = require('../../shared/services/permission.service')
 const { logger } = require('../../config')
 const { PERMISSION_LEVELS, RESOURCE_TYPES } = require('../../shared/constants')
-const PaginationService = require('../../shared/services/PaginationService')
+const PaginationService = require('../../shared/services/pagination.service')
 
 const LogService = {
 

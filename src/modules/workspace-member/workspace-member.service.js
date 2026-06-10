@@ -1,5 +1,5 @@
 const { prisma } = require('../../config')
-const PermissionService = require('../permission/permission.service')
+const PermissionService = require('../../shared/services/permission.service')
 const { PERMISSION_LEVELS } = require('../../shared/constants')
 const LogService = require('../log/log.service')
 const { AppError } = require('../../shared/errors')

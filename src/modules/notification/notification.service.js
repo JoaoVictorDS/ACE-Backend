@@ -5,7 +5,7 @@ const UserNotificationSettingRepository = require('../user-notification-setting/
 const NotificationDictionary = require('./notification.dictionary')
 const { appEventEmitter, getIO, logger } = require('../../config')
 const { NotFoundError, AuthorizationError } = require('../../shared/errors')
-const PaginationService = require('../../shared/services/PaginationService')
+const PaginationService = require('../../shared/services/pagination.service')
 const NotificationPresenter = require('./notification.presenter')
 
 const NotificationService = {

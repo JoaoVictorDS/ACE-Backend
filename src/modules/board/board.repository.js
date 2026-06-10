@@ -57,32 +57,6 @@ const BoardRepository = {
         })
     },
 
-    async findByUserPaginated(userId, page = 1, limit = 20) {
-        return await this.paginate(
-            {
-                members: {
-                    some: { user_id: userId },
-                },
-            },
-            page,
-            limit,
-            {
-                include: {
-                    members: {
-                        select: {
-                            user: { select: { id: true, name: true } },
-                            role: true,
-                        },
-                    },
-                    owner: {
-                        select: { id: true, name: true },
-                    },
-                },
-                orderBy: { created_at: 'desc' },
-            }
-        )
-    },
-
     async findById(boardId) {
         return prisma.board.findUnique({
             where: { id: boardId }
