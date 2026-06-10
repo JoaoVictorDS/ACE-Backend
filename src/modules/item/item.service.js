@@ -1,29 +1,20 @@
-const { prisma, appEventEmitter, emitToRoom } = require('../../config')
-const PermissionService = require('../../shared/services/permission.service')
-const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const LogService = require('../log/log.service')
-const { AppError } = require('../../shared/errors')
+const PermissionService = require('../../shared/services/permission.service')
+const ItemRepository = require('./item.repository')
+const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { appEventEmitter, emitToRoom } = require('../../config')
+const TransactionManager = require('../../shared/database/TransactionManager')
+const { AppError, NotFoundError } = require('../../shared/errors')
 
 const ItemService = {
 
     async create({ user, sectionId, title }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.SECTION, sectionId, user, PERMISSION_LEVELS.EDIT)
 
-        const result = await prisma.$transaction(async (tx) => {
-            const lastItem = await tx.item.findFirst({
-                where: { section_id: sectionId },
-                orderBy: { order: 'desc' },
-                select: { order: true }
-            })
+        const result = await TransactionManager.run(async (tx) => {
+            const order = await ItemRepository.findMaxOrder(sectionId, tx)
 
-            return await tx.item.create({
-                data: {
-                    section_id: sectionId,
-                    title,
-                    order: lastItem ? lastItem.order + 1 : 0,
-                },
-                include: { item_values: true, comments: true }
-            })
+            return await ItemRepository.create(sectionId, title, order, tx)
         })
 
         LogService.register({
@@ -52,14 +43,8 @@ const ItemService = {
     async getById({ user, itemId }) {
         await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.VIEW)
 
-        const item = await prisma.item.findUnique({
-            where: { id: itemId },
-            include: {
-                item_updates: true,
-                comments: true
-            }
-        })
-        if (!item) throw new AppError('Item não encontrado.', 404)
+        const item = await ItemRepository.findById(itemId)
+        if (!item) throw new NotFoundError()
 
         return item
     },
@@ -67,18 +52,13 @@ const ItemService = {
     async update({ user, itemId, title }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.EDIT)
 
-        const currentItem = await prisma.item.findUnique({
-            where: { id: itemId }
-        })
-        if (!currentItem) throw new AppError('Tarefa não encontrada.', 404)
+        const currentItem = await ItemRepository.findItemTitle(itemId)
+        if (!currentItem) throw new NotFoundError()
 
         const hasTitleChanged = title && title !== currentItem.title
         if (!hasTitleChanged) return currentItem
 
-        const updatedItem = await prisma.item.update({
-            where: { id: itemId },
-            data: { title }
-        })
+        const updatedItem = await ItemRepository.update(itemId, title)
 
         LogService.register({
             userId: user.id,
@@ -115,25 +95,13 @@ const ItemService = {
     async delete({ user, itemId }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.EDIT)
 
-        const item = await prisma.item.findUnique({
-            where: {
-                id: itemId
-            }
-        })
-        if (!item) throw new AppError('Tarefa não encontrada!', 404)
+        const item = await ItemRepository.findByIdBasic(itemId)
+        if (!item) throw new NotFoundError()
 
-        const result = await prisma.$transaction(async (tx) => {
-            await tx.item.updateMany({
-                where: {
-                    section_id: item.section_id,
-                    order: { gt: item.order }
-                },
-                data: { order: { decrement: 1 } }
-            })
+        const result = await TransactionManager.run(async (tx) => {
+            await ItemRepository.decrementOrderAfter(item.section_id, item.order, tx)
 
-            return await tx.item.delete({
-                where: { id: itemId }
-            })
+            return ItemRepository.delete(itemId, tx)
         })
 
         LogService.register({
@@ -162,12 +130,9 @@ const ItemService = {
     async move({ user, itemId, newSectionId, newOrder }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.EDIT)
 
-        const result = await prisma.$transaction(async (tx) => {
-            const currentItem = await tx.item.findUnique({
-                where: { id: itemId },
-                select: { section_id: true, order: true, title: true }
-            })
-            if (!currentItem) throw new AppError('Tarefa não encontrada!', 404)
+        const result = await TransactionManager.runWithRetry(async (tx) => {
+            const currentItem = await ItemRepository.findByIdBasic(itemId, tx)
+            if (!currentItem) throw new NotFoundError()
 
             const oldSectionId = currentItem.section_id
             const oldOrder = currentItem.order
@@ -178,12 +143,10 @@ const ItemService = {
                 const { boardId: targetBoardId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.SECTION, newSectionId)
                 const isDifferentBoard = targetBoardId !== boardId
 
-                if (isDifferentBoard) throw new AppError('Não é permitido mover tarefas entre quadros diferentes!', 400)
+                if (isDifferentBoard) throw new AppError('Não é permitido mover tarefas entre quadros diferentes.', 400)
             }
 
-            const totalInTarget = await tx.item.count({
-                where: { section_id: finalSectionId }
-            })
+            const totalInTarget = await ItemRepository.countBySection(finalSectionId, tx)
             const maxAllowedOrder = (oldSectionId === finalSectionId) ? totalInTarget - 1 : totalInTarget
             const finalOrder = (newOrder === undefined || newOrder === null)
                 ? maxAllowedOrder
@@ -194,53 +157,16 @@ const ItemService = {
             if (isSameSection && isSamePostion) return currentItem
             if (isSameSection) {
                 if (finalOrder < oldOrder) {
-                    await tx.item.updateMany({
-                        where: {
-                            section_id: oldSectionId,
-                            order: {
-                                gte: finalOrder,
-                                lt: oldOrder,
-                            }
-                        },
-                        data: { order: { increment: 1 } }
-                    })
+                    await ItemRepository.incrementOrderRange(oldSectionId, oldOrder, finalOrder, tx)
                 } else if (finalOrder > oldOrder) {
-                    await tx.item.updateMany({
-                        where: {
-                            section_id: oldSectionId,
-                            order: {
-                                gt: oldOrder,
-                                lte: finalOrder,
-                            }
-                        },
-                        data: { order: { decrement: 1 } }
-                    })
+                    await ItemRepository.decrementOrderRange(oldSectionId, oldOrder, finalOrder, tx)
                 }
             } else {
-                await tx.item.updateMany({
-                    where: {
-                        section_id: oldSectionId,
-                        order: { gt: oldOrder }
-                    },
-                    data: { order: { decrement: 1 } }
-                })
-
-                await tx.item.updateMany({
-                    where: {
-                        section_id: finalSectionId,
-                        order: { gte: finalOrder }
-                    },
-                    data: { order: { increment: 1 } }
-                })
+                await ItemRepository.decrementOrderAfter(oldSectionId, oldOrder, tx)
+                await ItemRepository.incrementOrderAfter(finalSectionId, finalOrder, tx)
             }
 
-            const updated = await tx.item.update({
-                where: { id: itemId },
-                data: {
-                    section_id: finalSectionId,
-                    order: finalOrder,
-                }
-            })
+            const updated = await ItemRepository.updateSectionAndOrder(itemId, finalSectionId, finalOrder, tx)
 
             return {
                 updated,
