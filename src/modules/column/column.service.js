@@ -1,6 +1,9 @@
-const ColumnRepository = require('./column.repository')
 const PermissionService = require('../../shared/services/permission.service')
 const LogService = require('../log/log.service')
+const ColumnRepository = require('./column.repository')
+const ItemAssigneeRepository = require('../item/item-assignee.repository')
+const BoardMemberRepository = require('../board-member/board-member.repository')
+const ItemValueRepository = require('../item-value/item-value.repository')
 const ColumnValueValidator = require('./column.value-validator')
 const { AppError, NotFoundError, AuthorizationError } = require('../../shared/errors')
 const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
@@ -10,7 +13,7 @@ const ColumnService = {
 
     async validateValue(user, boardId, columnId, value) {
         const [membership, column] = await Promise.all([
-            ColumnRepository.findMembership(user.id, boardId),
+            BoardMemberRepository.findMembership(user.id, boardId),
             ColumnRepository.findById(columnId)
         ])
 
@@ -129,9 +132,9 @@ const ColumnService = {
 
         if (hasDataTypeChanged) {
             await Promise.all([
-                ColumnRepository.deleteItemValues(columnId),
+                ItemValueRepository.deleteItemValuesByColumn(columnId),
                 column.data_type === 'USER'
-                    ? ColumnRepository.deleteItemAssignees(columnId)
+                    ? ItemAssigneeRepository.deleteItemAssignees(columnId)
                     : Promise.resolve()
             ])
         }
@@ -169,7 +172,7 @@ const ColumnService = {
             throw new NotFoundError()
         }
 
-        const affectedValuesCount = await ColumnRepository.countItemValues(columnId)
+        const affectedValuesCount = await ItemValueRepository.countItemValuesByColumn(columnId)
 
         if (!force && affectedValuesCount > 0) {
             throw new AppError(
@@ -179,8 +182,8 @@ const ColumnService = {
         }
 
         await Promise.all([
-            ColumnRepository.deleteItemValues(columnId),
-            ColumnRepository.deleteItemAssignees(columnId)
+            ItemValueRepository.deleteItemValuesByColumn(columnId),
+            ItemAssigneeRepository.deleteItemAssignees(columnId)
         ])
 
         await ColumnRepository.delete(columnId)

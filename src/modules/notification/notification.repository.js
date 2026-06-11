@@ -1,4 +1,4 @@
-const { prisma } = require('../../config')
+const prisma = require('../../config/prisma')
 const PaginationService = require('../../shared/services/pagination.service')
 
 const NotificationRepository = {

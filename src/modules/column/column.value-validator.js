@@ -1,5 +1,6 @@
 const ColumnRepository = require('./column.repository')
 const { AppError } = require('../../shared/errors')
+const BoardMemberRepository = require('../board-member/board-member.repository')
 
 class ColumnValueValidator {
 
@@ -178,7 +179,7 @@ class ColumnValueValidator {
      * @throws {AppError}
      */
     static async validateUserMembership(boardId, userIds) {
-        const validMembersCount = await ColumnRepository.countValidMembers(boardId, userIds)
+        const validMembersCount = await BoardMemberRepository.countValidMembers(boardId, userIds)
 
         if (validMembersCount !== userIds.length) {
             throw new AppError(

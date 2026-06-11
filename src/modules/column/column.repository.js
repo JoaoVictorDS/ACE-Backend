@@ -1,4 +1,4 @@
-const { prisma } = require('../../config')
+const prisma = require('../../config/prisma')
 
 const ColumnRepository = {
 
@@ -53,16 +53,15 @@ const ColumnRepository = {
         })
     },
 
-    /**
-     * Busca membership do usuário no quadro (para validação)
-     * @param {number} userId
-     * @param {number} boardId
-     * @returns {Promise<object>} { role } ou null
-     */
-    async findMembership(userId, boardId) {
-        return prisma.boardMember.findUnique({
-            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
-            select: { role: true }
+    async findByIdForValueValidation(columnId) {
+        return prisma.column.findUnique({
+            where: { id: columnId },
+            select: {
+                id: true,
+                name: true,
+                data_type: true,
+                options: true
+            }
         })
     },
 
@@ -110,39 +109,6 @@ const ColumnRepository = {
     async delete(columnId) {
         return prisma.column.delete({
             where: { id: columnId }
-        })
-    },
-
-    /**
-     * Conta valores vinculados à coluna
-     * @param {number} columnId
-     * @returns {Promise<number>}
-     */
-    async countItemValues(columnId) {
-        return prisma.itemValue.count({
-            where: { column_id: columnId }
-        })
-    },
-
-    /**
-     * Deleta todos os valores da coluna
-     * @param {number} columnId
-     * @returns {Promise<object>} { count }
-     */
-    async deleteItemValues(columnId) {
-        return prisma.itemValue.deleteMany({
-            where: { column_id: columnId }
-        })
-    },
-
-    /**
-     * Deleta todas as assignees da coluna (se tipo era USER)
-     * @param {number} columnId
-     * @returns {Promise<object>} { count }
-     */
-    async deleteItemAssignees(columnId) {
-        return prisma.itemAssignee.deleteMany({
-            where: { column_id: columnId }
         })
     },
 
@@ -259,17 +225,6 @@ const ColumnRepository = {
         })
     },
 
-    /**
-     * Busca usuários membros do quadro com IDs específicos
-     * @param {number} boardId
-     * @param {array} userIds
-     * @returns {Promise<number>} Contagem de membros válidos
-     */
-    async countValidMembers(boardId, userIds) {
-        return prisma.boardMember.count({
-            where: { board_id: boardId, user_id: { in: userIds } }
-        })
-    }
 }
 
 module.exports = ColumnRepository

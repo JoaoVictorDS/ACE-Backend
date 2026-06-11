@@ -1,4 +1,4 @@
-const { prisma } = require('../../config')
+const prisma = require('../../config/prisma')
 
 const ItemRepository = {
 
@@ -113,6 +113,10 @@ const ItemRepository = {
         return client.item.count({
             where: { section_id: sectionId }
         })
+    },
+
+    async countByBoard(boardId) {
+        return prisma.item.count({ where: { section: { board_id: boardId } } })
     },
 
     async incrementOrderRange(sectionId, fromOrder, toOrder, tx = null) {

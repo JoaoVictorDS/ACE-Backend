@@ -3,6 +3,7 @@ const PermissionService = require('../../shared/services/permission.service')
 const LogService = require('../log/log.service')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const BoardRepository = require('./board.repository')
+const ItemRepository = require('../item/item.repository')
 const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const { AppError, NotFoundError, AuthorizationError } = require('../../shared/errors')
 const TransactionManager = require('../../shared/database/TransactionManager')
@@ -147,7 +148,11 @@ const BoardService = {
 
     async delete({ user, boardId, force = false }) {
         const { workspaceId } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.OWNER)
-        const { boardName, columnsCount, sectionsCount, itemsCount } = await BoardRepository.findBoardDeletionContext(boardId)
+        const [board, itemsCount] = await Promise.all([
+            BoardRepository.findBoardDeletionContext(boardId),
+            ItemRepository.countByBoard(boardId)
+        ])
+        const { columns: columnsCount, sections: sectionsCount } = board._count
         const hasContent = columnsCount > 0 || sectionsCount > 0 || itemsCount > 0
         if (!force && hasContent) throw new AppError(`Não é possível excluir o quadro: existem ${columnsCount} colunas, ${sectionsCount} seções e ${itemsCount} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir.`, 409)
 
@@ -161,7 +166,7 @@ const BoardService = {
                 action: 'DELETE',
                 entityType: 'BOARD',
                 entityId: boardId,
-                oldValue: `Quadro removido: ${boardName}`,
+                oldValue: `Quadro removido: ${board.name}`,
                 tx
             })
 

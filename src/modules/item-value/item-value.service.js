@@ -1,9 +1,13 @@
-const { prisma, appEventEmitter, emitToRoom } = require('../../config')
 const PermissionService = require('../../shared/services/permission.service')
 const ColumnService = require('../column/column.service')
 const ItemAssigneeService = require('../item/item-assignee.service')
-const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const LogService = require('../log/log.service')
+const ItemValueRepository = require('./item-value.repository')
+const ColumnRepository = require('../column/column.repository')
+const UserRepository = require('../user/user.repository')
+const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { appEventEmitter, emitToRoom } = require('../../config')
+const TransactionManager = require('../../shared/database/TransactionManager')
 
 const ItemValueService = {
 
@@ -12,14 +16,8 @@ const ItemValueService = {
         const sanitizedValue = await ColumnService.validateValue(user, boardId, columnId, value)
 
         const [currentItemValue, column] = await Promise.all([
-            prisma.itemValue.findUnique({
-                where: { item_id_column_id: { item_id: itemId, column_id: columnId } },
-                include: { item: { select: { title: true } } }
-            }),
-            prisma.column.findUnique({
-                where: { id: columnId },
-                select: { name: true, data_type: true, }
-            })
+            ItemValueRepository.findByItemAndColumn(itemId, columnId),
+            ColumnRepository.findByIdForValueValidation(columnId)
         ])
 
         const oldValue = currentItemValue?.value || ''
@@ -36,18 +34,12 @@ const ItemValueService = {
             data: toDTO(currentItemValue)
         }
 
-        const result = await prisma.$transaction(async (tx) => {
+        const result = await TransactionManager.run(async (tx) => {
             let record = null
             if (isDeleting) {
-                await tx.itemValue.deleteMany({
-                    where: { item_id: itemId, column_id: columnId }
-                })
+                await ItemValueRepository.delete(itemId, columnId, tx)
             } else {
-                record = await tx.itemValue.upsert({
-                    where: { item_id_column_id: { item_id: itemId, column_id: columnId } },
-                    update: { value: sanitizedValue },
-                    create: { item_id: itemId, column_id: columnId, value: sanitizedValue }
-                })
+                record = await ItemValueRepository.upsertValue(itemId, columnId, sanitizedValue, tx)
             }
 
             if (column.data_type === 'USER') {
@@ -72,10 +64,7 @@ const ItemValueService = {
 
             let userMap = new Map()
             if (allIds.length > 0) {
-                const fetchedUsers = await prisma.user.findMany({
-                    where: { id: { in: allIds } },
-                    select: { id: true, name: true }
-                })
+                const fetchedUsers = await UserRepository.findByIds(allIds)
                 userMap = new Map(fetchedUsers.map(u => [u.id, u.name]))
             }
 
@@ -122,11 +111,9 @@ const ItemValueService = {
             data: toDTO(result)
         }
 
-        emitToRoom(`board:${boardId}`, 'item_value:changed',
-            {
-                itemId, columnId, action: response.action, value: response.data.value
-
-            })
+        emitToRoom(`board:${boardId}`, 'item_value:changed', {
+            itemId, columnId, action: response.action, value: response.data.value
+        })
 
         return response
     },

@@ -1,4 +1,4 @@
-const { prisma } = require('../../config')
+const prisma = require('../../config/prisma')
 
 const ItemAssigneeRepository = {
 
@@ -15,90 +15,55 @@ const ItemAssigneeRepository = {
     },
 
     /**
-     * Busca se um usuário está atribuído a um item
+     * Atribui usuários a um item
      * @param {number} itemId - ID do item
-     * @param {number} userId - ID do usuário
-     * @returns {Promise<object>} Assignee ou null
-     */
-    async findByItemAndUser(itemId, userId) {
-        return await this.findOne({
-            item_id: itemId,
-            user_id: userId,
-        })
-    },
-
-    /**
-     * Atribui um usuário a um item
-     * @param {number} itemId - ID do item
-     * @param {number} userId - ID do usuário
+     * @param {number} columnId - ID da coluna
+     * @param {number} userIds - IDs de usuários
      * @returns {Promise<object>} Assignee criado
      */
-    async assignUser(itemId, userId) {
-        return await this.create({
-            item_id: itemId,
-            user_id: userId,
+    async assignUsers(itemId, columnId, userIds, tx = null) {
+        const client = tx || prisma
+
+        return client.itemAssignee.createMany({
+            data: userIds.map(userId => ({
+                item_id: itemId,
+                user_id: userId,
+                column_id: columnId
+            })),
+            skipDuplicates: true
         })
     },
 
     /**
-     * Remove atribuição de um usuário a um item
+     * Remove atribuição de usuários a um item
      * @param {number} itemId - ID do item
-     * @param {number} userId - ID do usuário
-     * @returns {Promise<object>} Assignee deletado
+     * @param {number} columnId - ID da coluna
+     * @param {number} userIds - IDs de usuários
+     * @returns {Promise<object>} Assignees deletados
      */
-    async removeAssignment(itemId, userId) {
-        return await this.prisma.itemAssignee.delete({
+    async removeAssignments(itemId, columnId, userIds, tx = null) {
+        const client = tx || prisma
+
+        return client.itemAssignee.deleteMany({
             where: {
-                user_id_item_id: { user_id: userId, item_id: itemId },
-            },
-        })
-    },
-
-    /**
-     * Remove todas as atribuições de um item
-     * @param {number} itemId - ID do item
-     * @returns {Promise<object>} Resultado da deleção
-     */
-    async removeAllFromItem(itemId) {
-        return await this.prisma.itemAssignee.deleteMany({
-            where: { item_id: itemId },
-        })
-    },
-
-    /**
-     * Conta quantos itens um usuário está atribuído
-     * @param {number} userId - ID do usuário
-     * @returns {Promise<number>} Total de itens
-     */
-    async countByUser(userId) {
-        return await this.count({ user_id: userId })
-    },
-
-    /**
-     * Busca itens onde um usuário está atribuído
-     * @param {number} userId - ID do usuário
-     * @param {number} limit - Limite de resultados
-     * @returns {Promise<array>} Array de itens
-     */
-    async findItemsByUser(userId, limit = 20) {
-        return await this.findMany(
-            { user_id: userId },
-            {
-                include: {
-                    item: {
-                        select: {
-                            id: true,
-                            title: true,
-                            status: true,
-                            priority: true,
-                            board_id: true,
-                        },
-                    },
-                },
-                take: limit,
+                item_id: itemId,
+                column_id: columnId,
+                user_id: { in: userIds }
             }
-        )
-    }
+        })
+    },
+
+    /**
+     * Deleta todas as assignees da coluna (se tipo era USER)
+     * @param {number} columnId
+     * @returns {Promise<object>} { count }
+     */
+    async deleteItemAssignees(columnId) {
+        return prisma.itemAssignee.deleteMany({
+            where: { column_id: columnId }
+        })
+    },
+
 }
 
 module.exports = ItemAssigneeRepository

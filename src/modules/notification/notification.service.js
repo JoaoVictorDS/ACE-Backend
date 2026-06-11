@@ -44,7 +44,7 @@ const NotificationService = {
 
             const assignedUsersIds = Array.from(assignedUsersIdsSet)
 
-            const userSettings = await UserNotificationSettingService.findUserSettings(
+            const userSettings = await UserNotificationSettingRepository.findUserSettings(
                 assignedUsersIds,
                 boardId
             )

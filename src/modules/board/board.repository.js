@@ -1,4 +1,4 @@
-const { prisma } = require('../../config')
+const prisma = require('../../config/prisma')
 
 const BoardRepository = {
 
@@ -50,13 +50,6 @@ const BoardRepository = {
         })
     },
 
-    async findUserRoleInBoard(boardId, userId) {
-        return prisma.boardMember.findUnique({
-            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
-            select: { role: true },
-        })
-    },
-
     async findById(boardId) {
         return prisma.board.findUnique({
             where: { id: boardId }
@@ -66,42 +59,23 @@ const BoardRepository = {
     async update(boardId, data) {
         return prisma.board.update({
             where: { id: boardId },
-            data: {
-                ...(data.name && { name: data.name }),
-                ...(data.color && { color: data.color }),
-                ...(data.item_label_singular && { item_label_singular: data.item_label_singular }),
-                ...(data.item_label_plural && { item_label_plural: data.item_label_plural }),
-            }
+            data
         })
     },
 
     async findBoardDeletionContext(boardId) {
-        const [board, itemsCount] = await Promise.all([
-            prisma.board.findUnique({
-                where: { id: boardId },
-                select: {
-                    name: true,
-                    _count: { select: { columns: true, sections: true } }
-                }
-            }),
-            prisma.item.count({
-                where: { section: { board_id: boardId } }
-            })
-        ])
-
-        if (!board) return null
-
-        return {
-            boardId,
-            boardName: board.name,
-            itemsCount,
-            columnsCount: board._count.columns,
-            sectionsCount: board._count.sections
-        }
+        return prisma.board.findUnique({
+            where: { id: boardId },
+            select: {
+                name: true,
+                _count: { select: { columns: true, sections: true } }
+            }
+        })
     },
 
     async delete(boardId, tx = null) {
         const client = tx || prisma
+
         return client.board.delete({
             where: { id: boardId }
         })

@@ -1,4 +1,4 @@
-const { prisma } = require('../../config')
+const prisma = require('../../config/prisma')
 
 const UserRepository = {
 
@@ -26,6 +26,13 @@ const UserRepository = {
                 role: true,
                 refresh_token: true,
             }
+        })
+    },
+
+    async findByIds(userIds) {
+        return prisma.user.findMany({
+            where: { id: { in: userIds } },
+            select: { id: true, name: true }
         })
     },
 

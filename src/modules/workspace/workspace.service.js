@@ -1,4 +1,4 @@
-const { prisma } = require('../../config')
+const prisma = require('../../config/prisma')
 const PermissionService = require('../../shared/services/permission.service')
 const { PERMISSION_LEVELS } = require('../../shared/constants')
 const LogService = require('../log/log.service')

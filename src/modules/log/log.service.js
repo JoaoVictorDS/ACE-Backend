@@ -41,16 +41,20 @@ const LogService = {
 
     async getByWorkspace({ user, workspaceId, page, limit }) {
         await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.VIEW)
-
-        const { data, total } = await LogRepository.findByWorkspacePaginated(workspaceId, page, limit)
+        const [data, total] = await Promise.all([
+            LogRepository.findByWorkspacePaginated(workspaceId, page, limit),
+            LogRepository.countByWorkspace(workspaceId)
+        ])
 
         return PaginationService.createPaginatedResponse(data, total, page, limit)
     },
 
     async getByBoard({ user, boardId, page, limit }) {
         await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.VIEW)
-
-        const { data, total } = await LogRepository.findByBoardPaginated(boardId, page, limit)
+        const [data, total] = await Promise.all([
+            LogRepository.findByBoardPaginated(boardId, page, limit),
+            LogRepository.countByBoard(boardId)
+        ])
 
         return PaginationService.createPaginatedResponse(data, total, page, limit)
     },

@@ -1,4 +1,4 @@
-const { prisma } = require('../../config')
+const prisma = require('../../config/prisma')
 
 const BoardMemberRepository = {
 
@@ -36,6 +36,7 @@ const BoardMemberRepository = {
      */
     async countPrivilegedMembers(boardId, tx = null) {
         const client = tx || prisma
+
         return client.boardMember.count({
             where: {
                 board_id: boardId,
@@ -54,6 +55,7 @@ const BoardMemberRepository = {
      */
     async decrementOrderAfter(userId, workspaceId, order, tx = null) {
         const client = tx || prisma
+
         return client.boardMember.updateMany({
             where: {
                 user_id: userId,
@@ -73,6 +75,7 @@ const BoardMemberRepository = {
      */
     async decrementOrderAfterBoardDeletion(boardId, workspaceId, tx = null) {
         const client = tx || prisma
+
         return client.$executeRaw`
         UPDATE "board_members" AS bm
         SET "order" = bm."order" - 1
@@ -92,6 +95,7 @@ const BoardMemberRepository = {
      */
     async removeById(id, tx = null) {
         const client = tx || prisma
+
         return client.boardMember.delete({ where: { id } })
     },
 
@@ -230,6 +234,7 @@ const BoardMemberRepository = {
      */
     async updateOrderInRange(userId, workspaceId, orderCondition, direction = 'increment', tx = null) {
         const client = tx || prisma
+
         return client.boardMember.updateMany({
             where: {
                 user_id: userId,
@@ -250,6 +255,7 @@ const BoardMemberRepository = {
      */
     async updateMemberOrder(userId, boardId, newOrder, tx = null) {
         const client = tx || prisma
+
         return client.boardMember.update({
             where: { user_id_board_id: { user_id: userId, board_id: boardId } },
             data: { order: newOrder }
@@ -267,6 +273,37 @@ const BoardMemberRepository = {
                 board_id: boardId,
                 role: { in: roles }
             }
+        })
+    },
+
+    async findValidMemberIds(boardId, userIds, tx = null) {
+        const client = tx || prisma
+
+        return client.boardMember.findMany({
+            where: {
+                board_id: boardId,
+                user_id: { in: userIds }
+            },
+            select: { user_id: true }
+        })
+    },
+
+    /**
+     * Busca usuários membros do quadro com IDs específicos
+     * @param {number} boardId
+     * @param {array} userIds
+     * @returns {Promise<number>} Contagem de membros válidos
+     */
+    async countValidMembers(boardId, userIds) {
+        return prisma.boardMember.count({
+            where: { board_id: boardId, user_id: { in: userIds } }
+        })
+    },
+
+    async findUserRoleInBoard(boardId, userId) {
+        return prisma.boardMember.findUnique({
+            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
+            select: { role: true },
         })
     },
 

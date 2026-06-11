@@ -3,6 +3,7 @@ const ColumnRepository = require('../../modules/column/column.repository')
 const SectionRepository = require('../../modules/section/section.repository')
 const ItemRepository = require('../../modules/item/item.repository')
 const WorkspaceRepository = require('../../modules/workspace/workspace.repository')
+const BoardMemberRepository = require('../../modules/board-member/board-member.repository')
 const { NotFoundError, AuthorizationError, AppError } = require('../errors')
 const { ROLES } = require('../constants')
 
@@ -96,7 +97,7 @@ const PermissionService = {
             }
         }
 
-        const member = await BoardRepository.findUserRoleInBoard(context.boardId, userId)
+        const member = await BoardMemberRepository.findUserRoleInBoard(context.boardId, userId)
 
         const role = this._determineUserRole(isSystemAdmin, userId, context.creatorId, member)
 
