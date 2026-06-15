@@ -7,6 +7,14 @@ const WorkspaceMemberRepository = {
             where: { user_id_workspace_id: { user_id: userId, workspace_id: workspaceId } }
         })
         return !!member
+    },
+
+    async removeByUserId(userId, tx = null) {
+        const client = tx || prisma
+
+        return client.workspaceMember.deleteMany({
+            where: { user_id: userId }
+        })
     }
 }
 

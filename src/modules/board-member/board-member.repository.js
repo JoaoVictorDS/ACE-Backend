@@ -99,6 +99,14 @@ const BoardMemberRepository = {
         return client.boardMember.delete({ where: { id } })
     },
 
+    async removeByUserId(userId, tx = null) {
+        const client = tx || prisma
+
+        return client.boardMember.deleteMany({
+            where: { user_id: userId }
+        })
+    },
+
     /**
      * Busca o vínculo básico entre usuário e board sem includes
      * Usado para verificações de existência e leitura de role

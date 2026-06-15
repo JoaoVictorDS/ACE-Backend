@@ -2,8 +2,14 @@ const AppError = require('./AppError')
 const { HTTP_STATUS } = require('../constants')
 
 class NotFoundError extends AppError {
-    constructor(resource = 'Recurso', details = null) {
-        super(`${resource} não encontrado!`, HTTP_STATUS.NOT_FOUND, {
+    constructor(resourceKey = 'Recurso', details = null) {
+        const ErrorMessages = require('./error-messages')
+
+        const message = /^[A-Z_]+$/.test(resourceKey)
+            ? ErrorMessages.notFound(resourceKey)
+            : resourceKey
+
+        super(message, HTTP_STATUS.NOT_FOUND, {
             code: 'NOT_FOUND',
             isOperational: true,
             details,

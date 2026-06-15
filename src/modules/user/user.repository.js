@@ -2,6 +2,13 @@ const prisma = require('../../config/prisma')
 
 const UserRepository = {
 
+    async findById(userId) {
+        return prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, name: true, email: true, role: true }
+        })
+    },
+
     async findByIdForAuth(userId) {
         return prisma.user.findFirst({
             where: { id: userId },
@@ -84,42 +91,89 @@ const UserRepository = {
         })
     },
 
-    // atualizar
+    async create(name, email, passwordHash, role = 'MEMBER', tx = null) {
+        const client = tx || prisma
 
-    async findByIdForProfile(userId) {
-        return prisma.user.findUnique(userId, {
+        return client.user.create({
+            data: {
+                name,
+                email,
+                password_hash: passwordHash,
+                role
+            }
+        })
+    },
+
+    async findActiveUsers() {
+        return prisma.user.findMany({
+            where: { is_active: true },
             select: {
                 id: true,
                 name: true,
                 email: true,
-                role: true,
-                is_active: true,
-                created_at: true,
+                role: true
             },
+            orderBy: { role: 'asc' }
         })
     },
 
-    async findActive(limit = 10) {
-        return prisma.user.findMany(
-            { is_active: true },
-            {
-                select: {
-                    id: true,
-                    name: true,
-                    email: true,
-                    role: true,
+    async findUserDeletionContext(userId) {
+        return prisma.user.findUnique({
+            where: { id: userId },
+            include: {
+                workspace_members: {
+                    where: { role: { in: ['ADMIN', 'OWNER'] } },
+                    include: { workspace: { include: { _count: { select: { workspace_members: { where: { role: { in: ['ADMIN', 'OWNER'] } } } } } } } }
                 },
-                take: limit,
+                board_members: {
+                    where: { role: { in: ['ADMIN', 'OWNER'] } },
+                    include: { board: { include: { _count: { select: { board_members: { where: { role: { in: ['ADMIN', 'OWNER'] } } } } } } } }
+                }
             }
-        )
+        })
     },
 
-    async deactivate(userId) {
-        return prisma.user.update(userId, {
-            is_active: false,
-            refresh_token: null,
+    async countActiveAdmins() {
+        return prisma.user.count({
+            where: { role: 'ADMIN', is_active: true }
         })
-    }
+    },
+
+    async update(userId, data) {
+        return prisma.user.update({
+            where: { id: userId },
+            data,
+            select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true
+            }
+        })
+    },
+
+    async createUserPreference(userId, settings, tx = null) {
+        const client = tx || prisma
+
+        return client.userPreference.create({
+            data: {
+                user_id: userId,
+                settings
+            }
+        })
+    },
+
+    async delete(userId, userName, tx = null) {
+        const client = tx || prisma
+
+        return client.user.update({
+            where: { id: userId },
+            data: {
+                is_active: false,
+                name: `Usuário Desativado (${userName})`
+            }
+        })
+    },
 
 }
 
