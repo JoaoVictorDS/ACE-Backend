@@ -26,12 +26,12 @@ const WorkspaceController = {
 
     update: catchAsync(async (req, res, next) => {
         const { workspace_id: workspaceId } = req.validated.params
-        const { ...otherFields } = req.validated.body
+        const data = req.validated.body
 
         const updatedWorkspace = await WorkspaceService.update({
             user: req.user,
             workspaceId,
-            ...otherFields
+            data
         })
 
         return res.status(200).json(updatedWorkspace)

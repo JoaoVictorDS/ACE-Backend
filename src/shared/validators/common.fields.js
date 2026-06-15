@@ -56,6 +56,8 @@ exports.content = makeStringField('content', 'conteúdo', { transform: sanitizeH
 exports.color = z.string().regex(/^#[0-9A-F]{6}$/i).optional()
 exports.item_label_singular = z.string().min(1, 'Label não pode estar vazio').max(50, 'Label não pode exceder 50 caracteres').trim().optional()
 exports.item_label_plural = z.string().min(1, 'Label não pode estar vazio').max(50, 'Label não pode exceder 50 caracteres').trim().optional()
+exports.description = z.string().trim().optional()
+exports.icon = z.string().trim().optional()
 
 // ─── Numbers ──────────────────────────────────────────────────────
 

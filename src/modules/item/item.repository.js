@@ -119,6 +119,12 @@ const ItemRepository = {
         return prisma.item.count({ where: { section: { board_id: boardId } } })
     },
 
+    async countByWorkspace(workspaceId) {
+        return prisma.item.count({
+            where: { section: { board: { workspace_id: workspaceId } } }
+        })
+    },
+
     async incrementOrderRange(sectionId, fromOrder, toOrder, tx = null) {
         const client = tx || prisma
 

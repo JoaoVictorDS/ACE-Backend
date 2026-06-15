@@ -1,35 +1,18 @@
-const prisma = require('../../config/prisma')
 const PermissionService = require('../../shared/services/permission.service')
-const { PERMISSION_LEVELS } = require('../../shared/constants')
 const LogService = require('../log/log.service')
-const { AppError } = require('../../shared/errors')
+const WorkspaceRepository = require('./workspace.repository')
+const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
+const ItemRepository = require('../item/item.repository')
+const { AppError, NotFoundError } = require('../../shared/errors')
+const TransactionManager = require('../../shared/database/TransactionManager')
+const { PERMISSION_LEVELS } = require('../../shared/constants')
 
 const WorkspaceService = {
 
     async create({ user, name }) {
         const userId = user.id
-
-        const lastMemberEntry = await prisma.workspaceMember.findFirst({
-            where: { user_id: userId },
-            orderBy: { order: 'desc' },
-            select: { order: true }
-        })
-
-        const nextOrder = lastMemberEntry ? lastMemberEntry.order + 1 : 0
-
-        const newWorkspace = await prisma.workspace.create({
-            data: {
-                name,
-                creator_id: userId,
-                workspace_members: {
-                    create: {
-                        user_id: userId,
-                        role: 'OWNER',
-                        order: nextOrder
-                    }
-                }
-            }
-        })
+        const nextOrder = WorkspaceMemberRepository.findMaxOrder(userId)
+        const newWorkspace = await WorkspaceRepository.create(userId, name, nextOrder)
 
         LogService.register({
             userId,
@@ -44,21 +27,7 @@ const WorkspaceService = {
     },
 
     async getByUser({ user }) {
-        const memberships = await prisma.workspaceMember.findMany({
-            where: { user_id: user.id },
-            include: {
-                workspace: {
-                    select: {
-                        id: true,
-                        name: true,
-                        creator_id: true
-                    }
-                }
-            },
-            orderBy: {
-                order: 'asc'
-            }
-        })
+        const memberships = await WorkspaceMemberRepository.findMemberships(user.id)
 
         return memberships.map(m => ({
             ...m.workspace,
@@ -67,24 +36,44 @@ const WorkspaceService = {
         }))
     },
 
-    async update({ user, workspaceId, name }) {
+    async update({ user, workspaceId, data }) {
         await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.ADMIN)
 
-        const currentWorkspace = await prisma.workspace.findUnique({
-            where: { id: workspaceId },
-            select: { name: true }
-        })
+        const currentWorkspace = await WorkspaceRepository.findById(workspaceId)
+        if (!currentWorkspace) throw new NotFoundError('Área de Trabalho não encontrada.')
 
-        if (!currentWorkspace) throw new AppError('Área de Trabalho não encontrada!', 404)
+        const hasChanges = Object.keys(data).some(
+            (key) => data[key] !== undefined && data[key] !== currentWorkspace[key]
+        )
 
-        const isSameName = currentWorkspace.name === name
+        if (!hasChanges) {
+            return currentWorkspace
+        }
 
-        if (isSameName) return currentWorkspace
+        const changes = []
+        if (data.name && data.name !== currentWorkspace.name) {
+            changes.push({
+                field: 'name',
+                old: currentWorkspace.name,
+                new: data.name
+            })
+        }
+        if (data.description && data.description !== currentWorkspace.description) {
+            changes.push({
+                field: 'description',
+                old: currentWorkspace.description,
+                new: data.description
+            })
+        }
+        if (data.icon && data.icon !== currentWorkspace.icon) {
+            changes.push({
+                field: 'icon',
+                old: currentWorkspace.icon,
+                new: data.icon
+            })
+        }
 
-        const updatedWorkspace = await prisma.workspace.update({
-            where: { id: workspaceId },
-            data: { name }
-        })
+        const updatedWorkspace = await WorkspaceRepository.update(workspaceId, data)
 
         LogService.register({
             userId: user.id,
@@ -92,57 +81,38 @@ const WorkspaceService = {
             action: 'UPDATE',
             entityType: 'WORKSPACE',
             entityId: workspaceId,
-            oldValue: `Nome: ${currentWorkspace.name}`,
-            newValue: `Nome: ${name}`
+            oldValue: changes.map(c => `${c.field}: "${c.old}"`).join(' | '),
+            newValue: changes.map(c => `${c.field}: "${c.new}"`).join(' | ')
         })
 
         return updatedWorkspace
     },
 
     async delete({ user, workspaceId, force = false }) {
-        const [workspace, items] = await Promise.all([
-            prisma.workspace.findUnique({
-                where: { id: workspaceId },
-                select: {
-                    name: true,
-                    _count: { select: { boards: true, workspace_members: true } }
-                }
-            }),
-
-            prisma.item.count({
-                where: { section: { board: { workspace_id: workspaceId } } }
-            })
+        const [workspace, itemsCount] = await Promise.all([
+            WorkspaceRepository.findWorkspaceDeletionContext(workspaceId),
+            ItemRepository.countByWorkspace(workspaceId)
         ])
-        if (!workspace) throw new AppError('Área de Trabalho não encontrada!', 404)
+        if (!workspace) throw new NotFoundError('Área de Trabalho não encontrada.')
 
-        const { boards, workspace_members } = workspace._count
-        const hasContent = boards > 0 || items > 0
-        if (!force && hasContent) throw new AppError(`Não é possível excluir a área de trabalho: existem ${boards} quadros, ${workspace_members} membros e ${items} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir!`, 409)
+        const { boards: boardsCount, workspace_members: workspaceMembersCount } = workspace._count
+        const hasContent = boardsCount > 0 || itemsCount > 0
+        if (!force && hasContent) throw new AppError(`Não é possível excluir a área de trabalho: existem ${boardsCount} quadros, ${workspaceMembersCount} membros e ${itemsCount} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir!`, 409)
 
-        const result = await prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`
-                UPDATE "workspace_members" AS wm
-                SET "order" = wm."order" - 1
-                FROM "workspace_members" AS deleted_wm
-                WHERE wm.user_id = deleted_wm.user_id
-                AND deleted_wm.workspace_id = ${workspaceId}
-                AND wm."order" > deleted_wm."order"
-            `
+        const result = await TransactionManager.run(async (tx) => {
+            await WorkspaceMemberRepository.decrementOrderAfterWorkspaceDeletion(workspaceId, tx)
 
-            await tx.activityLog.create({
-                data: {
-                    user_id: user.id,
-                    workspace_id: workspaceId,
-                    action: 'DELETE',
-                    entity_type: 'WORKSPACE',
-                    entity_id: workspaceId,
-                    old_value: `Área de trabalho removida: ${workspace.name}`
-                }
+            await LogService.register({
+                userId: user.id,
+                workspaceId: workspaceId,
+                action: 'DELETE',
+                entityType: 'WORKSPACE',
+                entityId: workspaceId,
+                oldValue: `Área de trabalho removida: ${workspace.name}`,
+                tx
             })
 
-            return await tx.workspace.delete({
-                where: { id: workspaceId }
-            })
+            return await WorkspaceRepository.delete(workspaceId, tx)
         })
 
         return result

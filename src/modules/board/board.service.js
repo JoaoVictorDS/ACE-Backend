@@ -13,10 +13,7 @@ const BoardService = {
     async create({ user, workspaceId, name }) {
         await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.ADMIN)
         const userId = user.id
-
-        const lastMemberEntry = await BoardMemberRepository.findLastMemberInWorkspace(userId, workspaceId)
-        const nextOrder = lastMemberEntry ? lastMemberEntry.order + 1 : 0
-
+        const nextOrder = BoardMemberRepository.findMaxOrderByWorkspace(userId, workspaceId)
         const newBoard = await BoardRepository.create(name, workspaceId, userId, nextOrder)
 
         LogService.register({

@@ -148,8 +148,8 @@ const BoardMemberRepository = {
      * @param {number} workspaceId
      * @returns {Promise<{ order: number }|null>}
      */
-    async findLastMemberInWorkspace(userId, workspaceId) {
-        return prisma.boardMember.findFirst({
+    async findMaxOrderByWorkspace(userId, workspaceId) {
+        const result = await prisma.boardMember.findFirst({
             where: {
                 user_id: userId,
                 board: { workspace_id: workspaceId }
@@ -157,6 +157,8 @@ const BoardMemberRepository = {
             orderBy: { order: 'desc' },
             select: { order: true }
         })
+
+        return result ? result.order + 1 : 0
     },
 
     /**

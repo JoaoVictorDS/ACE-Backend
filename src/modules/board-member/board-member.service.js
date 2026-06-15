@@ -49,8 +49,7 @@ const BoardMemberService = {
 
         let nextOrder = 0
         if (!existingMember) {
-            const lastMemberEntry = await BoardMemberRepository.findLastMemberInWorkspace(targetUserId, workspaceId)
-            nextOrder = lastMemberEntry ? lastMemberEntry.order + 1 : 0
+            nextOrder = BoardMemberRepository.findMaxOrderByWorkspace(userId, workspaceId)
         }
 
         const member = await BoardMemberRepository.upsertMember(targetUserId, boardId, role, nextOrder)
