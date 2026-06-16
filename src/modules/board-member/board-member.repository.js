@@ -99,11 +99,22 @@ const BoardMemberRepository = {
         return client.boardMember.delete({ where: { id } })
     },
 
-    async removeByUserId(userId, tx = null) {
+    async removeByUser(userId, tx = null) {
         const client = tx || prisma
 
         return client.boardMember.deleteMany({
             where: { user_id: userId }
+        })
+    },
+
+    async removeByUserAndWorkspace(userId, workspaceId, tx = null) {
+        const client = tx || prisma
+
+        client.boardMember.deleteMany({
+            where: {
+                user_id: userId,
+                board: { workspace_id: workspaceId }
+            }
         })
     },
 
@@ -159,6 +170,19 @@ const BoardMemberRepository = {
         })
 
         return result ? result.order + 1 : 0
+    },
+
+    async findBoardsWhereUserIsPrivilegedMemberByWorkspace(userId, workspaceId, tx = null) {
+        const client = tx || prisma
+
+        return client.boardMember.findMany({
+            where: {
+                user_id: userId,
+                role: { in: ['ADMIN', 'OWNER'] },
+                board: { workspace_id: workspaceId }
+            },
+            include: { board: { include: { board_members: { where: { role: { in: ['ADMIN', 'OWNER'] } } } } } }
+        })
     },
 
     /**

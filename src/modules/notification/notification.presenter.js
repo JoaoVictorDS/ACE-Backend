@@ -1,5 +1,5 @@
 const NotificationDictionary = require('./notification.dictionary')
-const { logger } = require('../../config')
+const logger = require('../../config/logger')
 
 class NotificationPresenter {
 

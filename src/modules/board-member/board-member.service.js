@@ -49,7 +49,7 @@ const BoardMemberService = {
 
         let nextOrder = 0
         if (!existingMember) {
-            nextOrder = BoardMemberRepository.findMaxOrderByWorkspace(userId, workspaceId)
+            nextOrder = await BoardMemberRepository.findMaxOrderByWorkspace(userId, workspaceId)
         }
 
         const member = await BoardMemberRepository.upsertMember(targetUserId, boardId, role, nextOrder)
@@ -99,7 +99,6 @@ const BoardMemberService = {
         const { board: { workspace_id: workspaceId }, order: oldOrder } = currentMembership
         const totalBoards = await BoardMemberRepository.countBoardsByUserInWorkspace(userId, workspaceId)
         const finalOrder = Math.max(0, Math.min(newOrder, totalBoards - 1))
-
         if (oldOrder === finalOrder) return currentMembership
 
         return await TransactionManager.run(async (tx) => {

@@ -5,9 +5,9 @@ const LogService = require('../log/log.service')
 const ItemValueRepository = require('./item-value.repository')
 const ColumnRepository = require('../column/column.repository')
 const UserRepository = require('../user/user.repository')
+const TransactionManager = require('../../shared/database/TransactionManager')
 const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const { appEventEmitter, emitToRoom } = require('../../config')
-const TransactionManager = require('../../shared/database/TransactionManager')
 
 const ItemValueService = {
 

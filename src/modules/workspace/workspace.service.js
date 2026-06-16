@@ -11,7 +11,7 @@ const WorkspaceService = {
 
     async create({ user, name }) {
         const userId = user.id
-        const nextOrder = WorkspaceMemberRepository.findMaxOrder(userId)
+        const nextOrder = await WorkspaceMemberRepository.findMaxOrder(userId)
         const newWorkspace = await WorkspaceRepository.create(userId, name, nextOrder)
 
         LogService.register({

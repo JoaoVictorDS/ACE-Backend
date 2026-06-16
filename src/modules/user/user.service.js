@@ -3,9 +3,9 @@ const UserNotificationSettingRepository = require('../user-notification-setting/
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
 const bcrypt = require('bcryptjs')
-const { NOTIFICATION_TYPES } = require('../../shared/constants')
 const { AppError, AuthorizationError, NotFoundError } = require('../../shared/errors')
 const TransactionManager = require('../../shared/database/TransactionManager')
+const { NOTIFICATION_TYPES } = require('../../shared/constants')
 
 const UserService = {
 
@@ -117,8 +117,8 @@ const UserService = {
         }
 
         return await TransactionManager.run(async (tx) => {
-            await BoardMemberRepository.removeByUserId(targetUserId, tx)
-            await WorkspaceMemberRepository.removeByUserId(targetUserId, tx)
+            await BoardMemberRepository.removeByUser(targetUserId, tx)
+            await WorkspaceMemberRepository.removeByUser(targetUserId, tx)
             await UserRepository.revokeAllSessions(targetUserId)
 
             return await UserRepository.delete(targetUserId, user.name, tx)

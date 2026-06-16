@@ -3,10 +3,10 @@ const BoardMemberRepository = require('../board-member/board-member.repository')
 const NotificationRepository = require('./notification.repository')
 const UserNotificationSettingRepository = require('../user-notification-setting/user-notification-setting.repository')
 const NotificationDictionary = require('./notification.dictionary')
-const { appEventEmitter, getIO, logger } = require('../../config')
 const { NotFoundError, AuthorizationError } = require('../../shared/errors')
 const PaginationService = require('../../shared/services/pagination.service')
 const NotificationPresenter = require('./notification.presenter')
+const { appEventEmitter, getIO, logger } = require('../../config')
 
 const NotificationService = {
 
