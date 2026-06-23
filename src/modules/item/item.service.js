@@ -1,10 +1,7 @@
-const LogService = require('../log/log.service')
-const PermissionService = require('../../shared/services/permission.service')
-const ItemRepository = require('./item.repository')
-const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const { appEventEmitter, emitToRoom } = require('../../config')
-const TransactionManager = require('../../shared/database/TransactionManager')
-const { AppError, NotFoundError } = require('../../shared/errors')
+const LogService = require('../log/log.service')
+const ItemRepository = require('./item.repository')
+const { PermissionService, TransactionManager, AppError, NotFoundError, NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared')
 
 const ItemService = {
 

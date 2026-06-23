@@ -1,11 +1,9 @@
-const PermissionService = require('../../shared/services/permission.service')
+const { appEventEmitter, emitToRoom } = require('../../config')
 const LogService = require('../log/log.service')
 const MentionService = require('../notification/mention.service')
 const ItemRepository = require('../item/item.repository')
 const CommentRepository = require('./comment.repository')
-const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
-const { appEventEmitter, emitToRoom } = require('../../config')
-const { NotFoundError, AuthorizationError } = require('../../shared/errors')
+const { PermissionService, NotFoundError, AuthorizationError, NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared')
 
 const CommentService = {
 

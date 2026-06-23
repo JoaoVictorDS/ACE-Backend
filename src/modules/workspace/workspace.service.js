@@ -1,11 +1,8 @@
-const PermissionService = require('../../shared/services/permission.service')
 const LogService = require('../log/log.service')
 const WorkspaceRepository = require('./workspace.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
 const ItemRepository = require('../item/item.repository')
-const { AppError, NotFoundError } = require('../../shared/errors')
-const TransactionManager = require('../../shared/database/TransactionManager')
-const { PERMISSION_LEVELS } = require('../../shared/constants')
+const { PermissionService, TransactionManager, AppError, NotFoundError, PERMISSION_LEVELS } = require('../../shared')
 
 const WorkspaceService = {
 

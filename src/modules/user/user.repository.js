@@ -152,17 +152,6 @@ const UserRepository = {
         })
     },
 
-    async createUserPreference(userId, settings, tx = null) {
-        const client = tx || prisma
-
-        return client.userPreference.create({
-            data: {
-                user_id: userId,
-                settings
-            }
-        })
-    },
-
     async delete(userId, userName, tx = null) {
         const client = tx || prisma
 

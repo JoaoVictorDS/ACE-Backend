@@ -10,4 +10,6 @@ router.get('/', authMiddleware, UserController.list)
 router.patch('/:user_id', authMiddleware, validationMiddleware(updateUserSchema), UserController.update)
 router.delete('/:user_id', authMiddleware, adminMiddleware, validationMiddleware(deleteUserSchema), UserController.delete)
 
+router.use('/me/notification-settings', require('../user-notification-setting/user-notification-setting.routes'))
+
 module.exports = router

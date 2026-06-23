@@ -1,8 +1,7 @@
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 const UserRepository = require('../user/user.repository')
-const { AuthenticationError } = require('../../shared/errors')
-const { ERROR_MESSAGES } = require('../../shared/constants')
+const { AuthenticationError, ERROR_MESSAGES } = require('../../shared')
 
 const AuthService = {
 

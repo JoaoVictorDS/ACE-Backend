@@ -61,6 +61,7 @@ model User {
   password_hash String   @map("password_hash")
   name          String
   role          UserRole @default(MEMBER)
+  preferences   Json     @default("{}")
   is_active     Boolean  @default(true) @map("is_active")
   refresh_token String?  @map("refresh_token")
 
@@ -80,7 +81,6 @@ model User {
   notifications_received Notification[]            @relation("Recipient")
   notifications_sent     Notification[]            @relation("Actor")
   notification_settings  UserNotificationSetting[]
-  preferences            UserPreference?
 
   @@map("users")
 }
@@ -97,16 +97,6 @@ model UserNotificationSetting {
 
   @@unique([user_id, board_id, action_type])
   @@map("user_notification_settings")
-}
-
-model UserPreference {
-  id       Int  @id @default(autoincrement())
-  user_id  Int  @unique @map("user_id")
-  settings Json
-
-  user User @relation(fields: [user_id], references: [id])
-
-  @@map("user_preferences")
 }
 
 model Workspace {
@@ -251,6 +241,7 @@ model ItemAssignee {
   column Column @relation(fields: [column_id], references: [id], onDelete: Cascade)
 
   created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
 
   @@unique([item_id, user_id, column_id])
   @@map("item_assignees")

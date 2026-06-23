@@ -1,5 +1,5 @@
 const AuthService = require('./auth.service')
-const { catchAsync } = require('../../shared/utils')
+const { catchAsync } = require('../../shared')
 const { COOKIE_OPTIONS } = require('./auth.constants')
 
 const AuthController = {

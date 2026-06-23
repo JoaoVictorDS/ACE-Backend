@@ -1,6 +1,6 @@
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const ItemAssigneeRepository = require('./item-assignee.repository')
-const { AppError } = require('../../shared/errors')
+const { AppError } = require('../../shared')
 
 const ItemAssigneeService = {
 

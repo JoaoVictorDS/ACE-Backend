@@ -1,5 +1,5 @@
-const UserRepository = require('../user/user.repository')
 const { appEventEmitter, logger } = require('../../config')
+const UserRepository = require('../user/user.repository')
 
 const MentionService = {
 

@@ -1,5 +1,5 @@
 const NotificationService = require('./notification.service')
-const { catchAsync } = require('../../shared/utils')
+const { catchAsync } = require('../../shared')
 
 const NotificationController = {
 

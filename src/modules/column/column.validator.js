@@ -4,7 +4,7 @@ const { board_id, column_id, name, force, new_order } = require('../../shared/va
 const ColumnTypesEnum = z.enum(['TEXT', 'LONG_TEXT', 'SELECT', 'USER', 'DATE', 'NUMBER', 'FORMULA'], {
     error: (issue) => issue.input === undefined
         ? 'O campo "data_type" é obrigatório'
-        : 'Tipo inválido. Use "TEXT", "LONG_TEXT", "SELECT", "USER", "DATE", "NUMBER" ou "FORMULA"'
+        : 'Tipo inválido em "data_type". Use "TEXT", "LONG_TEXT", "SELECT", "USER", "DATE", "NUMBER" ou "FORMULA"'
 })
 
 const BoardRolesEnum = z.enum(['VIEWER', 'EDITOR'])

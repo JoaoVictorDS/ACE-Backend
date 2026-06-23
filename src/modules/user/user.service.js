@@ -1,11 +1,9 @@
+const bcrypt = require('bcryptjs')
 const UserRepository = require('./user.repository')
 const UserNotificationSettingRepository = require('../user-notification-setting/user-notification-setting.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
-const bcrypt = require('bcryptjs')
-const { AppError, AuthorizationError, NotFoundError } = require('../../shared/errors')
-const TransactionManager = require('../../shared/database/TransactionManager')
-const { NOTIFICATION_TYPES } = require('../../shared/constants')
+const { TransactionManager, AppError, AuthorizationError, NotFoundError, NOTIFICATION_TYPES } = require('../../shared')
 
 const UserService = {
 
@@ -20,7 +18,6 @@ const UserService = {
         ]
 
         await UserNotificationSettingRepository.create(defaultNotificationSettings, tx)
-        await UserRepository.createUserPreference(userId, { theme: 'light' }, tx)
     },
 
     async create({ name, email, password, role }) {

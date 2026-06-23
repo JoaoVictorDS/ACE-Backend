@@ -1,10 +1,7 @@
-const PermissionService = require('../../shared/services/permission.service')
+const { emitToRoom } = require('../../config')
 const LogService = require('../log/log.service')
 const SectionRepository = require('./section.repository')
-const { AppError, NotFoundError } = require('../../shared/errors')
-const TransactionManager = require('../../shared/database/TransactionManager')
-const { emitToRoom } = require('../../config')
-const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { PermissionService, TransactionManager, AppError, NotFoundError, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared')
 
 const SectionService = {
 

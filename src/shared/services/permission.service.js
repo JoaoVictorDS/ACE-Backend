@@ -1,4 +1,5 @@
 const BoardRepository = require('../../modules/board/board.repository')
+const BoardMemberRepository = require('../../modules/board-member/board-member.repository')
 const ColumnRepository = require('../../modules/column/column.repository')
 const SectionRepository = require('../../modules/section/section.repository')
 const ItemRepository = require('../../modules/item/item.repository')
@@ -6,7 +7,6 @@ const WorkspaceRepository = require('../../modules/workspace/workspace.repositor
 const { NotFoundError, AuthorizationError } = require('../errors')
 const ErrorMessages = require('../errors/error-messages')
 const { ROLES } = require('../constants')
-const BoardMemberRepository = require('../../modules/board-member/board-member.repository')
 
 const PermissionService = {
 

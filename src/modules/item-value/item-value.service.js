@@ -1,13 +1,11 @@
-const PermissionService = require('../../shared/services/permission.service')
+const { appEventEmitter, emitToRoom } = require('../../config')
 const ColumnService = require('../column/column.service')
 const ItemAssigneeService = require('../item/item-assignee.service')
 const LogService = require('../log/log.service')
 const ItemValueRepository = require('./item-value.repository')
 const ColumnRepository = require('../column/column.repository')
 const UserRepository = require('../user/user.repository')
-const TransactionManager = require('../../shared/database/TransactionManager')
-const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
-const { appEventEmitter, emitToRoom } = require('../../config')
+const { PermissionService, TransactionManager, NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared')
 
 const ItemValueService = {
 

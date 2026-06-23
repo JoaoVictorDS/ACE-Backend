@@ -1,13 +1,11 @@
-const PermissionService = require('../../shared/services/permission.service')
+const { emitToRoom } = require('../../config')
 const LogService = require('../log/log.service')
 const ColumnRepository = require('./column.repository')
 const ItemAssigneeRepository = require('../item/item-assignee.repository')
-const BoardMemberRepository = require('../board-member/board-member.repository')
 const ItemValueRepository = require('../item-value/item-value.repository')
+const BoardMemberRepository = require('../board-member/board-member.repository')
 const ColumnValueValidator = require('./column.value-validator')
-const { AppError, NotFoundError, AuthorizationError } = require('../../shared/errors')
-const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
-const { emitToRoom } = require('../../config')
+const { PermissionService, AppError, NotFoundError, AuthorizationError, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared')
 
 const ColumnService = {
 

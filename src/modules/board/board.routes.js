@@ -15,5 +15,6 @@ router.get('/:board_id/logs', authMiddleware, validationMiddleware(getHistorySch
 router.use('/:board_id/columns', require('../column/column.board.routes'))
 router.use('/:board_id/sections', require('../section/section.board.routes'))
 router.use('/:board_id/members', require('../board-member/board-member.routes'))
+router.use('/:board_id/user-notification-settings', require('../user-notification-setting/user-notification-setting.board.routes'))
 
 module.exports = router
