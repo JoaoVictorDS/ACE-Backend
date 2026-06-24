@@ -2,7 +2,14 @@ const prisma = require('../../config/prisma')
 
 const UserRepository = {
 
-    async findById(userId) {
+    async findByIdPrivate(userId) {
+        return prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true, name: true, email: true, role: true, preferences: true }
+        })
+    },
+
+    async findByIdPublic(userId) {
         return prisma.user.findUnique({
             where: { id: userId },
             select: { id: true, name: true, email: true, role: true }
@@ -147,7 +154,8 @@ const UserRepository = {
                 id: true,
                 name: true,
                 email: true,
-                role: true
+                role: true,
+                preferences: true
             }
         })
     },

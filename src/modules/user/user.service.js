@@ -4,6 +4,7 @@ const UserNotificationSettingRepository = require('../user-notification-setting/
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
 const { TransactionManager, AppError, AuthorizationError, NotFoundError, NOTIFICATION_TYPES } = require('../../shared')
+const UserPresenter = require('./user.presenter')
 
 const UserService = {
 
@@ -20,7 +21,8 @@ const UserService = {
         await UserNotificationSettingRepository.create(defaultNotificationSettings, tx)
     },
 
-    async create({ name, email, password, role }) {
+    async create({ data }) {
+        const { name, email, password, role, preferences } = data
         const existingUser = await UserRepository.findByEmail(email)
         if (existingUser) throw new AppError('Usuário com este e-mail já existe.', 409)
 
@@ -30,12 +32,7 @@ const UserService = {
             const user = await UserRepository.create(name, email, password_hash, role, tx)
             await this.setupDefaults(user.id, tx)
 
-            return {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-            }
+            return UserPresenter.created(user)
         })
 
         return result
@@ -45,20 +42,38 @@ const UserService = {
         return await UserRepository.findActiveUsers()
     },
 
-    async update({ requesterUser, targetUserId, name, email, password, role }) {
-        const user = await UserRepository.findById(targetUserId)
-        if (!user) throw new NotFoundError('Usuário não encontrado.')
+    async getProfile({ user }) {
+        return await UserRepository.findByIdPrivate(user.id)
+    },
 
-        const { id: requesterId, role: requesterRole } = requesterUser
-        const isOwner = requesterId === targetUserId
-        const isAdmin = requesterRole === 'ADMIN'
+    async getUserProfile({ requesterUser, targetUserId }) {
+        const isAdmin = requesterUser.role === 'ADMIN'
+        const isOwner = requesterUser.id === targetUserId
 
-        if (!isOwner && !isAdmin) throw new AuthorizationError('Você não tem permissão para alterar este perfil.')
+        const repoMethod = (isOwner || isAdmin)
+            ? 'findByIdPrivate'
+            : 'findByIdPublic'
+
+        const userProfile = await UserRepository[repoMethod](targetUserId)
+        if (!userProfile) throw new NotFoundError('Usuário não encontrado.')
+
+        return userProfile
+    },
+
+    async update({ user, data }) {
+        const { id: userId, role: userRole } = user
+        const { name, email, password, role, preferences } = data
+
+        const current = await UserRepository.findByIdPrivate(userId)
+        if (!current) throw new NotFoundError('Usuário não encontrado.')
+
+        const isAdmin = userRole === 'ADMIN'
 
         const dataToUpdate = {}
-        const hasNameChanged = name && name !== user.name
-        const hasEmailChanged = email && email !== user.email
-        const hasRoleChanged = role && role !== user.role
+        const hasNameChanged = name && name !== current.name
+        const hasEmailChanged = email && email !== current.email
+        const hasRoleChanged = role && role !== current.role
+        const hasPreferencesChanged = preferences && preferences !== current.preferences
 
         if (hasNameChanged) dataToUpdate.name = name
         if (hasEmailChanged) {
@@ -69,6 +84,41 @@ const UserService = {
         if (password) dataToUpdate.password_hash = await bcrypt.hash(password, 10)
         if (hasRoleChanged) {
             if (!isAdmin) throw new AuthorizationError('Apenas administradores do sistema podem alterar cargos de usuários.')
+            if (isAdmin && role !== 'ADMIN') {
+                const totalActiveAdmins = await UserRepository.countActiveAdmins()
+                const isLastAdmin = totalActiveAdmins <= 1
+                if (isLastAdmin) throw new AppError('Operação negada: Usuário é o único administrador ativo do sistema.', 400)
+            }
+            dataToUpdate.role = role
+        }
+        if (hasPreferencesChanged) dataToUpdate.preferences = preferences
+
+        if (Object.keys(dataToUpdate).length === 0) return current
+
+        return await UserRepository.update(userId, dataToUpdate)
+    },
+
+    async updateUser({ requesterUser, targetUserId, data }) {
+        const { name, email, password, role, preferences } = data
+        const { id: requesterId, role: requesterRole } = requesterUser
+
+        const user = await UserRepository.findByIdPrivate(targetUserId)
+        if (!user) throw new NotFoundError('Usuário não encontrado.')
+
+        const dataToUpdate = {}
+        const hasNameChanged = name && name !== user.name
+        const hasEmailChanged = email && email !== user.email
+        const hasRoleChanged = role && role !== user.role
+        const hasPreferencesChanged = preferences && preferences !== user.preferences
+
+        if (hasNameChanged) dataToUpdate.name = name
+        if (hasEmailChanged) {
+            const emailExists = await UserRepository.findByEmail(email)
+            if (emailExists) throw new AppError('Este e-mail já está em uso.', 409)
+            dataToUpdate.email = email
+        }
+        if (password) dataToUpdate.password_hash = await bcrypt.hash(password, 10)
+        if (hasRoleChanged) {
             if (user.role === 'ADMIN' && role !== 'ADMIN') {
                 const totalActiveAdmins = await UserRepository.countActiveAdmins()
                 const isLastAdmin = totalActiveAdmins <= 1
@@ -76,13 +126,9 @@ const UserService = {
             }
             dataToUpdate.role = role
         }
+        if (hasPreferencesChanged) dataToUpdate.preferences = preferences
 
-        if (Object.keys(dataToUpdate).length === 0) return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: user.role
-        }
+        if (Object.keys(dataToUpdate).length === 0) return user
 
         return await UserRepository.update(targetUserId, dataToUpdate)
     },

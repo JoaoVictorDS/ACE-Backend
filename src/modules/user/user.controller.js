@@ -4,10 +4,10 @@ const { catchAsync } = require('../../shared')
 const UserController = {
 
     create: catchAsync(async (req, res, next) => {
-        const { ...fields } = req.validated.body
+        const data = req.validated.body
 
         const user = await UserService.create({
-            ...fields
+            data
         })
 
         return res.status(201).json(user)
@@ -19,14 +19,44 @@ const UserController = {
         return res.status(200).json(users)
     }),
 
-    update: catchAsync(async (req, res, next) => {
-        const { user_id: targetUserId } = req.validated.params
-        const { ...otherFields } = req.validated.body
+    showMe: catchAsync(async (req, res, next) => {
+        const user = await UserService.getProfile({
+            user: req.user
+        })
+
+        return res.status(200).json(user)
+    }),
+
+    show: catchAsync(async (req, res, next) => {
+        const { user_id: userId } = req.validated.params
+
+        const user = await UserService.getUserProfile({
+            requesterUser: req.user,
+            targetUserId: userId
+        })
+
+        return res.status(200).json(user)
+    }),
+
+    updateMe: catchAsync(async (req, res, next) => {
+        const data = req.validated.body
 
         const updatedUser = await UserService.update({
+            user: req.user,
+            data
+        })
+
+        return res.status(200).json(updatedUser)
+    }),
+
+    update: catchAsync(async (req, res, next) => {
+        const { user_id: targetUserId } = req.validated.params
+        const data = req.validated.body
+
+        const updatedUser = await UserService.updateUser({
             requesterUser: req.user,
             targetUserId,
-            ...otherFields
+            data
         })
 
         return res.status(200).json(updatedUser)
