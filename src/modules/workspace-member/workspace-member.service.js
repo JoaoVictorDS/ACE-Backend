@@ -48,7 +48,7 @@ const WorkspaceMemberService = {
 
         let nextOrder = 0
         if (!existingMember) {
-            nextOrder = await WorkspaceMemberRepository.findMaxOrder(targetUser)
+            nextOrder = await WorkspaceMemberRepository.findMaxOrder(targetUserId)
         }
 
         const member = await WorkspaceMemberRepository.upsertMember(targetUserId, workspaceId, role, nextOrder)

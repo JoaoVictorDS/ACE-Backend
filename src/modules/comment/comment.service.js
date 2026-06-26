@@ -10,8 +10,7 @@ const CommentService = {
     async create({ user, itemId, content }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.VIEW)
         const userId = user.id
-
-        const item = await ItemRepository.findItemTitle(itemId)
+        const { title: itemTitle } = await ItemRepository.findItemTitle(itemId)
 
         const newComment = await CommentRepository.create(itemId, userId, content)
 
@@ -29,7 +28,7 @@ const CommentService = {
             actor: user,
             boardId,
             itemId,
-            itemTitle: item.title,
+            itemTitle,
             text: content,
             context: 'comment'
         })
@@ -39,7 +38,7 @@ const CommentService = {
             boardId,
             itemId,
             action: NOTIFICATION_TYPES.COMMENT_CREATED,
-            content: { itemTitle: item.title }
+            content: { itemTitle }
         })
 
         emitToRoom(`board:${boardId}`, 'comment:created', newComment)
