@@ -2,7 +2,11 @@ const LogService = require('../log/log.service')
 const WorkspaceRepository = require('./workspace.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
 const ItemRepository = require('../item/item.repository')
-const { PermissionService, TransactionManager, AppError, NotFoundError, PERMISSION_LEVELS } = require('../../shared')
+const { TransactionManager } = require('../../shared/database')
+const { NotFoundError, ConflictError } = require('../../shared/errors')
+const { PermissionService } = require('../../shared/services')
+const { PERMISSION_LEVELS } = require('../../shared/constants')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 const WorkspaceService = {
 
@@ -37,7 +41,7 @@ const WorkspaceService = {
         await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.ADMIN)
 
         const currentWorkspace = await WorkspaceRepository.findById(workspaceId)
-        if (!currentWorkspace) throw new NotFoundError('Área de Trabalho não encontrada.')
+        if (!currentWorkspace) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.WORKSPACE)
 
         const hasChanges = Object.keys(data).some(
             (key) => data[key] !== undefined && data[key] !== currentWorkspace[key]
@@ -90,11 +94,11 @@ const WorkspaceService = {
             WorkspaceRepository.findWorkspaceDeletionContext(workspaceId),
             ItemRepository.countByWorkspace(workspaceId)
         ])
-        if (!workspace) throw new NotFoundError('Área de Trabalho não encontrada.')
+        if (!workspace) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.WORKSPACE)
 
         const { boards: boardsCount, workspace_members: workspaceMembersCount } = workspace._count
         const hasContent = boardsCount > 0 || itemsCount > 0
-        if (!force && hasContent) throw new AppError(`Não é possível excluir a área de trabalho: existem ${boardsCount} quadros, ${workspaceMembersCount} membros e ${itemsCount} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir!`, 409)
+        if (!force && hasContent) throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT('a área de trabalho', `${boardsCount} quadros, ${workspaceMembersCount} membros e ${itemsCount} itens.`))
 
         const result = await TransactionManager.run(async (tx) => {
             await WorkspaceMemberRepository.decrementOrderAfterWorkspaceDeletion(workspaceId, tx)

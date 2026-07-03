@@ -1,5 +1,4 @@
 module.exports = {
-    ERROR_MESSAGES: require('./errorMessages'),
     HTTP_STATUS: require('./httpStatus'),
     NOTIFICATION_TYPES: require('./notificationTypes'),
     PERMISSION_LEVELS: require('./permissionLevels'),

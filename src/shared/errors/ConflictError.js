@@ -1,17 +1,16 @@
 /**
- * 🚫 ERRO 403 - FALHA DE AUTORIZAÇÃO
+ * ⚠️ ERRO 409 - CONFLITO
  * 
- * Lançado quando um usuário autenticado não tem permissão para acessar um recurso.
- * Usa o catálogo centralizado de erros com concordância gramatical automática.
+ * Lançado quando há conflito (recurso já existe, violação de unicidade, etc).
+ * Usa o catálogo centralizado de erros.
  */
 
 const AppError = require('./AppError')
 const { HTTP_STATUS } = require('../constants')
-const ERROR_CATALOG = require('./error-catalog')
 
-class AuthorizationError extends AppError {
+class ConflictError extends AppError {
     /**
-     * @param {object|function} errorDefinition - Definição do erro do catálogo (estática ou função)
+     * @param {object|function} errorDefinition - Definição do erro do catálogo
      * @param {any} details - Detalhes adicionais do erro
      */
     constructor(errorDefinition, details = null) {
@@ -27,18 +26,17 @@ class AuthorizationError extends AppError {
             message = errorDefinition.message
             code = errorDefinition.code
         } else {
-            // Fallback para erro genérico
-            message = ERROR_CATALOG.AUTHORIZATION.FORBIDDEN.message
-            code = ERROR_CATALOG.AUTHORIZATION.FORBIDDEN.code
+            message = 'Conflito nos dados fornecidos'
+            code = 'CONFLICT'
         }
 
-        super(message, HTTP_STATUS.FORBIDDEN, {
+        super(message, HTTP_STATUS.CONFLICT, {
             code,
             isOperational: true,
             details,
         })
-        this.name = 'AuthorizationError'
+        this.name = 'ConflictError'
     }
 }
 
-module.exports = AuthorizationError
+module.exports = ConflictError

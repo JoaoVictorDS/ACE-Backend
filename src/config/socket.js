@@ -1,5 +1,6 @@
 const { Server } = require('socket.io')
 const AuthService = require('../modules/auth/auth.service')
+const { AppError } = require('../shared/errors')
 const logger = require('./logger')
 
 let io
@@ -49,13 +50,31 @@ const initSocket = (httpServer) => {
 }
 
 const getIO = () => {
-    if (!io) throw new Error('Socket.io não foi inicializado!')
+    if (!io) {
+        throw new AppError(
+            'Socket.io não foi inicializado',
+            500,
+            {
+                code: 'INTERNAL_ERROR',
+                isOperational: false
+            }
+        )
+    }
     return io
 }
 
 const emitToRoom = (room, event, payload) => {
     try {
-        if (!io) throw new Error('Socket.io não inicializado')
+        if (!io) {
+            throw new AppError(
+                'Socket.io não foi inicializado',
+                500,
+                {
+                    code: 'INTERNAL_ERROR',
+                    isOperational: false
+                }
+            )
+        }
         io.to(room).emit(event, payload)
     } catch (error) {
         logger.error({ error: error.message, room, event }, 'Falha ao emitir evento socket')

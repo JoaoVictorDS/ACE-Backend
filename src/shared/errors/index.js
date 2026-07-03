@@ -4,4 +4,5 @@ module.exports = {
     AuthorizationError: require('./AuthorizationError'),
     NotFoundError: require('./NotFoundError'),
     ValidationError: require('./ValidationError'),
+    ConflictError: require('./ConflictError'),
 }

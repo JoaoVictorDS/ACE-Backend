@@ -5,7 +5,9 @@ const LogService = require('../log/log.service')
 const ItemValueRepository = require('./item-value.repository')
 const ColumnRepository = require('../column/column.repository')
 const UserRepository = require('../user/user.repository')
-const { PermissionService, TransactionManager, NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared')
+const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { PermissionService } = require('../../shared/services')
+const { TransactionManager } = require('../../shared/database')
 
 const ItemValueService = {
 

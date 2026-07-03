@@ -1,7 +1,7 @@
+const { catchAsync } = require('../../shared/utils')
 const WorkspaceService = require('./workspace.service')
 const WorkspaceMemberService = require('../workspace-member/workspace-member.service')
 const LogService = require('../log/log.service')
-const { catchAsync } = require('../../shared')
 
 const WorkspaceController = {
 

@@ -1,5 +1,5 @@
+const { catchAsync } = require('../../shared/utils')
 const SectionService = require('./section.service')
-const { catchAsync } = require('../../shared')
 
 const SectionController = {
 

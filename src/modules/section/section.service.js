@@ -1,7 +1,11 @@
 const { emitToRoom } = require('../../config')
 const LogService = require('../log/log.service')
 const SectionRepository = require('./section.repository')
-const { PermissionService, TransactionManager, AppError, NotFoundError, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared')
+const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { NotFoundError, ConflictError } = require('../../shared/errors')
+const { PermissionService } = require('../../shared/services')
+const { TransactionManager } = require('../../shared/database')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 const SectionService = {
 
@@ -39,7 +43,7 @@ const SectionService = {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.SECTION, sectionId, user, PERMISSION_LEVELS.ADMIN)
 
         const section = await SectionRepository.findSectionName(sectionId)
-        if (!section) throw new NotFoundError()
+        if (!section) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.SECTION)
 
         const isSameName = section.name === name
         if (isSameName) return section
@@ -66,14 +70,14 @@ const SectionService = {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.SECTION, sectionId, user, PERMISSION_LEVELS.ADMIN)
 
         const sectionToDelete = await SectionRepository.findSectionDeletionContext(sectionId)
-        if (!sectionToDelete) throw new NotFoundError()
+        if (!sectionToDelete) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.SECTION)
 
         const { itemsCount } = sectionToDelete._count
         const hasContent = itemsCount > 0
-        if (!force && hasContent) throw new AppError(`Não é possível excluir a seção: existem ${itemsCount} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir!`, 409)
+        if (!force && hasContent) throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT('a seção', `${itemsCount} itens`))
 
         const result = await TransactionManager.run(async (tx) => {
-            SectionRepository.delete(sectionId, tx)
+            await SectionRepository.delete(sectionId, tx)
 
             return await SectionRepository.decrementOrderAfter(boardId, sectionToDelete.order, tx)
         })
@@ -97,7 +101,7 @@ const SectionService = {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.SECTION, sectionId, user, PERMISSION_LEVELS.ADMIN)
 
         const currentSection = await SectionRepository.findById(sectionId)
-        if (!currentSection) throw new AppError('Seção não encontrada!', 404)
+        if (!currentSection) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.SECTION)
         const currentOrder = currentSection.order
 
         const totalSections = await SectionRepository.countByBoard(boardId)

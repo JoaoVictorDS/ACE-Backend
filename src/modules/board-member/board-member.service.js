@@ -3,7 +3,11 @@ const LogService = require('../log/log.service')
 const BoardMemberRepository = require('./board-member.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
 const UserRepository = require('../user/user.repository')
-const { PermissionService, TransactionManager, AppError, AuthorizationError, NotFoundError, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared')
+const { PermissionService } = require('../../shared/services')
+const { TransactionManager } = require('../../shared/database')
+const { AuthorizationError, NotFoundError, ConflictError } = require('../../shared/errors')
+const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 const BoardMemberService = {
 
@@ -14,7 +18,10 @@ const BoardMemberService = {
         if (isPrivilegedMember) {
             const privilegedMembersCount = await BoardMemberRepository.countPrivilegedMembers(board_id, tx)
             if (privilegedMembersCount <= 1)
-                throw new AppError('Não é possível remover o último membro privilegiado do quadro!', 400)
+                throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT(
+                    'o quadro',
+                    'é necessário manter pelo menos um membro com permissões administrativas'
+                ))
         }
 
         await BoardMemberRepository.decrementOrderAfter(user_id, workspace_id, order, tx)
@@ -26,14 +33,14 @@ const BoardMemberService = {
         const userId = user.id
 
         const targetUser = await UserRepository.findByEmail(memberEmail)
-        if (!targetUser) throw new NotFoundError('Usuário com este e-mail')
+        if (!targetUser) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.USER)
 
         const { id: targetUserId, name: targetUserName } = targetUser
         const isWorkspaceMember = await WorkspaceMemberRepository.isWorkspaceMember(targetUserId, workspaceId)
 
-        if (!isWorkspaceMember) throw new AuthorizationError('Este usuário não faz parte do workspace')
-        if (targetUserId === userId) throw new AppError('Não é permitido alterar sua própria permissão!', 400)
-        if (targetUserId === creatorId) throw new AuthorizationError('O proprietário do quadro não pode ter seu cargo alterado')
+        if (!isWorkspaceMember) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.NOT_MEMBER('WORKSPACE'))
+        if (targetUserId === userId) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('alterar sua própria permissão'))
+        if (targetUserId === creatorId) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('alterar o cargo do proprietário'))
 
         const existingMember = await BoardMemberRepository.findMembership(targetUserId, boardId)
         const isDowngradingAdmin = existingMember?.role === 'ADMIN' && role !== 'ADMIN'
@@ -41,7 +48,10 @@ const BoardMemberService = {
         if (isDowngradingAdmin) {
             const privilegedMembersCount = await BoardMemberRepository.countPrivilegedMembers(boardId)
             if (privilegedMembersCount <= 1)
-                throw new AppError('Não é possível rebaixar o único administrador do Quadro!', 400)
+                throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT(
+                    'o quadro',
+                    'é necessário manter pelo menos um administrador'
+                ))
         }
 
         let nextOrder = 0
@@ -69,20 +79,31 @@ const BoardMemberService = {
     async remove({ user, boardId, memberIdToRemove }) {
         await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.ADMIN)
 
-        if (memberIdToRemove === user.id)
-            throw new AppError('Não é permitido remover a si mesmo do quadro!', 400)
+        const userId = user.id
+        const isSelf = memberIdToRemove === userId
+        if (isSelf)
+            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('remover a si mesmo'))
 
         const membership = await BoardMemberRepository.findMembershipWithBoardAndUser(boardId, memberIdToRemove)
-        if (!membership) throw new NotFoundError('Membro')
+        if (!membership)
+            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.BOARD_MEMBER)
 
         if (membership.role === 'OWNER')
-            throw new AppError('O proprietário do quadro não pode ser removido!', 400)
+            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('remover o proprietário do quadro'))
 
         const result = await TransactionManager.run(async (tx) => {
             return await this._performRemoval(tx, { membership })
         })
 
-        LogService.register({ userId: user.id, boardId, workspaceId: membership.board.workspace_id, action: 'DELETE', entityType: 'MEMBER', entityId: memberIdToRemove, oldValue: `Membro removido: ${membership.user.name}` })
+        LogService.register({
+            userId,
+            boardId,
+            workspaceId: membership.board.workspace_id,
+            action: 'DELETE',
+            entityType: 'MEMBER',
+            entityId: memberIdToRemove,
+            oldValue: `Membro removido: ${membership.user.name}`
+        })
         emitToRoom(`board:${boardId}`, 'board_member:removed', { memberId: memberIdToRemove })
 
         return result
@@ -91,7 +112,7 @@ const BoardMemberService = {
     async move({ user, boardId, newOrder }) {
         const userId = user.id
         const currentMembership = await BoardMemberRepository.findMembershipWithBoard(userId, boardId)
-        if (!currentMembership) throw new NotFoundError('Vínculo entre usuário e quadro')
+        if (!currentMembership) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.BOARD_MEMBER)
 
         const { board: { workspace_id: workspaceId }, order: oldOrder } = currentMembership
         const totalBoards = await BoardMemberRepository.countBoardsByUserInWorkspace(userId, workspaceId)
@@ -112,7 +133,7 @@ const BoardMemberService = {
     async leave({ user, boardId }) {
         const userId = user.id
         const membership = await BoardMemberRepository.findMembershipWithBoardAndUser(boardId, userId)
-        if (!membership) throw new NotFoundError('Membro')
+        if (!membership) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.BOARD_MEMBER)
 
         const result = await TransactionManager.run(async (tx) => {
             return await this._performRemoval(tx, { membership })

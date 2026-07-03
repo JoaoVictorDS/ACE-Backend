@@ -2,7 +2,11 @@ const LogService = require('../log/log.service')
 const WorkspaceMemberRepository = require('./workspace-member.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const UserRepository = require('../user/user.repository')
-const { PermissionService, TransactionManager, AppError, NotFoundError, AuthorizationError, PERMISSION_LEVELS } = require('../../shared')
+const { TransactionManager } = require('../../shared/database')
+const { NotFoundError, AuthorizationError, ConflictError } = require('../../shared/errors')
+const { PermissionService } = require('../../shared/services')
+const { PERMISSION_LEVELS } = require('../../shared/constants')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 const WorkspaceMemberService = {
 
@@ -13,11 +17,17 @@ const WorkspaceMemberService = {
         if (isPrivilegedMember) {
             const privilegedMembersCount = await WorkspaceMemberRepository.countPrivilegedMembers(workspace_id, tx)
             if (privilegedMembersCount <= 1)
-                throw new AppError('Não é possível remover o último membro privilegiado!', 400)
+                throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT(
+                    'a área de trabalho',
+                    'é necessário manter pelo menos um membro com permissões administrativas'
+                ))
         }
         const boardsWhereIsPrivilegedMember = await BoardMemberRepository.findBoardsWhereUserIsPrivilegedMemberByWorkspace(user_id, workspace_id, tx)
         const isLastPrivilegedMemberSomewhere = boardsWhereIsPrivilegedMember.some(b => b.board.board_members.length <= 1)
-        if (isLastPrivilegedMemberSomewhere) throw new AppError('Não é possível remover o último membro privilegiado de um ou mais quadros!', 400)
+        if (isLastPrivilegedMemberSomewhere) throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT(
+            'a área de trabalho',
+            `usuário é responsável por um ou mais quadros`
+        ))
 
         await WorkspaceMemberRepository.decrementOrderAfter(user_id, order, tx)
         await BoardMemberRepository.removeByUserAndWorkspace(user_id, workspace_id, tx)
@@ -29,21 +39,24 @@ const WorkspaceMemberService = {
         const userId = user.id
 
         const targetUser = await UserRepository.findByEmail(memberEmail)
-        if (!targetUser) throw new NotFoundError('Usuário com este e-mail não encontrado.')
+        if (!targetUser) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.USER)
 
         const { id: targetUserId, name: targetUserName } = targetUser
         const isSelf = targetUserId === userId
         const isTargetOwner = targetUserId === creatorId
 
-        if (isSelf) throw new AppError('Não é permitido alterar sua própria permissão de membro.', 400)
-        if (isTargetOwner) throw new AuthorizationError('O proprietário da área de trabalho não pode ter seu cargo alterado.')
+        if (isSelf) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('alterar sua própria permissão'))
+        if (isTargetOwner) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('alterar o cargo do proprietário'))
 
         const existingMember = await WorkspaceMemberRepository.findMembership(targetUserId, workspaceId)
         const isDowngradingAdmin = existingMember && existingMember.role === 'ADMIN' && role !== 'ADMIN'
 
         if (isDowngradingAdmin) {
             const privilegedMembersCount = await WorkspaceMemberRepository.countPrivilegedMembers(workspaceId)
-            if (privilegedMembersCount <= 1) throw new AppError('Não é possível rebaixar o único administrador da área de trabalho.', 400)
+            if (privilegedMembersCount <= 1) throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT(
+                'a área de trabalho',
+                'é necessário manter pelo menos um administrador'
+            ))
         }
 
         let nextOrder = 0
@@ -88,14 +101,17 @@ const WorkspaceMemberService = {
 
         const userId = user.id
         const isSelf = memberIdToRemove === userId
-        if (isSelf) throw new AppError('Não é possível remover a si mesmo da área de trabalho.', 400)
+        if (isSelf)
+            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('remover a si mesmo'))
 
         const membership = await WorkspaceMemberRepository.findMembershipWithUserName(memberIdToRemove, workspaceId)
-        if (!membership) throw new NotFoundError('Membro não encontrado nesta área de trabalho.')
+        if (!membership)
+            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.WORKSPACE_MEMBER)
 
         const { role, user: { name: targetUserName } } = membership
         const isTargetOwner = role === 'OWNER'
-        if (isTargetOwner) throw new AppError('Não é possível remover o proprietário da área de trabalho.', 400)
+        if (isTargetOwner)
+            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('remover o proprietário da área de trabalho'))
 
         const result = await TransactionManager.run(async (tx) => {
             return await this._performRemoval(tx, { membership })
@@ -116,7 +132,7 @@ const WorkspaceMemberService = {
     async move({ user, workspaceId, newOrder }) {
         const userId = user.id
         const currentMembership = await WorkspaceMemberRepository.findMembership(userId, workspaceId)
-        if (!currentMembership) throw new NotFoundError('Vínculo entre usuário e área de trabalho não encontrado.')
+        if (!currentMembership) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.WORKSPACE_MEMBER)
 
         const totalWorkspaces = await WorkspaceMemberRepository.countWorkspaceByUser(userId)
         const finalOrder = Math.max(0, Math.min(newOrder, totalWorkspaces - 1))
@@ -140,7 +156,7 @@ const WorkspaceMemberService = {
     async leave({ user, workspaceId }) {
         const userId = user.id
         const membership = await WorkspaceMemberRepository.findMembershipWithUserName(userId, workspaceId)
-        if (!membership) throw new NotFoundError('Vínculo entre usuário e área de trabalho não encontrada.')
+        if (!membership) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.WORKSPACE_MEMBER)
 
         const result = await TransactionManager.run(async (tx) => {
             return await this._performRemoval(tx, { membership })

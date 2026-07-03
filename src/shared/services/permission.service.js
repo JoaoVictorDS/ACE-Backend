@@ -4,9 +4,9 @@ const ColumnRepository = require('../../modules/column/column.repository')
 const SectionRepository = require('../../modules/section/section.repository')
 const ItemRepository = require('../../modules/item/item.repository')
 const WorkspaceRepository = require('../../modules/workspace/workspace.repository')
-const { NotFoundError, AuthorizationError } = require('../errors')
-const ErrorMessages = require('../errors/error-messages')
+const { NotFoundError, AuthorizationError, AppError } = require('../errors')
 const { ROLES } = require('../constants')
+const ERROR_CATALOG = require('../errors/error-catalog')
 
 const PermissionService = {
 
@@ -47,11 +47,18 @@ const PermissionService = {
                 data = await ItemRepository.findPermissionContext(entityId)
                 break
             default:
-                throw new Error(ErrorMessages.unsupportedResource(type))
+                throw new AppError(
+                    ERROR_CATALOG.INTERNAL.UNSUPPORTED_RESOURCE(type).message,
+                    ERROR_CATALOG.INTERNAL.UNSUPPORTED_RESOURCE(type).status,
+                    {
+                        code: ERROR_CATALOG.INTERNAL.UNSUPPORTED_RESOURCE(type).code,
+                        isOperational: false
+                    }
+                )
         }
 
         if (!data) {
-            throw new NotFoundError(type)
+            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.RESOURCE(type))
         }
 
         return this._normalizeResourceContext(type, data)
@@ -113,19 +120,24 @@ const PermissionService = {
      */
     _validatePermission(role, permissionLevel) {
         if (!role) {
-            throw new AuthorizationError(ErrorMessages.unauthorized())
+            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN)
         }
 
         const allowedRoles = ROLES[permissionLevel.toUpperCase()]
 
         if (!allowedRoles) {
-            throw new Error(`Nível de permissão "${permissionLevel}" não encontrado em ROLES`)
+            throw new AppError(
+                `Nível de permissão "${permissionLevel}" não encontrado em ROLES`,
+                500,
+                {
+                    code: 'INTERNAL_ERROR',
+                    isOperational: false
+                }
+            )
         }
 
         if (!allowedRoles.includes(role)) {
-            throw new AuthorizationError(
-                ErrorMessages.forbiddenAction('acessar este recurso')
-            )
+            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN)
         }
     },
 
@@ -141,7 +153,14 @@ const PermissionService = {
      */
     async check(resourceType, entityId, user, permissionLevel = 'EDIT') {
         if (!resourceType || !entityId || !user) {
-            throw new Error('Parâmetros inválidos: resourceType, entityId e user são obrigatórios')
+            throw new AppError(
+                'Parâmetros inválidos: resourceType, entityId e user são obrigatórios',
+                500,
+                {
+                    code: 'INTERNAL_ERROR',
+                    isOperational: false
+                }
+            )
         }
         const userId = user.id
         const isSystemAdmin = user.role === 'ADMIN'
@@ -174,7 +193,14 @@ const PermissionService = {
      */
     async checkWorkspace(workspaceId, user, permissionLevel = 'VIEW') {
         if (!workspaceId || !user) {
-            throw new Error('Parâmetros inválidos: workspaceId e user são obrigatórios')
+            throw new AppError(
+                'Parâmetros inválidos: workspaceId e user são obrigatórios',
+                500,
+                {
+                    code: 'INTERNAL_ERROR',
+                    isOperational: false
+                }
+            )
         }
 
         const userId = user.id
@@ -183,7 +209,7 @@ const PermissionService = {
         const workspace = await WorkspaceRepository.findPermissionContext(workspaceId, userId)
 
         if (!workspace) {
-            throw new NotFoundError('WORKSPACE')
+            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.WORKSPACE)
         }
 
         if (isSystemAdmin) {

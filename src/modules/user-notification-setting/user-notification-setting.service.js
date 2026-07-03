@@ -1,5 +1,9 @@
-const { TransactionManager, PermissionService, RESOURCE_TYPES, PERMISSION_LEVELS, NotFoundError } = require('../../shared')
 const UserNotificationSettingRepository = require('./user-notification-setting.repository')
+const { TransactionManager } = require('../../shared/database')
+const { NotFoundError } = require('../../shared/errors')
+const { PermissionService } = require('../../shared/services')
+const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 const UserNotificationSettingService = {
 
@@ -14,6 +18,7 @@ const UserNotificationSettingService = {
 
     async _updateBoardSettings(user, boardId, settings) {
         const userId = user.id
+
         await TransactionManager.run(async (tx) => {
             for (const setting of settings) {
                 await UserNotificationSettingRepository.upsert(userId, boardId, setting, tx)
@@ -25,6 +30,7 @@ const UserNotificationSettingService = {
 
     async _updateGlobalSettings(user, settings) {
         const userId = user.id
+
         return await TransactionManager.run(async (tx) => {
             await Promise.all(
                 settings.map(s => UserNotificationSettingRepository.updateSetting(userId, null, s.action_type, s.enabled, tx))
@@ -36,6 +42,7 @@ const UserNotificationSettingService = {
 
     async getEffectiveSettings({ user, boardId }) {
         const userId = user.id
+
         if (!boardId)
             return UserNotificationSettingRepository.findSettings(userId, null)
 
@@ -62,9 +69,11 @@ const UserNotificationSettingService = {
 
     async resetBoardSetting({ user, boardId, actionType }) {
         const userId = user.id
+
         await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.VIEW)
+
         const deleted = await UserNotificationSettingRepository.deleteSetting(userId, boardId, actionType)
-        if (!deleted) throw new NotFoundError('Configuração não encontrada.')
+        if (!deleted) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.NOTIFICATION_SETTING)
 
         return this.getEffectiveSettings({ user, boardId })
     },

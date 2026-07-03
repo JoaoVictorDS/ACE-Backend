@@ -1,4 +1,4 @@
-const { catchAsync } = require('../../shared')
+const { catchAsync } = require('../../shared/utils')
 const UserNotificationSettingService = require('./user-notification-setting.service')
 
 const UserNotificationSettingController = {

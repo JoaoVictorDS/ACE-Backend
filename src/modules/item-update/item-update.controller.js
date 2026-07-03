@@ -1,5 +1,5 @@
-const { catchAsync } = require("../../shared")
-const ItemUpdateService = require("./item-update.service")
+const { catchAsync } = require('../../shared/utils')
+const ItemUpdateService = require('./item-update.service')
 
 const ItemUpdateController = {
 

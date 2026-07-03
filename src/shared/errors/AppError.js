@@ -1,9 +1,20 @@
+/**
+ * 🔴 ERRO BASE DA APLICAÇÃO
+ * 
+ * Classe base para todos os erros operacionais da aplicação.
+ * Fornece estrutura consistente para logging e responses HTTP.
+ */
+
 class AppError extends Error {
-    constructor(
-        message,
-        statusCode = 500,
-        options = {}
-    ) {
+    /**
+     * @param {string} message - Mensagem de erro
+     * @param {number} statusCode - Código HTTP (padrão: 500)
+     * @param {object} options - Opções adicionais
+     * @param {string} options.code - Código único do erro
+     * @param {boolean} options.isOperational - Se é erro esperado (padrão: true)
+     * @param {any} options.details - Detalhes adicionais
+     */
+    constructor(message, statusCode = 500, options = {}) {
         super(message)
         this.name = 'AppError'
         this.statusCode = statusCode

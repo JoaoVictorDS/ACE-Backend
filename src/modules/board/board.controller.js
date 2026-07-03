@@ -1,7 +1,7 @@
+const { catchAsync } = require('../../shared/utils')
 const BoardService = require('./board.service')
 const BoardMemberService = require('../board-member/board-member.service')
 const LogService = require('../log/log.service')
-const { catchAsync } = require('../../shared')
 
 const BoardController = {
 

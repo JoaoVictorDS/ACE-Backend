@@ -3,7 +3,8 @@ const LogService = require('../log/log.service')
 const MentionService = require('../notification/mention.service')
 const ItemRepository = require('../item/item.repository')
 const ItemUpdateRespository = require('./item-update.repository')
-const { PermissionService, RESOURCE_TYPES, PERMISSION_LEVELS, NOTIFICATION_TYPES } = require('../../shared')
+const { PermissionService } = require('../../shared/services')
+const { RESOURCE_TYPES, PERMISSION_LEVELS, NOTIFICATION_TYPES } = require('../../shared/constants')
 
 const ItemUpdateService = {
 

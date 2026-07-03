@@ -3,7 +3,10 @@ const LogService = require('../log/log.service')
 const MentionService = require('../notification/mention.service')
 const ItemRepository = require('../item/item.repository')
 const CommentRepository = require('./comment.repository')
-const { PermissionService, NotFoundError, AuthorizationError, NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared')
+const { NotFoundError, AuthorizationError } = require('../../shared/errors')
+const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { PermissionService } = require('../../shared/services')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 const CommentService = {
 
@@ -55,10 +58,10 @@ const CommentService = {
     async update({ user, commentId, content }) {
         const userId = user.id
         const comment = await CommentRepository.findById(commentId)
-        if (!comment) throw new NotFoundError()
+        if (!comment) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COMMENT)
 
         const isOwner = comment.user_id === userId
-        if (!isOwner) throw new AuthorizationError('Você não tem permissão para editar este comentário.')
+        if (!isOwner) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('editar', 'COMMENT'))
 
         const { boardId, workspaceId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.ITEM, comment.item_id)
 
@@ -100,7 +103,7 @@ const CommentService = {
 
     async delete({ user, commentId }) {
         const comment = await CommentRepository.findById(commentId)
-        if (!comment) throw new NotFoundError()
+        if (!comment) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COMMENT)
 
         const { boardId, workspaceId, creatorId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.ITEM, comment.item_id)
         const userId = user.id
@@ -108,7 +111,7 @@ const CommentService = {
         const isBoardOwner = creatorId === userId
         const isSystemAdmin = user.role === 'ADMIN'
 
-        if (!isOwner && !isBoardOwner && !isSystemAdmin) throw new AuthorizationError('Você não tem permissão para excluir este comentário.')
+        if (!isOwner && !isBoardOwner && !isSystemAdmin) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('excluir', 'COMMENT'))
 
         const deletedComment = await CommentRepository.delete(commentId)
 

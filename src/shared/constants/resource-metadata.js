@@ -56,12 +56,20 @@ const RESOURCE_METADATA = {
     },
 
     ROLE: {
-        singular: 'Função',
-        plural: 'Funções',
+        singular: 'Cargo',
+        plural: 'Cargos',
+        gender: 'masculine',
+        article: 'o',
+        indefiniteArticle: 'um'
+    },
+
+    NOTIFICATION: {
+        singular: 'Notificação',
+        plural: 'Notificações',
         gender: 'feminine',
         article: 'a',
         indefiniteArticle: 'uma'
-    }
+    },
 }
 
 /**

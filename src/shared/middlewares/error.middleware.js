@@ -1,6 +1,8 @@
 const { logger } = require('../../config')
 const { ZodError } = require('zod')
-const { AppError, HTTP_STATUS, ERROR_MESSAGES } = require('../../shared')
+const { AppError } = require('../../shared/errors')
+const { HTTP_STATUS } = require('../../shared/constants')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 /**
  * @param {Error} err - Erro capturado
@@ -14,7 +16,7 @@ const errorMiddleware = (err, req, res, next) => {
         return res.status(HTTP_STATUS.BAD_REQUEST).json({
             status: 'validation_error',
             code: 'VALIDATION_ERROR',
-            message: issue.message || ERROR_MESSAGES.VALIDATION_ERROR,
+            message: issue.message || ERROR_CATALOG.VALIDATION.INVALID.message,
             statusCode: HTTP_STATUS.BAD_REQUEST,
             ...(process.env.NODE_ENV === 'development' && {
                 details: err.issues,
@@ -59,7 +61,7 @@ const errorMiddleware = (err, req, res, next) => {
         code: 'INTERNAL_ERROR',
         message:
             process.env.NODE_ENV === 'production'
-                ? ERROR_MESSAGES.INTERNAL_ERROR
+                ? ERROR_CATALOG.INTERNAL.SERVER_ERROR.message
                 : err.message,
         statusCode,
     }

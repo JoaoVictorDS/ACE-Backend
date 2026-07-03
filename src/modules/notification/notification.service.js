@@ -5,7 +5,9 @@ const NotificationRepository = require('./notification.repository')
 const UserNotificationSettingRepository = require('../user-notification-setting/user-notification-setting.repository')
 const NotificationDictionary = require('./notification.dictionary')
 const NotificationPresenter = require('./notification.presenter')
-const { PaginationService, NotFoundError, AuthorizationError } = require('../../shared')
+const { NotFoundError, AuthorizationError } = require('../../shared/errors')
+const { PaginationService } = require('../../shared/services')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 const NotificationService = {
 
@@ -112,11 +114,11 @@ const NotificationService = {
         const notification = await NotificationRepository.findById(notificationId)
 
         if (!notification) {
-            throw new NotFoundError()
+            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.NOTIFICATION)
         }
 
         if (notification.user_id !== user.id) {
-            throw new AuthorizationError()
+            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('marcar como lida', 'NOTIFICATION'))
         }
 
         return await NotificationRepository.markAsRead(notificationId)

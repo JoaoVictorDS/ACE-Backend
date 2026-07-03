@@ -1,6 +1,8 @@
 const ColumnRepository = require('./column.repository')
-const { AppError } = require('../../shared/errors')
 const BoardMemberRepository = require('../board-member/board-member.repository')
+const { ValidationError } = require('../../shared/errors')
+const { splitIdList } = require('../../shared/utils')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 class ColumnValueValidator {
 
@@ -23,12 +25,12 @@ class ColumnValueValidator {
 
     /**
      * Valida e normaliza valor conforme tipo de coluna
-     * @param {object} column - Coluna com { data_type, options }
+     * @param {object} column - Coluna com { data_type, options, board_id }
      * @param {*} value - Valor a validar
-     * @returns {string} Valor normalizado
-     * @throws {AppError} Se valor inválido
+     * @returns {Promise<string>} Valor normalizado
+     * @throws {ValidationError} Se valor inválido
      */
-    static validate(column, value) {
+    static async validate(column, value) {
         if (this._isEmpty(value)) {
             return ''
         }
@@ -54,7 +56,7 @@ class ColumnValueValidator {
                 return this._validateCheckbox(sentValue)
 
             case 'USER':
-                return this._validateUser(value)
+                return this._validateUser(value, column.name, column.board_id)
 
             case 'FORMULA':
                 return sentValue
@@ -70,16 +72,16 @@ class ColumnValueValidator {
      * @param {object} column
      * @param {string} sentValue
      * @returns {string}
-     * @throws {AppError}
+     * @throws {ValidationError}
      */
     static _validateSelect(column, sentValue) {
         const allowedOptions = column.options || []
 
         if (!allowedOptions.includes(sentValue)) {
-            throw new AppError(
-                `O valor "${sentValue}" não é permitido para "${column.name}". Opções válidas: ${allowedOptions.join(', ')}`,
-                400
-            )
+            throw new ValidationError(ERROR_CATALOG.VALIDATION.INVALID_COLUMN_VALUE(
+                column.name,
+                `deve ser uma das opções válidas: ${allowedOptions.join(', ')}`
+            ))
         }
 
         return sentValue
@@ -91,16 +93,16 @@ class ColumnValueValidator {
      * @param {string} sentValue
      * @param {string} columnName
      * @returns {string}
-     * @throws {AppError}
+     * @throws {ValidationError}
      */
     static _validateNumber(sentValue, columnName) {
         const parsedNum = parseFloat(sentValue)
 
         if (isNaN(parsedNum) || !Number.isFinite(parsedNum)) {
-            throw new AppError(
-                `O valor "${sentValue}" não é permitido para a coluna "${columnName}". Opções válidas: Number`,
-                400
-            )
+            throw new ValidationError(ERROR_CATALOG.VALIDATION.INVALID_COLUMN_VALUE(
+                columnName,
+                'deve ser um número válido'
+            ))
         }
 
         return String(parsedNum)
@@ -112,16 +114,16 @@ class ColumnValueValidator {
      * @param {string} sentValue
      * @param {string} columnName
      * @returns {string}
-     * @throws {AppError}
+     * @throws {ValidationError}
      */
     static _validateDate(sentValue, columnName) {
         const date = new Date(sentValue)
 
         if (isNaN(date.getTime())) {
-            throw new AppError(
-                `O valor "${sentValue}" não é permitido para a coluna "${columnName}". Opções válidas: Date`,
-                400
-            )
+            throw new ValidationError(ERROR_CATALOG.VALIDATION.INVALID_COLUMN_VALUE(
+                columnName,
+                'deve ser uma data válida'
+            ))
         }
 
         return date.toISOString()
@@ -139,23 +141,25 @@ class ColumnValueValidator {
     }
 
     /**
-     * Valida valor USER (pode ser array ou string com IDs)
+     * Valida valor USER (pode ser array ou string com IDs) e confere membership
      * @private
      * @param {*} value
-     * @returns {string}
-     * @throws {AppError}
+     * @param {string} columnName
+     * @param {number} boardId
+     * @returns {Promise<string>}
+     * @throws {ValidationError}
      */
-    static _validateUser(value) {
-        const rawIds = Array.isArray(value) ? value : String(value).split(',')
+    static async _validateUser(value, columnName, boardId) {
+        const rawIds = splitIdList(value)
 
         const numericIds = rawIds.map(id => {
-            const parsed = Number(String(id).trim())
+            const parsed = Number(id)
 
-            if (isNaN(parsed) || parsed <= 0) {
-                throw new AppError(
-                    `O valor "${id}" não é um ID de usuário válido.`,
-                    400
-                )
+            if (isNaN(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
+                throw new ValidationError(ERROR_CATALOG.VALIDATION.INVALID_COLUMN_VALUE(
+                    columnName,
+                    `contém um ID de usuário inválido: "${id}"`
+                ))
             }
 
             return parsed
@@ -165,8 +169,13 @@ class ColumnValueValidator {
         const cleanIds = [...new Set(numericIds)].sort((a, b) => a - b)
 
         if (cleanIds.length === 0) {
-            throw new AppError('Nenhum usuário válido foi enviado.', 400)
+            throw new ValidationError(ERROR_CATALOG.VALIDATION.INVALID_COLUMN_VALUE(
+                columnName,
+                'requer ao menos um usuário válido'
+            ))
         }
+
+        await this.validateUserMembership(boardId, cleanIds, columnName)
 
         return cleanIds.join(', ')
     }
@@ -175,17 +184,18 @@ class ColumnValueValidator {
      * Valida se usuários são membros do quadro
      * @param {number} boardId
      * @param {array} userIds
+     * @param {string} columnName
      * @returns {Promise<boolean>}
-     * @throws {AppError}
+     * @throws {ValidationError}
      */
-    static async validateUserMembership(boardId, userIds) {
+    static async validateUserMembership(boardId, userIds, columnName) {
         const validMembersCount = await BoardMemberRepository.countValidMembers(boardId, userIds)
 
         if (validMembersCount !== userIds.length) {
-            throw new AppError(
-                'Um ou mais usuários não pertencem ao quadro.',
-                400
-            )
+            throw new ValidationError(ERROR_CATALOG.VALIDATION.INVALID_COLUMN_VALUE(
+                columnName,
+                'deve referenciar apenas usuários que são membros deste quadro'
+            ))
         }
 
         return true

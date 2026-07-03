@@ -1,25 +1,26 @@
 const jwt = require('jsonwebtoken')
 const bcrypt = require('bcryptjs')
 const UserRepository = require('../user/user.repository')
-const { AuthenticationError, ERROR_MESSAGES } = require('../../shared')
+const { AuthenticationError, AppError } = require('../../shared/errors')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 const AuthService = {
 
     extractTokenFromHeader(authHeader) {
         if (!authHeader) {
-            throw new AuthenticationError(ERROR_MESSAGES.TOKEN_NOT_PROVIDED)
+            throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.TOKEN_NOT_PROVIDED)
         }
 
         const parts = authHeader.split(' ')
 
         if (parts.length !== 2) {
-            throw new AuthenticationError(ERROR_MESSAGES.TOKEN_INVALID)
+            throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.TOKEN_INVALID)
         }
 
         const [scheme, token] = parts
 
         if (!/^Bearer$/i.test(scheme)) {
-            throw new AuthenticationError(ERROR_MESSAGES.TOKEN_INVALID)
+            throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.TOKEN_INVALID)
         }
 
         return token
@@ -27,15 +28,15 @@ const AuthService = {
 
     async validateToken(token) {
         if (!token) {
-            throw new AuthenticationError(ERROR_MESSAGES.TOKEN_NOT_PROVIDED)
+            throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.TOKEN_NOT_PROVIDED)
         }
 
         try {
             const decoded = jwt.verify(token, process.env.JWT_SECRET)
             const user = await UserRepository.findByIdForAuth(decoded.id)
 
-            if (!user) {
-                throw new AuthenticationError(ERROR_MESSAGES.USER_INACTIVE)
+            if (!user || !user.is_active) {
+                throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.FAILED)
             }
 
             return user
@@ -44,12 +45,12 @@ const AuthService = {
                 throw error
             }
 
-            const message =
+            const errorDef =
                 error.name === 'TokenExpiredError'
-                    ? ERROR_MESSAGES.TOKEN_EXPIRED
-                    : ERROR_MESSAGES.TOKEN_INVALID
+                    ? ERROR_CATALOG.AUTHENTICATION.TOKEN_EXPIRED
+                    : ERROR_CATALOG.AUTHENTICATION.TOKEN_INVALID
 
-            throw new AuthenticationError(message)
+            throw new AuthenticationError(errorDef)
         }
     },
 
@@ -63,19 +64,26 @@ const AuthService = {
         const user = await UserRepository.findByEmailWithPassword(email)
 
         if (!user || !user.is_active) {
-            throw new AuthenticationError(ERROR_MESSAGES.INVALID_CREDENTIALS)
+            throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.INVALID_CREDENTIALS)
         }
 
         const isValidPassword = await bcrypt.compare(password, user.password_hash)
         if (!isValidPassword) {
-            throw new AuthenticationError(ERROR_MESSAGES.INVALID_CREDENTIALS)
+            throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.INVALID_CREDENTIALS)
         }
 
         const secret = process.env.JWT_SECRET
         const refreshSecret = process.env.JWT_REFRESH_SECRET
 
         if (!secret || !refreshSecret) {
-            throw new Error('Erro interno: Chave de segurança não configurada!')
+            throw new AppError(
+                'Erro interno: Chave de segurança não configurada',
+                500,
+                {
+                    code: 'INTERNAL_ERROR',
+                    isOperational: false
+                }
+            )
         }
 
         const token = jwt.sign(
@@ -112,9 +120,7 @@ const AuthService = {
      */
     async refreshAccessToken(oldRefreshToken) {
         if (!oldRefreshToken) {
-            throw new AuthenticationError(
-                'Refresh Token não fornecido!'
-            )
+            throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.TOKEN_NOT_PROVIDED)
         }
 
         try {
@@ -123,12 +129,12 @@ const AuthService = {
             const user = await UserRepository.findRefreshToken(decoded.id)
 
             if (!user || !user.is_active) {
-                throw new AuthenticationError(ERROR_MESSAGES.USER_INACTIVE)
+                throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.FAILED)
             }
 
             if (user.refresh_token !== oldRefreshToken) {
                 await this.revokeAllSessions(user.id)
-                throw new AuthenticationError('Sessão inválida. Faça login novamente.')
+                throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.SESSION_EXPIRED)
             }
 
             const newAccessToken = jwt.sign(
@@ -154,7 +160,7 @@ const AuthService = {
                 throw error
             }
 
-            throw new AuthenticationError('Sessão expirada ou inválida')
+            throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.SESSION_EXPIRED)
         }
     },
 

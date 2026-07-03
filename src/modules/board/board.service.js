@@ -3,7 +3,11 @@ const LogService = require('../log/log.service')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const BoardRepository = require('./board.repository')
 const ItemRepository = require('../item/item.repository')
-const { PermissionService, AppError, NotFoundError, AuthorizationError, TransactionManager, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared')
+const { NotFoundError, AuthorizationError, ConflictError } = require('../../shared/errors')
+const { TransactionManager } = require('../../shared/database')
+const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { PermissionService } = require('../../shared/services')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 const BoardService = {
 
@@ -40,13 +44,13 @@ const BoardService = {
 
     async getFull({ user, boardId }) {
         const board = await BoardRepository.findByIdWithStructure(boardId, user.id)
-        if (!board) throw new NotFoundError('Quadro')
+        if (!board) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.BOARD)
 
         const { board_members, ...boardData } = board
         const isSystemAdmin = user.role === 'ADMIN'
         const membership = board_members[0]
 
-        if (!isSystemAdmin && !membership) throw new AuthorizationError('Acesso negado: usuário não é membro deste quadro.')
+        if (!isSystemAdmin && !membership) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.NOT_MEMBER('BOARD'))
 
         const userBoardRole = membership?.role
         const isPrivilegedMember = isSystemAdmin || PermissionService.isPrivileged(userBoardRole)
@@ -82,7 +86,7 @@ const BoardService = {
         const { workspaceId } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.ADMIN)
 
         const currentBoard = await BoardRepository.findById(boardId)
-        if (!currentBoard) throw new AppError('Quadro não encontrado!', 404)
+        if (!currentBoard) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.BOARD)
 
         const hasChanges = Object.keys(data).some(
             (key) => data[key] !== undefined && data[key] !== currentBoard[key]
@@ -148,7 +152,14 @@ const BoardService = {
         ])
         const { columns: columnsCount, sections: sectionsCount } = board._count
         const hasContent = columnsCount > 0 || sectionsCount > 0 || itemsCount > 0
-        if (!force && hasContent) throw new AppError(`Não é possível excluir o quadro: existem ${columnsCount} colunas, ${sectionsCount} seções e ${itemsCount} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir.`, 409)
+
+        if (!force && hasContent) {
+            throw new ConflictError(
+                ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT('o quadro',
+                    `${columnsCount} colunas, ${sectionsCount} seções e ${itemsCount} itens`
+                )
+            )
+        }
 
         const result = await TransactionManager.run(async (tx) => {
             await BoardMemberRepository.decrementOrderAfterBoardDeletion(boardId, workspaceId, tx)

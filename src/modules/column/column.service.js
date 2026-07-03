@@ -5,7 +5,10 @@ const ItemAssigneeRepository = require('../item/item-assignee.repository')
 const ItemValueRepository = require('../item-value/item-value.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const ColumnValueValidator = require('./column.value-validator')
-const { PermissionService, AppError, NotFoundError, AuthorizationError, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared')
+const { NotFoundError, AuthorizationError, ConflictError } = require('../../shared/errors')
+const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { PermissionService } = require('../../shared/services')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 const ColumnService = {
 
@@ -14,15 +17,10 @@ const ColumnService = {
             BoardMemberRepository.findMembership(user.id, boardId),
             ColumnRepository.findById(columnId)
         ])
-
-        if (!column) {
-            throw new NotFoundError()
-        }
+        if (!column) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
 
         const isSystemAdmin = user.role === 'ADMIN'
-        if (!isSystemAdmin && !membership) {
-            throw new AuthorizationError('Acesso negado: usuário não é membro deste quadro.')
-        }
+        if (!isSystemAdmin && !membership) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.NOT_MEMBER('BOARD'))
 
         const userBoardRole = membership?.role
         const isPrivilegedMember = isSystemAdmin || PermissionService.isPrivileged(userBoardRole)
@@ -34,15 +32,15 @@ const ColumnService = {
 
             if (restriction) {
                 if (restriction.can_view === false) {
-                    throw new AuthorizationError(`Você não tem permissão sequer para visualizar esta coluna.`)
+                    throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('sequer visualizar', 'COLUMN'))
                 }
                 if (restriction.can_edit === false) {
-                    throw new AuthorizationError('Você não tem permissão para editar esta coluna.')
+                    throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('editar', 'COLUMN'))
                 }
             }
         }
 
-        return ColumnValueValidator.validate(column, value)
+        return await ColumnValueValidator.validate(column, value)
     },
 
     async create({ user, boardId, name, dataType, options, formulaExpression }) {
@@ -99,9 +97,7 @@ const ColumnService = {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
         const column = await ColumnRepository.findByIdBasic(columnId)
-        if (!column) {
-            throw new NotFoundError()
-        }
+        if (!column) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
 
         const hasDataTypeChanged = dataType && dataType !== column.data_type
         const hasNameChanged = name && name !== column.name
@@ -127,7 +123,6 @@ const ColumnService = {
                 new: `Opções: "${Array.isArray(options) ? options.join(', ') : ''}"`
             })
         }
-
         if (hasDataTypeChanged) {
             await Promise.all([
                 ItemValueRepository.deleteItemValuesByColumn(columnId),
@@ -166,17 +161,12 @@ const ColumnService = {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
         const columnToDelete = await ColumnRepository.findByIdBasic(columnId)
-        if (!columnToDelete) {
-            throw new NotFoundError()
-        }
+        if (!columnToDelete) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
 
         const affectedValuesCount = await ItemValueRepository.countItemValuesByColumn(columnId)
 
         if (!force && affectedValuesCount > 0) {
-            throw new AppError(
-                `Não é possível excluir a coluna: existem ${affectedValuesCount} itens vinculados. A exclusão removerá permanentemente esses dados. Use "force=true" para prosseguir!`,
-                409
-            )
+            throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT('a coluna', `${affectedValuesCount} itens`))
         }
 
         await Promise.all([
@@ -206,19 +196,15 @@ const ColumnService = {
         const { boardId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
         const currentColumn = await ColumnRepository.findByIdBasic(columnId)
-        if (!currentColumn) {
-            throw new NotFoundError()
-        }
+        if (!currentColumn) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
 
         const oldOrder = currentColumn.order
-
         const totalColumns = await ColumnRepository.countByBoard(boardId)
         const finalOrder = Math.max(0, Math.min(newOrder, totalColumns - 1))
 
         if (oldOrder === finalOrder) {
             return currentColumn
         }
-
         if (finalOrder > oldOrder) {
             await ColumnRepository.decrementOrderRange(boardId, oldOrder, finalOrder)
         } else {
@@ -236,9 +222,7 @@ const ColumnService = {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
         const currentColumn = await ColumnRepository.findByIdBasic(columnId)
-        if (!currentColumn) {
-            throw new NotFoundError()
-        }
+        if (!currentColumn) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
 
         await ColumnRepository.deleteRestrictions(columnId)
 

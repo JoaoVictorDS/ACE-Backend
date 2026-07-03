@@ -1,5 +1,5 @@
+const { catchAsync } = require('../../shared/utils')
 const CommentService = require('./comment.service')
-const { catchAsync } = require('../../shared')
 
 const CommentController = {
 

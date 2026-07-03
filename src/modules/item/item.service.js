@@ -1,7 +1,11 @@
 const { appEventEmitter, emitToRoom } = require('../../config')
 const LogService = require('../log/log.service')
 const ItemRepository = require('./item.repository')
-const { PermissionService, TransactionManager, AppError, NotFoundError, NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared')
+const { NotFoundError, ValidationError } = require('../../shared/errors')
+const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { PermissionService } = require('../../shared/services')
+const { TransactionManager } = require('../../shared/database')
+const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
 const ItemService = {
 
@@ -41,7 +45,7 @@ const ItemService = {
         await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.VIEW)
 
         const item = await ItemRepository.findById(itemId)
-        if (!item) throw new NotFoundError()
+        if (!item) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.ITEM)
 
         return item
     },
@@ -50,7 +54,7 @@ const ItemService = {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.EDIT)
 
         const currentItem = await ItemRepository.findItemTitle(itemId)
-        if (!currentItem) throw new NotFoundError()
+        if (!currentItem) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.ITEM)
 
         const hasTitleChanged = title && title !== currentItem.title
         if (!hasTitleChanged) return currentItem
@@ -93,7 +97,7 @@ const ItemService = {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.EDIT)
 
         const item = await ItemRepository.findByIdBasic(itemId)
-        if (!item) throw new NotFoundError()
+        if (!item) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.ITEM)
 
         const result = await TransactionManager.run(async (tx) => {
             await ItemRepository.decrementOrderAfter(item.section_id, item.order, tx)
@@ -129,7 +133,7 @@ const ItemService = {
 
         const result = await TransactionManager.runWithRetry(async (tx) => {
             const currentItem = await ItemRepository.findByIdBasic(itemId, tx)
-            if (!currentItem) throw new NotFoundError()
+            if (!currentItem) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.ITEM)
 
             const oldSectionId = currentItem.section_id
             const oldOrder = currentItem.order
@@ -140,7 +144,7 @@ const ItemService = {
                 const { boardId: targetBoardId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.SECTION, newSectionId)
                 const isDifferentBoard = targetBoardId !== boardId
 
-                if (isDifferentBoard) throw new AppError('Não é permitido mover tarefas entre quadros diferentes.', 400)
+                if (isDifferentBoard) throw new ValidationError(ERROR_CATALOG.VALIDATION.INVALID_ACTION('Não é permitido mover tarefas entre quadros diferentes.'))
             }
 
             const totalInTarget = await ItemRepository.countBySection(finalSectionId, tx)
