@@ -1,14 +1,14 @@
 const { z } = require('zod')
 const { board_id: board_id_required } = require('../../shared/validators/common.fields')
 
-const ACTION_TYPES = ['ITEM_CREATED', 'ITEM_DELETED', 'ITEM_UPDATED', 'COMMENT_CREATED', 'COMMENT_UPDATED', 'COMMENT_DELETED']
-const ACTION_TYPES_LABEL = '"ITEM_CREATED", "ITEM_UPDATED", "ITEM_DELETED", "COMMENT_CREATED", "COMMENT_UPDATED" ou "COMMENT_DELETED"'
+const ACTION_TYPES = ['ITEM_CREATED', 'ITEM_DELETED', 'ITEM_UPDATED', 'COMMENT_CREATED', 'COMMENT_UPDATED', 'COMMENT_DELETED', 'ITEM_UPDATE_CREATED', 'ITEM_UPDATE_UPDATED', 'ITEM_UPDATE_DELETED']
+
 const actionTypeEnum = (context = 'body') => z.preprocess(
     (val) => (typeof val === 'string' ? val.toUpperCase() : val),
     z.enum(ACTION_TYPES, {
         error: (issue) => issue.input === undefined
-            ? `O ${context === 'body' ? 'campo' : 'parâmetro'} é obrigatório`
-            : `Tipo inválido em "action_type". Use ${ACTION_TYPES_LABEL}`
+            ? `O ${context === 'body' ? 'campo' : 'parâmetro'} "action_type" é obrigatório`
+            : `Tipo inválido em "action_type". Use ${ACTION_TYPES.join(', ')}`
     })
 )
 

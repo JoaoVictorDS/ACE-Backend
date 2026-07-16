@@ -39,6 +39,14 @@ const RESOURCE_METADATA = {
         indefiniteArticle: 'um'
     },
 
+    ITEM_UPDATE: {
+        singular: 'Atualização de item',
+        plural: 'Atualizações de item',
+        gender: 'feminine',
+        article: 'a',
+        indefiniteArticle: 'uma'
+    },
+
     COMMENT: {
         singular: 'Comentário',
         plural: 'Comentários',

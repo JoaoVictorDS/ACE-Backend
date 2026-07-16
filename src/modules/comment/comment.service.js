@@ -3,6 +3,7 @@ const LogService = require('../log/log.service')
 const MentionService = require('../notification/mention.service')
 const ItemRepository = require('../item/item.repository')
 const CommentRepository = require('./comment.repository')
+const CommentPresenter = require('./comment.presenter')
 const { NotFoundError, AuthorizationError } = require('../../shared/errors')
 const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const { PermissionService } = require('../../shared/services')
@@ -57,13 +58,18 @@ const CommentService = {
 
     async update({ user, commentId, content }) {
         const userId = user.id
-        const comment = await CommentRepository.findById(commentId)
-        if (!comment) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COMMENT)
 
-        const isOwner = comment.user_id === userId
-        if (!isOwner) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('editar', 'COMMENT'))
+        const current = await CommentRepository.findById(commentId)
+        if (!current)
+            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COMMENT)
 
-        const { boardId, workspaceId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.ITEM, comment.item_id)
+        const isOwner = current.user_id === userId
+        if (!isOwner)
+            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('editar', 'COMMENT'))
+
+        const { boardId, workspaceId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.ITEM, current.item_id)
+
+        if (current.content === content) return CommentPresenter.update(current)
 
         const updatedComment = await CommentRepository.update(commentId, content)
 
@@ -73,27 +79,27 @@ const CommentService = {
             boardId,
             action: 'UPDATE',
             entityType: 'COMMENT',
-            entityId: comment.item_id,
-            oldValue: `Conteúdo: ${MentionService.sanitize(comment.content, 50)}`,
-            newValue: `Conteúdo: ${MentionService.sanitize(content, 50)}`
+            entityId: commentId,
+            oldValue: MentionService.sanitize(current.content, 50),
+            newValue: MentionService.sanitize(content, 50)
         })
 
         MentionService.process({
             actor: user,
             boardId,
-            itemId: comment.item_id,
-            itemTitle: comment.item.title,
+            itemId: current.item_id,
+            itemTitle: current.item.title,
             text: content,
-            oldText: comment.content,
+            oldText: current.content,
             context: 'comment'
         })
 
         appEventEmitter.emit('item.action', {
             actor: user,
             boardId,
-            itemId: comment.item_id,
+            itemId: current.item_id,
             action: NOTIFICATION_TYPES.COMMENT_UPDATED,
-            content: { itemTitle: comment.item.title }
+            content: { itemTitle: current.item.title }
         })
 
         emitToRoom(`board:${boardId}`, 'comment:updated', updatedComment)
@@ -111,7 +117,8 @@ const CommentService = {
         const isBoardOwner = creatorId === userId
         const isSystemAdmin = user.role === 'ADMIN'
 
-        if (!isOwner && !isBoardOwner && !isSystemAdmin) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('excluir', 'COMMENT'))
+        if (!isOwner && !isBoardOwner && !isSystemAdmin)
+            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('excluir', 'COMMENT'))
 
         const deletedComment = await CommentRepository.delete(commentId)
 
@@ -121,8 +128,8 @@ const CommentService = {
             boardId,
             action: 'DELETE',
             entityType: 'COMMENT',
-            entityId: comment.item_id,
-            oldValue: `Comentário removido: ${MentionService.sanitize(comment.content, 50)}`
+            entityId: commentId,
+            oldValue: comment.content
         })
 
         appEventEmitter.emit('item.action', {
@@ -133,7 +140,7 @@ const CommentService = {
             content: { itemTitle: comment.item.title }
         })
 
-        emitToRoom(`board:${boardId}`, 'comment:deleted', { commentId })
+        emitToRoom(`board: ${boardId}`, 'comment:deleted', { commentId })
 
         return deletedComment
     },

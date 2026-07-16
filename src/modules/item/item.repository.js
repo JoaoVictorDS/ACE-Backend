@@ -54,8 +54,8 @@ const ItemRepository = {
         return client.item.findUnique({
             where: { id: itemId },
             include: {
-                item_updates: true,
-                comments: true
+                item_updates: { orderBy: { created_at: 'asc' } },
+                comments: { orderBy: { created_at: 'asc' } }
             }
         })
     },

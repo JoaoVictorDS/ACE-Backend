@@ -12,6 +12,38 @@ const ItemUpdateRespository = {
         })
     },
 
+    async findByItem(itemId) {
+        return prisma.itemUpdate.findMany({
+            where: { item_id: itemId },
+            orderBy: { created_at: 'asc' },
+            include: { user: { select: { id: true, name: true } } }
+        })
+    },
+
+    async findById(itemUpdateId) {
+        return prisma.itemUpdate.findUnique({
+            where: { id: itemUpdateId },
+            include: {
+                item: { select: { title: true } },
+                user: { select: { id: true, name: true } }
+            }
+        })
+    },
+
+    async update(itemUpdateId, content) {
+        return prisma.itemUpdate.update({
+            where: { id: itemUpdateId },
+            data: { content },
+            include: { user: { select: { id: true, name: true } } }
+        })
+    },
+
+    async delete(itemUpdateId) {
+        return prisma.itemUpdate.delete({
+            where: { id: itemUpdateId }
+        })
+    }
+
 }
 
 module.exports = ItemUpdateRespository

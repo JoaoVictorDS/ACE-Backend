@@ -51,7 +51,7 @@ const NotificationService = {
             )
 
             const finalAssignedUserIds = assignedUsersIds.filter(userId => {
-                const settingsForUser = userSettings.filter(s => s.user_id === userId)
+                const settingsForUser = userSettings.filter(s => s.user_id === userId && s.action_type === action)
                 const specificSetting = settingsForUser.find(s => s.board_id === boardId)
                 const globalSetting = settingsForUser.find(s => s.board_id === null)
 

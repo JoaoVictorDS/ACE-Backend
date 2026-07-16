@@ -1,10 +1,11 @@
 const express = require('express')
-const router = express.Router({ mergeParams: true })
+const router = express.Router()
 
 const { authMiddleware, validationMiddleware } = require('../../shared/middlewares')
-const { createItemUpdateSchema } = require('./item-update.validator')
+const { updateItemUpdateSchema, deleteItemUpdateSchema } = require('./item-update.validator')
 const ItemUpdateController = require('./item-update.controller')
 
-router.post('/', authMiddleware, validationMiddleware(createItemUpdateSchema), ItemUpdateController.create)
+router.patch('/:item_update_id', authMiddleware, validationMiddleware(updateItemUpdateSchema), ItemUpdateController.update)
+router.delete('/:item_update_id', authMiddleware, validationMiddleware(deleteItemUpdateSchema), ItemUpdateController.delete)
 
 module.exports = router

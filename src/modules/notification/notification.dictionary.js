@@ -46,24 +46,33 @@ const NotificationDictionary = {
     'ITEM_ASSIGNED': (actorName, meta) =>
         `**${actorName}** designou você para a tarefa **${meta.itemTitle}**`,
 
-    'USER_MENTIONED': (actorName, meta) => {
-        if (meta.context === 'comment') {
-            return `**${actorName}** mencionou você em um comentário na tarefa **${meta.itemTitle}**`
-        }
-        return `**${actorName}** mencionou você na tarefa **${meta.itemTitle}**`
-    },
+    'ITEM_UPDATE_CREATED': (actorName, meta) =>
+        `**${actorName}** adicionou uma nova atualização na tarefa **${meta.itemTitle}**`,
+
+    'ITEM_UPDATE_UPDATED': (actorName, meta) =>
+        `**${actorName}** editou uma atualização na tarefa **${meta.itemTitle}**`,
+
+    'ITEM_UPDATE_DELETED': (actorName, meta) =>
+        `**${actorName}** removeu uma atualização da tarefa **${meta.itemTitle}**`,
 
     'COMMENT_CREATED': (actorName, meta) =>
-        `**${actorName}** adicionou um comentário na tarefa **${meta.itemTitle}**`,
+        `** ${actorName}** adicionou um comentário na tarefa ** ${meta.itemTitle}**`,
 
     'COMMENT_UPDATED': (actorName, meta) =>
-        `**${actorName}** editou um comentário na tarefa **${meta.itemTitle}**`,
+        `** ${actorName}** editou um comentário na tarefa ** ${meta.itemTitle}**`,
 
     'COMMENT_DELETED': (actorName, meta) =>
-        `**${actorName}** removeu um comentário da tarefa **${meta.itemTitle}**`,
+        `** ${actorName}** removeu um comentário da tarefa ** ${meta.itemTitle}**`,
+
+    'USER_MENTIONED': (actorName, meta) => {
+        if (meta.context === 'comment') {
+            return `** ${actorName}** mencionou você em um comentário na tarefa ** ${meta.itemTitle}**`
+        }
+        return `** ${actorName}** mencionou você na tarefa ** ${meta.itemTitle}**`
+    },
 
     'DEFAULT': (actorName) =>
-        `**${actorName}** realizou uma nova ação`
+        `** ${actorName}** realizou uma nova ação`
 }
 
 module.exports = NotificationDictionary

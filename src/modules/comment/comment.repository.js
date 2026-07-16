@@ -24,7 +24,10 @@ const CommentRepository = {
     async findById(commentId) {
         return prisma.comment.findUnique({
             where: { id: commentId },
-            include: { item: { select: { title: true } } }
+            include: {
+                item: { select: { title: true } },
+                user: { select: { id: true, name: true } }
+            }
         })
     },
 

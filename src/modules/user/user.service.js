@@ -19,6 +19,9 @@ const UserService = {
             { user_id: userId, action_type: NOTIFICATION_TYPES.COMMENT_CREATED, enabled: true },
             { user_id: userId, action_type: NOTIFICATION_TYPES.COMMENT_UPDATED, enabled: true },
             { user_id: userId, action_type: NOTIFICATION_TYPES.COMMENT_DELETED, enabled: true },
+            { user_id: userId, action_type: NOTIFICATION_TYPES.ITEM_UPDATE_CREATED, enabled: true },
+            { user_id: userId, action_type: NOTIFICATION_TYPES.ITEM_UPDATE_DELETED, enabled: true },
+            { user_id: userId, action_type: NOTIFICATION_TYPES.ITEM_UPDATE_UPDATED, enabled: true },
         ]
 
         await UserNotificationSettingRepository.create(defaultNotificationSettings, tx)
