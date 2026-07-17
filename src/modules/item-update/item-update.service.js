@@ -43,8 +43,10 @@ const ItemUpdateService = {
             actor: user,
             boardId,
             itemId,
+            entityType: 'ITEM_UPDATE',
+            entityId: newItemUpdate.id,
             action: NOTIFICATION_TYPES.ITEM_UPDATE_CREATED,
-            content: { itemTitle }
+            content: { text: MentionService.sanitize(content, 50) }
         })
 
         emitToRoom(`board:${boardId}`, 'item_update:created', newItemUpdate)
@@ -100,8 +102,10 @@ const ItemUpdateService = {
             actor: user,
             boardId,
             itemId: current.item_id,
+            entityType: 'ITEM_UPDATE',
+            entityId: itemUpdateId,
             action: NOTIFICATION_TYPES.ITEM_UPDATE_UPDATED,
-            content: { itemTitle: current.item.title }
+            content: null
         })
 
         emitToRoom(`board:${boardId}`, 'item_update:updated', updatedItemUpdate)
@@ -139,8 +143,10 @@ const ItemUpdateService = {
             actor: user,
             boardId,
             itemId: itemUpdate.item_id,
+            entityType: 'ITEM_UPDATE',
+            entityId: itemUpdateId,
             action: NOTIFICATION_TYPES.ITEM_UPDATE_DELETED,
-            content: { itemTitle: itemUpdate.item.title }
+            content: null
         })
 
         emitToRoom(`board:${boardId}`, 'item_update:deleted', { itemUpdateId })

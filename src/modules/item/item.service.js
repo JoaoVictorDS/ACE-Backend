@@ -31,9 +31,11 @@ const ItemService = {
         appEventEmitter.emit('item.action', {
             actor: user,
             itemId: result.id,
+            entityType: 'ITEM',
+            entityId: result.id,
             boardId,
             action: NOTIFICATION_TYPES.ITEM_CREATED,
-            content: { itemTitle: title }
+            content: null
         })
 
         emitToRoom(`board:${boardId}`, 'item:created', result)
@@ -75,10 +77,11 @@ const ItemService = {
         appEventEmitter.emit('item.action', {
             actor: user,
             itemId,
+            entityType: 'ITEM',
+            entityId: itemId,
             boardId,
             action: NOTIFICATION_TYPES.ITEM_UPDATED,
             content: {
-                itemTitle: currentItem.title,
                 changes: {
                     field: 'system_title',
                     label: 'Título',
@@ -118,9 +121,11 @@ const ItemService = {
         appEventEmitter.emit('item.action', {
             actor: user,
             itemId,
+            entityType: 'ITEM',
+            entityId: itemId,
             boardId,
             action: NOTIFICATION_TYPES.ITEM_DELETED,
-            content: { itemTitle: item.title }
+            content: null
         })
 
         emitToRoom(`board:${boardId}`, 'item:deleted', { itemId })
@@ -192,9 +197,11 @@ const ItemService = {
             appEventEmitter.emit('item.action', {
                 actor: user,
                 itemId,
+                entityType: 'ITEM',
+                entityId: itemId,
                 boardId,
                 action: NOTIFICATION_TYPES.ITEM_MOVED,
-                content: { itemTitle: result.updated.title }
+                content: null
             })
         }
 

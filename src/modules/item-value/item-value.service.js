@@ -97,11 +97,12 @@ const ItemValueService = {
 
         appEventEmitter.emit('item.action', {
             actor: user,
-            itemId,
             boardId,
+            itemId,
+            entityType: 'ITEM_VALUE',
+            entityId: itemId,
             action: NOTIFICATION_TYPES.ITEM_UPDATED,
             content: {
-                itemTitle,
                 changes: notificationContent
             }
         })

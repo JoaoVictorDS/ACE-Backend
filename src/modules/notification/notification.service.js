@@ -17,7 +17,7 @@ const NotificationService = {
     },
 
     async handleItem(payload) {
-        const { actor, boardId, itemId, action, content, specificRecipients } = payload
+        const { actor, boardId, itemId, entityType, entityId, action, content, specificRecipients } = payload
 
         try {
             const assignedUsersIdsSet = new Set()
@@ -73,8 +73,9 @@ const NotificationService = {
             const notificationsData = finalAssignedUserIds.map(userId => ({
                 user_id: userId,
                 actor_id: actor.id,
-                entity_type: 'ITEM',
-                entity_id: itemId,
+                item_id: itemId,
+                entity_type: entityType,
+                entity_id: entityId,
                 action: action,
                 content: contentString,
             }))
@@ -82,18 +83,14 @@ const NotificationService = {
             await NotificationRepository.createMany(notificationsData)
 
             const io = getIO()
-            const template = NotificationDictionary[action] || NotificationDictionary['DEFAULT']
 
-            finalAssignedUserIds.forEach(userId => {
-                const messageText = template(actor.name, content, userId)
+            await Promise.all(finalAssignedUserIds.map(async (userId) => {
+                const totalUnread = await NotificationRepository.countUnread(userId)
 
-                io.to(`user:${userId}`).emit('notification:received', {
-                    message: messageText,
-                    entity_type: 'ITEM',
-                    entity_id: itemId,
-                    created_at: new Date(),
+                io.to(`user:${userId}`).emit('notification:refresh', {
+                    unread_count: totalUnread
                 })
-            })
+            }))
         } catch (error) {
             logger.error({ error: error.message, stack: error.stack }, 'Erro critico no NotificationService')
         }

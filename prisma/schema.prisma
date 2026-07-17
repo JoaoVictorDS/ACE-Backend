@@ -205,10 +205,11 @@ model Item {
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
-  item_values  ItemValue[]
-  comments     Comment[]
-  assignees    ItemAssignee[]
-  item_updates ItemUpdate[]
+  item_values   ItemValue[]
+  comments      Comment[]
+  assignees     ItemAssignee[]
+  item_updates  ItemUpdate[]
+  notifications Notification[]
 
   @@index([section_id])
   @@index([order])
@@ -320,6 +321,7 @@ model Notification {
   id          Int        @id @default(autoincrement())
   user_id     Int        @map("user_id")
   actor_id    Int        @map("actor_id")
+  item_id     Int?       @map("item_id")
   entity_type EntityType @map("entity_type")
   entity_id   Int        @map("entity_id")
   action      String
@@ -328,10 +330,12 @@ model Notification {
   is_read    Boolean  @default(false) @map("is_read")
   created_at DateTime @default(now()) @map("created_at")
 
-  user  User @relation("Recipient", fields: [user_id], references: [id])
-  actor User @relation("Actor", fields: [actor_id], references: [id])
+  user  User  @relation("Recipient", fields: [user_id], references: [id])
+  actor User  @relation("Actor", fields: [actor_id], references: [id])
+  item  Item? @relation(fields: [item_id], references: [id], onDelete: Cascade)
 
   @@index([user_id, is_read])
+  @@index([item_id])
   @@map("notifications")
 }
 

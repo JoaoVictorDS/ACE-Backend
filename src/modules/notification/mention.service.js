@@ -46,6 +46,8 @@ const MentionService = {
                 actor,
                 boardId,
                 itemId,
+                // entityType: x, 
+                // entityId: y,
                 action: 'USER_MENTIONED',
                 specificRecipients: finalIds,
                 content: {

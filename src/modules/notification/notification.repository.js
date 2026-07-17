@@ -17,7 +17,10 @@ const NotificationRepository = {
             where: { user_id: userId },
             take: limit,
             skip,
-            include: { actor: { select: { id: true, name: true } } },
+            include: {
+                item: { select: { id: true, title: true } },
+                actor: { select: { id: true, name: true } }
+            },
             orderBy: { created_at: 'desc' }
         })
     },
@@ -59,6 +62,15 @@ const NotificationRepository = {
     async countByUser(userId) {
         return prisma.notification.count({ where: { user_id: userId } })
     },
+
+    async countUnread(userId) {
+        return prisma.notification.count({
+            where: {
+                user_id: userId,
+                is_read: false
+            }
+        })
+    }
 }
 
 module.exports = NotificationRepository

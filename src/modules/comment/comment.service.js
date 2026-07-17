@@ -41,8 +41,10 @@ const CommentService = {
             actor: user,
             boardId,
             itemId,
+            entityType: 'COMMENT',
+            entityId: newComment.id,
             action: NOTIFICATION_TYPES.COMMENT_CREATED,
-            content: { itemTitle }
+            content: { text: MentionService.sanitize(content, 50) }
         })
 
         emitToRoom(`board:${boardId}`, 'comment:created', newComment)
@@ -98,8 +100,10 @@ const CommentService = {
             actor: user,
             boardId,
             itemId: current.item_id,
+            entityType: 'COMMENT',
+            entityId: commentId,
             action: NOTIFICATION_TYPES.COMMENT_UPDATED,
-            content: { itemTitle: current.item.title }
+            content: null
         })
 
         emitToRoom(`board:${boardId}`, 'comment:updated', updatedComment)
@@ -136,11 +140,13 @@ const CommentService = {
             actor: user,
             boardId,
             itemId: comment.item_id,
+            entityType: 'COMMENT',
+            entityId: commentId,
             action: NOTIFICATION_TYPES.COMMENT_DELETED,
-            content: { itemTitle: comment.item.title }
+            content: null
         })
 
-        emitToRoom(`board: ${boardId}`, 'comment:deleted', { commentId })
+        emitToRoom(`board:${boardId}`, 'comment:deleted', { commentId })
 
         return deletedComment
     },
