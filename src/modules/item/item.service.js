@@ -25,7 +25,7 @@ const ItemService = {
             action: 'CREATE',
             entityType: 'ITEM',
             entityId: result.id,
-            newValue: `Item criado: ${title}`
+            newValue: { title }
         })
 
         appEventEmitter.emit('item.action', {
@@ -70,8 +70,8 @@ const ItemService = {
             action: 'UPDATE',
             entityType: 'ITEM',
             entityId: itemId,
-            oldValue: `Título: "${currentItem.title}"`,
-            newValue: `Título: "${title}"`
+            oldValue: { title: currentItem.title },
+            newValue: { title }
         })
 
         appEventEmitter.emit('item.action', {
@@ -115,7 +115,7 @@ const ItemService = {
             action: 'DELETE',
             entityType: 'ITEM',
             entityId: itemId,
-            oldValue: `Item removido: ${item.title}`
+            oldValue: { title: item.title }
         })
 
         appEventEmitter.emit('item.action', {
@@ -189,8 +189,8 @@ const ItemService = {
             action: 'MOVE',
             entityType: 'ITEM',
             entityId: itemId,
-            oldValue: `Seção: ${result.oldState.sectionId}, Ordem: ${result.oldState.order}`,
-            newValue: `Seção: ${result.newState.sectionId}, Ordem: ${result.newState.order}`
+            oldValue: { section: result.oldState.sectionId, order: result.oldState.order },
+            newValue: { section: result.newState.sectionId, order: result.newState.order }
         })
 
         if (!result.isSameSection) {
@@ -205,7 +205,7 @@ const ItemService = {
             })
         }
 
-        emitToRoom(`board:${boardId}`, 'item:moved', result.updated)
+        emitToRoom(`board: ${boardId}`, 'item:moved', result.updated)
 
         return result.updated
     },

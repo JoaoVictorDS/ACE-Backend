@@ -73,7 +73,7 @@ const WorkspaceMemberService = {
                 action: 'CREATE',
                 entityType: 'MEMBER',
                 entityId: targetUserId,
-                newValue: `Membro adicionado: ${targetUserName} (${role})`
+                newValue: { role }
             })
         } else if (existingMember.role !== role) {
             LogService.register({
@@ -82,8 +82,8 @@ const WorkspaceMemberService = {
                 action: 'UPDATE',
                 entityType: 'MEMBER',
                 entityId: targetUserId,
-                oldValue: `Cargo: ${existingMember.role}`,
-                newValue: `Cargo: ${role}`
+                oldValue: { role: existingMember.role },
+                newValue: { role }
             })
         }
 
@@ -123,7 +123,7 @@ const WorkspaceMemberService = {
             action: 'DELETE',
             entityType: 'MEMBER',
             entityId: memberIdToRemove,
-            oldValue: `Membro removido: ${targetUserName}`
+            oldValue: { role: membership.role }
         })
 
         return result
@@ -168,7 +168,7 @@ const WorkspaceMemberService = {
             action: 'DELETE',
             entityType: 'MEMBER',
             entityId: userId,
-            oldValue: `${membership.user.name} saiu da área de trabalho`
+            oldValue: { role: membership.role }
         })
 
         return result

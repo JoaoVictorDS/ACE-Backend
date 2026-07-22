@@ -62,9 +62,26 @@ const BoardMemberService = {
         const member = await BoardMemberRepository.upsertMember(targetUserId, boardId, role, nextOrder)
 
         if (!existingMember) {
-            LogService.register({ userId, boardId, workspaceId, action: 'CREATE', entityType: 'MEMBER', entityId: targetUserId, newValue: `Membro adicionado: ${targetUserName} (${role})` })
+            LogService.register({
+                userId,
+                boardId,
+                workspaceId,
+                action: 'CREATE',
+                entityType: 'MEMBER',
+                entityId: targetUserId,
+                newValue: { role }
+            })
         } else if (existingMember.role !== role) {
-            LogService.register({ userId, boardId, workspaceId, action: 'UPDATE', entityType: 'MEMBER', entityId: targetUserId, oldValue: `Cargo: ${existingMember.role}`, newValue: `Cargo: ${role}` })
+            LogService.register({
+                userId,
+                boardId,
+                workspaceId,
+                action: 'UPDATE',
+                entityType: 'MEMBER',
+                entityId: targetUserId,
+                oldValue: { role: existingMember.role },
+                newValue: { role }
+            })
         }
 
         emitToRoom(`board:${boardId}`, 'board_member:changed', member)
@@ -102,7 +119,7 @@ const BoardMemberService = {
             action: 'DELETE',
             entityType: 'MEMBER',
             entityId: memberIdToRemove,
-            oldValue: `Membro removido: ${membership.user.name}`
+            oldValue: { role: membership.role }
         })
         emitToRoom(`board:${boardId}`, 'board_member:removed', { memberId: memberIdToRemove })
 
@@ -139,7 +156,15 @@ const BoardMemberService = {
             return await this._performRemoval(tx, { membership })
         })
 
-        LogService.register({ userId, boardId, workspaceId: membership.board.workspace_id, action: 'DELETE', entityType: 'MEMBER', entityId: userId, oldValue: `${membership.user.name} saiu do quadro` })
+        LogService.register({
+            userId,
+            boardId,
+            workspaceId: membership.board.workspace_id,
+            action: 'DELETE',
+            entityType: 'MEMBER',
+            entityId: userId,
+            oldValue: { role: membership.role }
+        })
         emitToRoom(`board:${boardId}`, 'board_member:leaved', { memberId: userId })
 
         return result

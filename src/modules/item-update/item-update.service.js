@@ -13,11 +13,8 @@ const ItemUpdateService = {
 
     async create({ user, itemId, content }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.EDIT)
-
         const userId = user.id
-
         const { title: itemTitle } = await ItemRepository.findItemTitle(itemId)
-
         const newItemUpdate = await ItemUpdateRespository.create(userId, itemId, content)
 
         LogService.register({
@@ -27,7 +24,7 @@ const ItemUpdateService = {
             action: 'CREATE',
             entityType: 'ITEM_UPDATE',
             entityId: newItemUpdate.id,
-            newValue: MentionService.sanitize(content, 50)
+            newValue: { content }
         })
 
         MentionService.process({
@@ -35,18 +32,19 @@ const ItemUpdateService = {
             boardId,
             itemId,
             itemTitle,
-            text: content,
-            context: 'item_update'
+            entityId: newItemUpdate.id,
+            entityType: 'ITEM_UPDATE',
+            text: content
         })
 
         appEventEmitter.emit('item.action', {
             actor: user,
             boardId,
             itemId,
-            entityType: 'ITEM_UPDATE',
             entityId: newItemUpdate.id,
+            entityType: 'ITEM_UPDATE',
             action: NOTIFICATION_TYPES.ITEM_UPDATE_CREATED,
-            content: { text: MentionService.sanitize(content, 50) }
+            content: { text: content }
         })
 
         emitToRoom(`board:${boardId}`, 'item_update:created', newItemUpdate)
@@ -62,19 +60,14 @@ const ItemUpdateService = {
 
     async update({ user, itemUpdateId, content }) {
         const userId = user.id
-
         const current = await ItemUpdateRespository.findById(itemUpdateId)
         if (!current)
             throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.ITEM_UPDATE)
-
         const isOwner = current.user_id === userId
         if (!isOwner)
             throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('editar', 'ITEM_UPDATE'))
-
         const { boardId, workspaceId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.ITEM, current.item_id)
-
         if (current.content === content) return ItemUpdatePresenter.update(current)
-
         const updatedItemUpdate = await ItemUpdateRespository.update(itemUpdateId, content)
 
         LogService.register({
@@ -84,8 +77,8 @@ const ItemUpdateService = {
             action: 'UPDATE',
             entityType: 'ITEM_UPDATE',
             entityId: itemUpdateId,
-            oldValue: MentionService.sanitize(current.content, 50),
-            newValue: MentionService.sanitize(content, 50)
+            oldValue: { content: current.content },
+            newValue: { content }
         })
 
         MentionService.process({
@@ -93,9 +86,10 @@ const ItemUpdateService = {
             boardId,
             itemId: current.item_id,
             itemTitle: current.item.title,
-            oldText: current.content,
-            context: 'item_update',
+            entityId: itemUpdateId,
+            entityType: 'ITEM_UPDATE',
             text: content,
+            oldText: current.content
         })
 
         appEventEmitter.emit('item.action', {
@@ -117,16 +111,13 @@ const ItemUpdateService = {
         const itemUpdate = await ItemUpdateRespository.findById(itemUpdateId)
         if (!itemUpdate)
             throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.ITEM_UPDATE)
-
         const { boardId, workspaceId, creatorId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.ITEM, itemUpdate.item_id)
         const userId = user.id
         const isOwner = itemUpdate.user_id === userId
         const isBoardOwner = creatorId === userId
         const isSystemAdmin = user.role === 'ADMIN'
-
         if (!isOwner && !isBoardOwner && !isSystemAdmin)
             throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('excluir', 'ITEM_UPDATE'))
-
         const deletedItemUpdate = await ItemUpdateRespository.delete(itemUpdateId)
 
         LogService.register({
@@ -136,7 +127,7 @@ const ItemUpdateService = {
             action: 'DELETE',
             entityType: 'ITEM_UPDATE',
             entityId: itemUpdateId,
-            oldValue: itemUpdate.content
+            oldValue: { content: itemUpdate.content }
         })
 
         appEventEmitter.emit('item.action', {

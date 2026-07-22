@@ -25,7 +25,7 @@ const SectionService = {
             action: 'CREATE',
             entityType: 'SECTION',
             entityId: result.id,
-            newValue: `Seção criada: ${name}`
+            newValue: { name }
         })
 
         emitToRoom(`board:${boardId}`, 'section:created', result)
@@ -57,8 +57,8 @@ const SectionService = {
             action: 'UPDATE',
             entityType: 'SECTION',
             entityId: sectionId,
-            oldValue: `Nome: ${section.name}`,
-            newValue: `Nome: ${name}`
+            oldValue: { name: section.name },
+            newValue: { name }
         })
 
         emitToRoom(`board:${boardId}`, 'section:updated', updatedSection)
@@ -89,7 +89,7 @@ const SectionService = {
             action: 'DELETE',
             entityType: 'SECTION',
             entityId: sectionId,
-            oldValue: `Seção removida: ${sectionToDelete.name}`
+            oldValue: { name: sectionToDelete.name }
         })
 
         emitToRoom(`board:${boardId}`, 'section:deleted', { sectionId })
@@ -126,8 +126,8 @@ const SectionService = {
             action: 'MOVE',
             entityType: 'SECTION',
             entityId: sectionId,
-            oldValue: `Ordem: ${currentOrder}`,
-            newValue: `Ordem: ${newOrder}`
+            oldValue: { order: currentOrder },
+            newValue: { order: newOrder }
         })
 
         emitToRoom(`board:${boardId}`, 'section:moved', result)

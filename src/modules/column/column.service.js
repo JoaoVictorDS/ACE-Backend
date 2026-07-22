@@ -66,7 +66,12 @@ const ColumnService = {
             action: 'CREATE',
             entityType: 'COLUMN',
             entityId: result.id,
-            newValue: `Coluna criada: ${name}`
+            newValue: {
+                name,
+                data_type: dataType,
+                options,
+                formula_expression: formulaExpression
+            }
         })
 
         emitToRoom(`board:${boardId}`, 'column:created', result)
@@ -101,26 +106,32 @@ const ColumnService = {
 
         const hasDataTypeChanged = dataType && dataType !== column.data_type
         const hasNameChanged = name && name !== column.name
-        const hasOptionsChanged = options && JSON.stringify(options) !== JSON.stringify(column.options)
-
+        const hasOptionsChanged = (options && JSON.stringify(options) !== JSON.stringify(column.options)) || (hasDataTypeChanged && column.data_type === 'SELECT'
+        )
         const finalDataType = dataType ?? column.data_type
         const finalOptions = finalDataType === 'SELECT' ? (options ?? column.options) : null
         const finalFormula = finalDataType === 'FORMULA' ? (formulaExpression ?? column.formula_expression) : null
 
         const changes = []
         if (hasNameChanged) {
-            changes.push({ old: `Nome: "${column.name}"`, new: `Nome: "${name}"` })
+            changes.push({
+                field: 'name',
+                old: column.name,
+                new: name
+            })
         }
         if (hasDataTypeChanged) {
             changes.push({
-                old: `Tipo: "${column.data_type}"`,
-                new: `Tipo: "${dataType} (Dados anteriores resetados por segurança)"`
+                field: 'data_type',
+                old: column.data_type,
+                new: dataType
             })
         }
         if (hasOptionsChanged) {
             changes.push({
-                old: `Opções: "${Array.isArray(column.options) ? column.options.join(', ') : ''}"`,
-                new: `Opções: "${Array.isArray(options) ? options.join(', ') : ''}"`
+                field: 'options',
+                old: Array.isArray(column.options) ? column.options : '',
+                new: Array.isArray(options) ? options : ''
             })
         }
         if (hasDataTypeChanged) {
@@ -147,8 +158,8 @@ const ColumnService = {
                 action: 'UPDATE',
                 entityType: 'COLUMN',
                 entityId: columnId,
-                oldValue: changes.map(c => c.old).join(' | '),
-                newValue: changes.map(c => c.new).join(' | ')
+                oldValue: Object.fromEntries(changes.map(c => [c.field, c.old])),
+                newValue: Object.fromEntries(changes.map(c => [c.field, c.new]))
             })
         }
 
@@ -184,12 +195,15 @@ const ColumnService = {
             action: 'DELETE',
             entityType: 'COLUMN',
             entityId: columnId,
-            oldValue: `Coluna removida: ${columnToDelete.name} | Registros vinculados removidos: ${affectedValuesCount}`
+            oldValue: {
+                name: columnToDelete.name,
+                deleted_count: affectedValuesCount
+            }
         })
 
         emitToRoom(`board:${boardId}`, 'column:deleted', { columnId })
 
-        return { deletedCount: affectedValuesCount }
+        return { deleted_count: affectedValuesCount }
     },
 
     async move({ user, columnId, newOrder }) {
@@ -224,6 +238,8 @@ const ColumnService = {
         const currentColumn = await ColumnRepository.findByIdBasic(columnId)
         if (!currentColumn) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
 
+        const currentRestrictions = await ColumnRepository.findRestrictions(columnId)
+
         await ColumnRepository.deleteRestrictions(columnId)
 
         const restrictionData = restrictions.map(r => ({
@@ -243,9 +259,10 @@ const ColumnService = {
             workspaceId,
             boardId,
             action: 'UPDATE',
-            entityType: 'COLUMN',
+            entityType: 'COLUMN_RESTRICTION',
             entityId: columnId,
-            newValue: `Restrições de acesso atualizadas.`
+            oldValue: currentRestrictions.map(({ user_id, board_role, can_view, can_edit }) => ({ user_id, board_role, can_view, can_edit })),
+            newValue: result.map(({ user_id, board_role, can_view, can_edit }) => ({ user_id, board_role, can_view, can_edit }))
         })
 
         emitToRoom(`board:${boardId}`, 'column:restrictions_updated', { columnId, restrictions: result })

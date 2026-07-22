@@ -91,8 +91,8 @@ const ItemValueService = {
             action: isDeleting ? 'DELETE' : (currentItemValue ? 'UPDATE' : 'CREATE'),
             entityType: 'ITEM_VALUE',
             entityId: itemId,
-            oldValue: `${column.name}: ${formattedOld}`,
-            newValue: `${column.name}: ${formattedNew}`
+            oldValue: { value: formattedOld },
+            newValue: { value: formattedNew }
         })
 
         appEventEmitter.emit('item.action', {
@@ -101,8 +101,9 @@ const ItemValueService = {
             itemId,
             entityType: 'ITEM_VALUE',
             entityId: itemId,
-            action: NOTIFICATION_TYPES.ITEM_UPDATED,
+            action: NOTIFICATION_TYPES.ITEM_VALUE_UPDATED,
             content: {
+                id: [itemId, columnId],
                 changes: notificationContent
             }
         })
@@ -113,7 +114,9 @@ const ItemValueService = {
         }
 
         emitToRoom(`board:${boardId}`, 'item_value:changed', {
-            itemId, columnId, action: response.action, value: response.data.value
+            id: [itemId, columnId],
+            action: response.action,
+            value: response.data.value
         })
 
         return response

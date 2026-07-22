@@ -10,8 +10,8 @@ router.patch('/:item_id', authMiddleware, validationMiddleware(updateItemSchema)
 router.delete('/:item_id', authMiddleware, validationMiddleware(deleteItemSchema), ItemController.delete)
 router.patch('/:item_id/move', authMiddleware, validationMiddleware(moveItemSchema), ItemController.move)
 
-router.use('/:item_id/columns/:column_id/value', require('../item-value/item-value.routes'))
-router.use('/:item_id/update', require('../item-update/item-update.item.routes'))
+router.use('/:item_id/columns/:column_id/values', require('../item-value/item-value.routes'))
+router.use('/:item_id/updates', require('../item-update/item-update.item.routes'))
 router.use('/:item_id/comments', require('../comment/comment.item.routes'))
 
 module.exports = router

@@ -1,4 +1,5 @@
 const { appEventEmitter, logger } = require('../../config')
+const { NOTIFICATION_TYPES } = require('../../shared/constants')
 const UserRepository = require('../user/user.repository')
 
 const MentionService = {
@@ -15,7 +16,7 @@ const MentionService = {
         return cleanText
     },
 
-    async process({ actor, boardId, itemId, itemTitle, text, oldText = '', context = 'description' }) {
+    async process({ actor, boardId, itemId, itemTitle, entityId, entityType, text, oldText = '' }) {
         try {
             if (!text || typeof text !== 'string') return
 
@@ -46,13 +47,12 @@ const MentionService = {
                 actor,
                 boardId,
                 itemId,
-                // entityType: x, 
-                // entityId: y,
-                action: 'USER_MENTIONED',
+                entityId,
+                entityType,
+                action: NOTIFICATION_TYPES.USER_MENTIONED,
                 specificRecipients: finalIds,
                 content: {
-                    itemTitle,
-                    context
+                    text: text
                 }
             })
         } catch (error) {

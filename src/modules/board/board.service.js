@@ -24,7 +24,7 @@ const BoardService = {
             action: 'CREATE',
             entityType: 'BOARD',
             entityId: newBoard.id,
-            newValue: `Quadro criado: ${name}`
+            newValue: { name }
         })
 
         return newBoard
@@ -135,8 +135,8 @@ const BoardService = {
             action: 'UPDATE',
             entityType: 'BOARD',
             entityId: boardId,
-            oldValue: changes.map(c => `${c.field}: "${c.old}"`).join(' | '),
-            newValue: changes.map(c => `${c.field}: "${c.new}"`).join(' | ')
+            oldValue: Object.fromEntries(changes.map(c => [c.field, c.old])),
+            newValue: Object.fromEntries(changes.map(c => [c.field, c.new]))
         })
 
         emitToRoom(`board:${boardId}`, 'board:updated', updatedBoard)
@@ -171,7 +171,7 @@ const BoardService = {
                 action: 'DELETE',
                 entityType: 'BOARD',
                 entityId: boardId,
-                oldValue: `Quadro removido: ${board.name}`,
+                oldValue: { name: board.name },
                 tx
             })
 

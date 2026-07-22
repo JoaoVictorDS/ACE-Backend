@@ -24,6 +24,7 @@ class NotificationPresenter {
                 type: notification.entity_type,
                 id: notification.entity_id,
             },
+            action: notification.action,
             message: messageText,
             preview: meta.text || null,
             changes: meta.changes || null,

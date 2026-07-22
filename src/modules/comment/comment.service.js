@@ -15,7 +15,6 @@ const CommentService = {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.VIEW)
         const userId = user.id
         const { title: itemTitle } = await ItemRepository.findItemTitle(itemId)
-
         const newComment = await CommentRepository.create(itemId, userId, content)
 
         LogService.register({
@@ -24,8 +23,8 @@ const CommentService = {
             boardId,
             action: 'CREATE',
             entityType: 'COMMENT',
-            entityId: itemId,
-            newValue: `Comentário criado: ${MentionService.sanitize(content, 50)}`
+            entityId: newComment.id,
+            newValue: { content }
         })
 
         MentionService.process({
@@ -33,18 +32,19 @@ const CommentService = {
             boardId,
             itemId,
             itemTitle,
+            entityId: newComment.id,
+            entityType: 'COMMENT',
             text: content,
-            context: 'comment'
         })
 
         appEventEmitter.emit('item.action', {
             actor: user,
             boardId,
             itemId,
-            entityType: 'COMMENT',
             entityId: newComment.id,
+            entityType: 'COMMENT',
             action: NOTIFICATION_TYPES.COMMENT_CREATED,
-            content: { text: MentionService.sanitize(content, 50) }
+            content: { text: content }
         })
 
         emitToRoom(`board:${boardId}`, 'comment:created', newComment)
@@ -60,19 +60,14 @@ const CommentService = {
 
     async update({ user, commentId, content }) {
         const userId = user.id
-
         const current = await CommentRepository.findById(commentId)
         if (!current)
             throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COMMENT)
-
         const isOwner = current.user_id === userId
         if (!isOwner)
             throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('editar', 'COMMENT'))
-
         const { boardId, workspaceId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.ITEM, current.item_id)
-
         if (current.content === content) return CommentPresenter.update(current)
-
         const updatedComment = await CommentRepository.update(commentId, content)
 
         LogService.register({
@@ -82,8 +77,8 @@ const CommentService = {
             action: 'UPDATE',
             entityType: 'COMMENT',
             entityId: commentId,
-            oldValue: MentionService.sanitize(current.content, 50),
-            newValue: MentionService.sanitize(content, 50)
+            oldValue: { content: current.content },
+            newValue: { content }
         })
 
         MentionService.process({
@@ -91,17 +86,18 @@ const CommentService = {
             boardId,
             itemId: current.item_id,
             itemTitle: current.item.title,
+            entityId: commentId,
+            entityType: 'COMMENT',
             text: content,
             oldText: current.content,
-            context: 'comment'
         })
 
         appEventEmitter.emit('item.action', {
             actor: user,
             boardId,
             itemId: current.item_id,
-            entityType: 'COMMENT',
             entityId: commentId,
+            entityType: 'COMMENT',
             action: NOTIFICATION_TYPES.COMMENT_UPDATED,
             content: null
         })
@@ -133,7 +129,7 @@ const CommentService = {
             action: 'DELETE',
             entityType: 'COMMENT',
             entityId: commentId,
-            oldValue: comment.content
+            oldValue: { content: comment.content }
         })
 
         appEventEmitter.emit('item.action', {

@@ -64,12 +64,12 @@ const NotificationDictionary = {
     'COMMENT_DELETED': (actorName, meta) =>
         `** ${actorName}** removeu um comentário da tarefa ** ${meta.itemTitle}**`,
 
-    'USER_MENTIONED': (actorName, meta) => {
-        if (meta.context === 'comment') {
-            return `** ${actorName}** mencionou você em um comentário na tarefa ** ${meta.itemTitle}**`
-        }
-        return `** ${actorName}** mencionou você na tarefa ** ${meta.itemTitle}**`
-    },
+    'ITEM_UPDATE_USER_MENTIONED': (actorName, meta) =>
+        `** ${actorName}** mencionou você em uma atualização de item na tarefa ** ${meta.itemTitle}**`,
+
+    'COMMENT_USER_MENTIONED': (actorName, meta) =>
+        `** ${actorName}** mencionou você em um comentário na tarefa ** ${meta.itemTitle}**`,
+
 
     'DEFAULT': (actorName) =>
         `** ${actorName}** realizou uma nova ação`

@@ -21,7 +21,7 @@ const WorkspaceService = {
             action: 'CREATE',
             entityType: 'WORKSPACE',
             entityId: newWorkspace.id,
-            newValue: `Área de trabalho criada: ${name}`
+            newValue: { name }
         })
 
         return newWorkspace
@@ -82,8 +82,8 @@ const WorkspaceService = {
             action: 'UPDATE',
             entityType: 'WORKSPACE',
             entityId: workspaceId,
-            oldValue: changes.map(c => `${c.field}: "${c.old}"`).join(' | '),
-            newValue: changes.map(c => `${c.field}: "${c.new}"`).join(' | ')
+            oldValue: Object.fromEntries(changes.map(c => [c.field, c.old])),
+            newValue: Object.fromEntries(changes.map(c => [c.field, c.new]))
         })
 
         return updatedWorkspace
@@ -109,7 +109,7 @@ const WorkspaceService = {
                 action: 'DELETE',
                 entityType: 'WORKSPACE',
                 entityId: workspaceId,
-                oldValue: `Área de trabalho removida: ${workspace.name}`,
+                oldValue: { name: workspace.name },
                 tx
             })
 

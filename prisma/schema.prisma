@@ -47,6 +47,7 @@ enum EntityType {
   BOARD
   SECTION
   COLUMN
+  COLUMN_RESTRICTION
   ITEM
   ITEM_VALUE
   ITEM_UPDATE
@@ -249,17 +250,16 @@ model ItemAssignee {
 }
 
 model ItemUpdate {
-  id      Int  @id @default(autoincrement())
-  item_id Int  @map("item_id")
-  item    Item @relation(fields: [item_id], references: [id], onDelete: Cascade)
-  user_id Int  @map("user_id")
-  user    User @relation(fields: [user_id], references: [id])
+  id        Int         @id @default(autoincrement())
+  item_id   Int         @map("item_id")
+  item      Item        @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  user_id   Int         @map("user_id")
+  user      User        @relation(fields: [user_id], references: [id])
+  parent_id Int?        @map("parent_id")
+  parent    ItemUpdate? @relation("ThreadReplies", fields: [parent_id], references: [id], onDelete: Cascade)
+  content   String      @db.Text
 
-  content String @db.Text
-
-  parent_id Int?         @map("parent_id")
-  parent    ItemUpdate?  @relation("ThreadReplies", fields: [parent_id], references: [id], onDelete: Cascade)
-  replies   ItemUpdate[] @relation("ThreadReplies")
+  replies ItemUpdate[] @relation("ThreadReplies")
 
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
@@ -268,12 +268,16 @@ model ItemUpdate {
 }
 
 model Comment {
-  id      Int    @id @default(autoincrement())
-  item_id Int    @map("item_id")
-  item    Item   @relation(fields: [item_id], references: [id], onDelete: Cascade)
-  user_id Int    @map("user_id")
-  user    User   @relation(fields: [user_id], references: [id])
-  content String @db.Text
+  id        Int      @id @default(autoincrement())
+  item_id   Int      @map("item_id")
+  item      Item     @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  user_id   Int      @map("user_id")
+  user      User     @relation(fields: [user_id], references: [id])
+  parent_id Int?     @map("parent_id")
+  parent    Comment? @relation("ThreadReplies", fields: [parent_id], references: [id], onDelete: Cascade)
+  content   String   @db.Text
+
+  replies Comment[] @relation("ThreadReplies")
 
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
@@ -353,13 +357,16 @@ model ActivityLog {
   action      ActivityAction
   entity_type EntityType     @map("entity_type")
   entity_id   Int            @map("entity_id")
-  old_value   String?        @map("old_value")
-  new_value   String?        @map("new_value")
+  old_value   Json?
+  new_value   Json?
+  payload     Json?
 
   created_at DateTime @default(now()) @map("created_at")
 
   @@index([workspace_id])
   @@index([board_id])
   @@index([entity_type, entity_id])
+  @@index([user_id])
+  @@index([created_at])
   @@map("activity_logs")
 }
