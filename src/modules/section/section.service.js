@@ -19,7 +19,7 @@ const SectionService = {
         })
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             workspaceId,
             boardId,
             action: 'CREATE',
@@ -51,7 +51,7 @@ const SectionService = {
         const updatedSection = await SectionRepository.update(sectionId, name)
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             workspaceId,
             boardId,
             action: 'UPDATE',
@@ -83,7 +83,7 @@ const SectionService = {
         })
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             workspaceId,
             boardId,
             action: 'DELETE',
@@ -120,7 +120,7 @@ const SectionService = {
         })
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             workspaceId,
             boardId,
             action: 'MOVE',

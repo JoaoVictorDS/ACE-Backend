@@ -40,6 +40,7 @@ enum ActivityAction {
   UPDATE
   DELETE
   MOVE
+  RESTORE
 }
 
 enum EntityType {
@@ -218,6 +219,7 @@ model Item {
 }
 
 model ItemValue {
+  id        Int    @id @default(autoincrement())
   item_id   Int    @map("item_id")
   item      Item   @relation(fields: [item_id], references: [id], onDelete: Cascade)
   column_id Int    @map("column_id")
@@ -227,7 +229,7 @@ model ItemValue {
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
-  @@id([item_id, column_id])
+  @@unique([item_id, column_id])
   @@index([column_id])
   @@map("item_values")
 }
@@ -323,20 +325,19 @@ model BoardMember {
 
 model Notification {
   id          Int        @id @default(autoincrement())
-  user_id     Int        @map("user_id")
   actor_id    Int        @map("actor_id")
+  actor       User       @relation("Actor", fields: [actor_id], references: [id])
+  user_id     Int        @map("user_id")
+  user        User       @relation("Recipient", fields: [user_id], references: [id])
   item_id     Int?       @map("item_id")
+  item        Item?      @relation(fields: [item_id], references: [id], onDelete: Cascade)
   entity_type EntityType @map("entity_type")
   entity_id   Int        @map("entity_id")
   action      String
-  content     String?
+  payload     Json?
 
   is_read    Boolean  @default(false) @map("is_read")
   created_at DateTime @default(now()) @map("created_at")
-
-  user  User  @relation("Recipient", fields: [user_id], references: [id])
-  actor User  @relation("Actor", fields: [actor_id], references: [id])
-  item  Item? @relation(fields: [item_id], references: [id], onDelete: Cascade)
 
   @@index([user_id, is_read])
   @@index([item_id])
@@ -344,29 +345,24 @@ model Notification {
 }
 
 model ActivityLog {
-  id      Int  @id @default(autoincrement())
-  user_id Int  @map("user_id")
-  user    User @relation(fields: [user_id], references: [id])
-
-  workspace_id Int?       @map("workspace_id")
-  workspace    Workspace? @relation(fields: [workspace_id], references: [id], onDelete: SetNull)
-
-  board_id Int?   @map("board_id")
-  board    Board? @relation(fields: [board_id], references: [id], onDelete: SetNull)
-
-  action      ActivityAction
-  entity_type EntityType     @map("entity_type")
-  entity_id   Int            @map("entity_id")
-  old_value   Json?
-  new_value   Json?
-  payload     Json?
+  id           Int            @id @default(autoincrement())
+  actor_id     Int            @map("actor_id")
+  actor        User           @relation(fields: [actor_id], references: [id])
+  workspace_id Int?           @map("workspace_id")
+  workspace    Workspace?     @relation(fields: [workspace_id], references: [id], onDelete: SetNull)
+  board_id     Int?           @map("board_id")
+  board        Board?         @relation(fields: [board_id], references: [id], onDelete: SetNull)
+  action       ActivityAction
+  entity_type  EntityType     @map("entity_type")
+  entity_id    Int            @map("entity_id")
+  payload      Json?
 
   created_at DateTime @default(now()) @map("created_at")
 
+  @@index([actor_id])
   @@index([workspace_id])
   @@index([board_id])
   @@index([entity_type, entity_id])
-  @@index([user_id])
   @@index([created_at])
   @@map("activity_logs")
 }

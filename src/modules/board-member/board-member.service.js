@@ -5,7 +5,7 @@ const WorkspaceMemberRepository = require('../workspace-member/workspace-member.
 const UserRepository = require('../user/user.repository')
 const { PermissionService } = require('../../shared/services')
 const { TransactionManager } = require('../../shared/database')
-const { AuthorizationError, NotFoundError, ConflictError } = require('../../shared/errors')
+const { AuthorizationError, NotFoundError, ConflictError, ValidationError } = require('../../shared/errors')
 const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
@@ -38,7 +38,7 @@ const BoardMemberService = {
         const { id: targetUserId, name: targetUserName } = targetUser
         const isWorkspaceMember = await WorkspaceMemberRepository.isWorkspaceMember(targetUserId, workspaceId)
 
-        if (!isWorkspaceMember) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.NOT_MEMBER('WORKSPACE'))
+        if (!isWorkspaceMember) throw new ValidationError(ERROR_CATALOG.VALIDATION.USER_NOT_WORKSPACE_MEMBER)
         if (targetUserId === userId) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('alterar sua própria permissão'))
         if (targetUserId === creatorId) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('alterar o cargo do proprietário'))
 
@@ -63,7 +63,7 @@ const BoardMemberService = {
 
         if (!existingMember) {
             LogService.register({
-                userId,
+                actorId: userId,
                 boardId,
                 workspaceId,
                 action: 'CREATE',
@@ -73,7 +73,7 @@ const BoardMemberService = {
             })
         } else if (existingMember.role !== role) {
             LogService.register({
-                userId,
+                actorId: userId,
                 boardId,
                 workspaceId,
                 action: 'UPDATE',
@@ -113,7 +113,7 @@ const BoardMemberService = {
         })
 
         LogService.register({
-            userId,
+            actorId: userId,
             boardId,
             workspaceId: membership.board.workspace_id,
             action: 'DELETE',
@@ -157,7 +157,7 @@ const BoardMemberService = {
         })
 
         LogService.register({
-            userId,
+            actorId: userId,
             boardId,
             workspaceId: membership.board.workspace_id,
             action: 'DELETE',

@@ -305,6 +305,11 @@ const ERROR_CATALOG = {
             code: 'VALIDATION_ERROR',
             message: 'Cor deve ser um valor hexadecimal válido (ex: #3b82f6)',
         },
+        USER_NOT_WORKSPACE_MEMBER: {
+            status: 400,
+            code: 'USER_NOT_WORKSPACE_MEMBER',
+            message: 'O usuário precisa ser membro da área de trabalho para ser adicionado ao quadro',
+        },
     },
 
     // ═══════════════════════════════════════════════════════════════

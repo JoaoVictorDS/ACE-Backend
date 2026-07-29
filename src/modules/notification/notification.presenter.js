@@ -4,30 +4,26 @@ const logger = require('../../config/logger')
 class NotificationPresenter {
 
     static format(notification) {
-        const parsedMeta = this._parseContent(notification.content)
-        const meta = {
-            ...parsedMeta,
-            itemTitle: notification.item?.title || 'Tarefa Removida'
-        }
+        const meta = this._parseContent(notification.payload)
         const messageText = this._buildMessage(notification, meta)
 
         return {
             id: notification.id,
-            item_id: notification.item_id,
             is_read: notification.is_read,
-            created_at: notification.created_at,
             actor: {
                 id: notification.actor.id,
                 name: notification.actor.name,
+                email: notification.actor.email
             },
+            item_id: notification.item_id,
             entity: {
                 type: notification.entity_type,
                 id: notification.entity_id,
             },
             action: notification.action,
             message: messageText,
-            preview: meta.text || null,
-            changes: meta.changes || null,
+            payload: notification.payload,
+            created_at: notification.created_at,
         }
     }
 
@@ -50,7 +46,6 @@ class NotificationPresenter {
     static _buildMessage(notification, meta) {
         const templateFunction =
             NotificationDictionary[notification.action] ||
-            NotificationDictionary[`${notification.entity_type}_${notification.action}`] ||
             NotificationDictionary['DEFAULT']
 
         return templateFunction(notification.actor.name, meta, notification.user_id)

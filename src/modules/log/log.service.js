@@ -2,39 +2,24 @@ const { logger } = require('../../config')
 const LogRepository = require('./log.repository')
 const { PERMISSION_LEVELS, RESOURCE_TYPES } = require('../../shared/constants')
 const { PermissionService, PaginationService } = require('../../shared/services')
+const LogPresenter = require('./log.presenter')
 
 const LogService = {
 
-    async register({ userId, workspaceId, boardId, action, entityType, entityId, oldValue = null, newValue = null, tx = null }) {
+    async register({ actor, boardId, logAction, entityType, entityId, logPayload }, tx = null) {
         try {
-            const formatValue = (val) => {
-                if (val === null || val === undefined) return null
-                if (typeof val === 'object') {
-                    try {
-                        return JSON.stringify(val).substring(0, 500)
-                    } catch {
-                        return '[Object]'
-                    }
-                }
-                return String(val).substring(0, 500)
-            }
-
             await LogRepository.create({
-                user_id: userId,
-                workspace_id: workspaceId,
+                actor_id: actor.id,
+                workspace_id: logPayload.resource.workspaceId,
                 board_id: boardId,
-                action,
+                action: logAction,
+                entity_id: entityId,
                 entity_type: entityType,
-                entity_id: parseInt(entityId),
-                old_value: formatValue(oldValue),
-                new_value: formatValue(newValue),
+                payload: logPayload
             }, tx)
 
         } catch (error) {
-            logger.error(
-                { error: error.message, userId, workspaceId, boardId, action, entityType, entityId },
-                'Activity log registration failed'
-            )
+            logger.error({ error: error.message }, 'Registro de Activity log falhou')
         }
     },
 
@@ -44,8 +29,9 @@ const LogService = {
             LogRepository.findByWorkspacePaginated(workspaceId, page, limit),
             LogRepository.countByWorkspace(workspaceId)
         ])
+        const formattedLogs = LogPresenter.formatMany(data)
 
-        return PaginationService.createPaginatedResponse(data, total, page, limit)
+        return PaginationService.createPaginatedResponse(formattedLogs, total, page, limit)
     },
 
     async getByBoard({ user, boardId, page, limit }) {
@@ -54,8 +40,9 @@ const LogService = {
             LogRepository.findByBoardPaginated(boardId, page, limit),
             LogRepository.countByBoard(boardId)
         ])
+        const formattedLogs = LogPresenter.formatMany(data)
 
-        return PaginationService.createPaginatedResponse(data, total, page, limit)
+        return PaginationService.createPaginatedResponse(formattedLogs, total, page, limit)
     },
 
 }

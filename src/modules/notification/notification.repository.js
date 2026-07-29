@@ -19,7 +19,7 @@ const NotificationRepository = {
             skip,
             include: {
                 item: { select: { id: true, title: true } },
-                actor: { select: { id: true, name: true } }
+                actor: { select: { id: true, name: true, email: true } }
             },
             orderBy: { created_at: 'desc' }
         })

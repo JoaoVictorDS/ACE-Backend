@@ -1,78 +1,126 @@
 const NotificationDictionary = {
 
-    'ITEM_CREATED': (actorName, meta) =>
-        `**${actorName}** criou a tarefa **${meta.itemTitle}**`,
+    ITEM_CREATED: (actorName, meta) =>
+        `**${actorName}** criou a tarefa **${meta.resource.item.title}**`,
 
-    'ITEM_UPDATED': (actorName, meta, recipientId) => {
-        const { itemTitle, changes } = meta || {}
+    ITEM_UPDATED: (actorName, meta) => {
+        const { item } = meta.resource
+        const { fields } = meta.changes || {}
 
-        if (!changes || typeof changes !== 'object') {
-            return `**${actorName}** atualizou a tarefa **${itemTitle}**`
+        if (!fields?.length) {
+            return `**${actorName}** atualizou a tarefa **${item.title}**`
         }
 
-        const { field, label, oldValue, newValue, isAssignee, addedUserIds, removedUserIds } = changes
-
-        if (field === 'system_title') {
-            return `**${actorName}** renomeou a tarefa de "${oldValue}" para **"${newValue}"**`
-        }
-
-        if (isAssignee) {
-            if (recipientId && removedUserIds?.includes(recipientId)) {
-                return `**${actorName}** removeu **você** da tarefa **${itemTitle}**`
+        if (fields.length === 1) {
+            const [change] = fields
+            if (change.field === 'title') {
+                return `**${actorName}** renomeou **${change.before}** para **${change.after}**`
             }
-
-            if (recipientId && addedUserIds?.includes(recipientId)) {
-                return `**${actorName}** designou **você** para a tarefa **${itemTitle}**`
-            }
-
-            return `**${actorName}** alterou **${label}** de "${oldValue}" para "${newValue}" em **${itemTitle}**`
+            return `**${actorName}** alterou **${change.label}** em **${item.title}**`
         }
 
-        if (field === 'custom_column') {
-            const safeOld = oldValue || 'vazio'
-            const safeNew = newValue || 'vazio'
-            return `**${actorName}** alterou **${label}** de "${safeOld}" para "${safeNew}" em **${itemTitle}**`
-        }
-
-        return `**${actorName}** atualizou a tarefa **${itemTitle}**`
+        const labels = fields.map(f => `**${f.label}**`).join(' e ')
+        return `**${actorName}** atualizou ${labels} em **${item.title}**`
     },
 
-    'ITEM_DELETED': (actorName, meta) =>
-        `**${actorName}** removeu a tarefa: **${meta.itemTitle}**`,
+    ITEM_DELETED: (actorName, meta) =>
+        `**${actorName}** removeu a tarefa **${meta.resource.item.title}**`,
 
-    'ITEM_MOVED': (actorName, meta) =>
-        `**${actorName}** moveu **${meta.itemTitle}** para outra seção`,
+    ITEM_MOVED: (actorName, meta) =>
+        `**${actorName}** moveu **${meta.resource.item.title}** para outra seção`,
 
-    'ITEM_ASSIGNED': (actorName, meta) =>
-        `**${actorName}** designou você para a tarefa **${meta.itemTitle}**`,
+    // ─── ITEM VALUE ────────────────────────────────────────────────────────────
 
-    'ITEM_UPDATE_CREATED': (actorName, meta) =>
-        `**${actorName}** adicionou uma nova atualização na tarefa **${meta.itemTitle}**`,
+    ITEM_VALUE_CREATED: (actorName, meta, recipientId) => {
+        const { item, column } = meta.resource
+        const { after, addedUserIds } = meta.changes || {}
 
-    'ITEM_UPDATE_UPDATED': (actorName, meta) =>
-        `**${actorName}** editou uma atualização na tarefa **${meta.itemTitle}**`,
+        if (column.dataType === 'USER') {
+            if (recipientId && addedUserIds?.includes(recipientId)) {
+                return `**${actorName}** designou **você** para a tarefa **${item.title}**`
+            }
+            return `**${actorName}** adicionou responsáveis em **${item.title}**`
+        }
 
-    'ITEM_UPDATE_DELETED': (actorName, meta) =>
-        `**${actorName}** removeu uma atualização da tarefa **${meta.itemTitle}**`,
+        return `**${actorName}** definiu **${column.name}** como **${after}** em **${item.title}**`
+    },
 
-    'COMMENT_CREATED': (actorName, meta) =>
-        `** ${actorName}** adicionou um comentário na tarefa ** ${meta.itemTitle}**`,
+    ITEM_VALUE_UPDATED: (actorName, meta, recipientId) => {
+        const { item, column } = meta.resource
+        const { before, after, addedUserIds, removedUserIds } = meta.changes || {}
 
-    'COMMENT_UPDATED': (actorName, meta) =>
-        `** ${actorName}** editou um comentário na tarefa ** ${meta.itemTitle}**`,
+        if (column.dataType === 'USER') {
+            if (recipientId && removedUserIds?.includes(recipientId)) {
+                return `**${actorName}** removeu **você** da tarefa **${item.title}**`
+            }
+            if (recipientId && addedUserIds?.includes(recipientId)) {
+                return `**${actorName}** designou **você** para a tarefa **${item.title}**`
+            }
+            return `**${actorName}** atualizou os responsáveis em **${item.title}**`
+        }
 
-    'COMMENT_DELETED': (actorName, meta) =>
-        `** ${actorName}** removeu um comentário da tarefa ** ${meta.itemTitle}**`,
+        if (column.dataType === 'LONG_TEXT') {
+            return `**${actorName}** atualizou **${column.name}** em **${item.title}**`
+        }
 
-    'ITEM_UPDATE_USER_MENTIONED': (actorName, meta) =>
-        `** ${actorName}** mencionou você em uma atualização de item na tarefa ** ${meta.itemTitle}**`,
+        return `**${actorName}** alterou **${column.name}** de **${before ?? 'vazio'}** para **${after ?? 'vazio'}** em **${item.title}**`
+    },
 
-    'COMMENT_USER_MENTIONED': (actorName, meta) =>
-        `** ${actorName}** mencionou você em um comentário na tarefa ** ${meta.itemTitle}**`,
+    ITEM_VALUE_DELETED: (actorName, meta, recipientId) => {
+        const { item, column } = meta.resource
+        const { before, removedUserIds } = meta.changes || {}
 
+        if (column.dataType === 'USER') {
+            if (recipientId && removedUserIds?.includes(recipientId)) {
+                return `**${actorName}** removeu **você** da tarefa **${item.title}**`
+            }
+            return `**${actorName}** removeu responsáveis de **${item.title}**`
+        }
 
-    'DEFAULT': (actorName) =>
-        `** ${actorName}** realizou uma nova ação`
+        return `**${actorName}** removeu **${before}** de **${column.name}** em **${item.title}**`
+    },
+
+    // ─── COMMENTS ──────────────────────────────────────────────────────────────
+
+    COMMENT_CREATED: (actorName, meta) =>
+        `**${actorName}** adicionou um comentário em **${meta.resource.item.title}**`,
+
+    COMMENT_UPDATED: (actorName, meta) =>
+        `**${actorName}** editou um comentário em **${meta.resource.item.title}**`,
+
+    COMMENT_DELETED: (actorName, meta) =>
+        `**${actorName}** removeu um comentário de **${meta.resource.item.title}**`,
+
+    // ─── ITEM UPDATES ──────────────────────────────────────────────────────────
+
+    ITEM_UPDATE_CREATED: (actorName, meta) =>
+        `**${actorName}** adicionou uma atualização em **${meta.resource.item.title}**`,
+
+    ITEM_UPDATE_UPDATED: (actorName, meta) =>
+        `**${actorName}** editou uma atualização em **${meta.resource.item.title}**`,
+
+    ITEM_UPDATE_DELETED: (actorName, meta) =>
+        `**${actorName}** removeu uma atualização de **${meta.resource.item.title}**`,
+
+    // ─── MENTIONS ──────────────────────────────────────────────────────────────
+
+    USER_MENTIONED: (actorName, meta) => {
+        const { item, mentionSource } = meta.resource
+
+        const locationMap = {
+            comment: `em um comentário em **${item.title}**`,
+            item_update: `em uma atualização de **${item.title}**`,
+            description: `na descrição de **${item.title}**`,
+        }
+
+        const location = locationMap[mentionSource] ?? `em **${item.title}**`
+        return `**${actorName}** mencionou você ${location}`
+    },
+
+    // ─── FALLBACK ──────────────────────────────────────────────────────────────
+
+    DEFAULT: (actorName) =>
+        `**${actorName}** realizou uma nova ação`,
 }
 
 module.exports = NotificationDictionary

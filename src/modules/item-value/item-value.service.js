@@ -5,14 +5,18 @@ const LogService = require('../log/log.service')
 const ItemValueRepository = require('./item-value.repository')
 const ColumnRepository = require('../column/column.repository')
 const UserRepository = require('../user/user.repository')
-const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const ItemRepository = require('../item/item.repository')
+const ItemValuePresenter = require('./item-value.presenter.js')
+const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { PermissionService } = require('../../shared/services')
 const { TransactionManager } = require('../../shared/database')
+const { ActionBuilder, Changes } = require('../../shared/builders')
 
 const ItemValueService = {
 
     async upsert({ user, itemId, columnId, value }) {
         const { workspaceId, boardId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.EDIT)
+
         const sanitizedValue = await ColumnService.validateValue(user, boardId, columnId, value)
 
         const [currentItemValue, column] = await Promise.all([
@@ -22,27 +26,30 @@ const ItemValueService = {
 
         const oldValue = currentItemValue?.value || ''
         const isSameValue = oldValue === sanitizedValue
-        const isDeleting = sanitizedValue === ''
-        const toDTO = (dbRecord) => ({
-            item_id: itemId,
-            column_id: columnId,
-            value: dbRecord?.value || ''
-        })
-
         if (isSameValue) return {
             action: 'UNCHANGED',
-            data: toDTO(currentItemValue)
+            data: ItemValuePresenter.upsert({
+                id: currentItemValue?.id,
+                item_id: itemId,
+                column_id: columnId,
+                value: sanitizedValue,
+                created_at: currentItemValue?.created_at,
+                updated_at: currentItemValue?.updated_at
+            })
         }
+        const isDeleting = sanitizedValue === ''
+        const action = isDeleting ? 'DELETE' : (currentItemValue ? 'UPDATE' : 'CREATE')
+        const isUserColumn = column.data_type === 'USER'
 
         const result = await TransactionManager.run(async (tx) => {
             let record = null
+
             if (isDeleting) {
                 await ItemValueRepository.delete(itemId, columnId, tx)
             } else {
                 record = await ItemValueRepository.upsertValue(itemId, columnId, sanitizedValue, tx)
             }
-
-            if (column.data_type === 'USER') {
+            if (isUserColumn) {
                 await ItemAssigneeService.sync(tx, {
                     itemId, boardId, columnId, oldValue, newValue: sanitizedValue
                 })
@@ -51,12 +58,9 @@ const ItemValueService = {
             return record
         })
 
-        const itemTitle = currentItemValue?.item.title || ''
-        let formattedOld = oldValue || 'vazio'
-        let formattedNew = sanitizedValue || 'vazio'
-        let notificationContent = { field: 'custom_column', label: column.name }
+        let changes
 
-        if (column.data_type === 'USER') {
+        if (isUserColumn) {
             const extractIds = (val) => val ? val.split(',').map(id => Number(id.trim())).filter(id => id > 0) : []
             const oldIds = extractIds(oldValue)
             const newIds = extractIds(sanitizedValue)
@@ -68,56 +72,55 @@ const ItemValueService = {
                 userMap = new Map(fetchedUsers.map(u => [u.id, u.name]))
             }
 
-            const formatUsers = (ids) => ids.map(id => userMap.get(id) || 'Usuário removido').join(', ')
-            formattedOld = formatUsers(oldIds)
-            formattedNew = formatUsers(newIds)
+            const formatUsers = (ids) => ids.map(id => userMap.get(id)).join(', ')
+            const formattedOld = formatUsers(oldIds)
+            const formattedNew = formatUsers(newIds)
 
-            notificationContent = {
-                ...notificationContent,
-                isAssignee: true,
-                addedUserIds: newIds.filter(id => !oldIds.includes(id)),
-                removedUserIds: oldIds.filter(id => !newIds.includes(id)),
-                oldValue: formattedOld,
-                newValue: formattedNew
+            const addedUserIds = newIds.filter(id => !oldIds.includes(id))
+            const removedUserIds = oldIds.filter(id => !newIds.includes(id))
+
+            const userFactories = {
+                CREATE: () => Changes.userCreated({ after: formattedNew, addedUserIds }),
+                UPDATE: () => Changes.userUpdated({ before: formattedOld, after: formattedNew, addedUserIds, removedUserIds }),
+                DELETE: () => Changes.userDeleted({ before: formattedOld, removedUserIds })
             }
+            changes = userFactories[action]()
         } else {
-            notificationContent = { ...notificationContent, oldValue: formattedOld, newValue: formattedNew }
+            const valueFactories = {
+                CREATE: () => Changes.created(sanitizedValue),
+                UPDATE: () => Changes.updated(oldValue, sanitizedValue),
+                DELETE: () => Changes.deleted(oldValue)
+            }
+            changes = valueFactories[action]()
         }
 
-        LogService.register({
-            userId: user.id,
-            workspaceId,
-            boardId,
-            action: isDeleting ? 'DELETE' : (currentItemValue ? 'UPDATE' : 'CREATE'),
-            entityType: 'ITEM_VALUE',
-            entityId: itemId,
-            oldValue: { value: formattedOld },
-            newValue: { value: formattedNew }
-        })
+        const { title } = await ItemRepository.findItemTitle(itemId)
+        const entityId = result?.id ?? currentItemValue?.id
+        const record = new ActionBuilder({ actor: user, workspaceId, boardId })
+            .entity(entityId, ENTITY_TYPES.ITEM_VALUE)
+            .forItem(itemId, title)
+            .withAction(action)
+            .withColumn({ id: column.id, name: column.name, dataType: column.data_type })
+            .withChanges(changes)
+            .build()
 
-        appEventEmitter.emit('item.action', {
-            actor: user,
-            boardId,
-            itemId,
-            entityType: 'ITEM_VALUE',
-            entityId: itemId,
-            action: NOTIFICATION_TYPES.ITEM_VALUE_UPDATED,
-            content: {
-                id: [itemId, columnId],
-                changes: notificationContent
-            }
-        })
+        LogService.register(record)
+
+        appEventEmitter.emit('item.action', record)
 
         const response = {
-            action: isDeleting ? 'DELETED' : (currentItemValue ? 'UPDATED' : 'CREATED'),
-            data: toDTO(result)
+            action,
+            data: ItemValuePresenter.upsert({
+                id: entityId,
+                item_id: itemId,
+                column_id: columnId,
+                value: sanitizedValue,
+                created_at: result?.created_at ?? currentItemValue.created_at,
+                updated_at: result?.updated_at ?? currentItemValue.updated_at,
+            })
         }
 
-        emitToRoom(`board:${boardId}`, 'item_value:changed', {
-            id: [itemId, columnId],
-            action: response.action,
-            value: response.data.value
-        })
+        emitToRoom(`board:${boardId}`, 'item_value:changed', response.data)
 
         return response
     },

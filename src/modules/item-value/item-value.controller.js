@@ -15,9 +15,9 @@ const ItemValueController = {
         })
 
         const statusMap = {
-            'CREATED': 201,
-            'UPDATED': 200,
-            'DELETED': 200,
+            'CREATE': 201,
+            'UPDATE': 200,
+            'DELETE': 200,
             'UNCHANGED': 200
         }
         const statusCode = statusMap[result.action] || 200

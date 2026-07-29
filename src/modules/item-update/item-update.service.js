@@ -6,8 +6,9 @@ const ItemUpdateRespository = require('./item-update.repository')
 const ItemUpdatePresenter = require('./item-update.presenter')
 const { AuthorizationError, NotFoundError } = require('../../shared/errors')
 const { PermissionService } = require('../../shared/services')
-const { RESOURCE_TYPES, PERMISSION_LEVELS, NOTIFICATION_TYPES } = require('../../shared/constants')
+const { RESOURCE_TYPES, PERMISSION_LEVELS, NOTIFICATION_TYPES, ENTITY_TYPES } = require('../../shared/constants')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
+const { ActionBuilder, Changes } = require('../../shared/builders')
 
 const ItemUpdateService = {
 
@@ -16,37 +17,16 @@ const ItemUpdateService = {
         const userId = user.id
         const { title: itemTitle } = await ItemRepository.findItemTitle(itemId)
         const newItemUpdate = await ItemUpdateRespository.create(userId, itemId, content)
+        const record = new ActionBuilder({ actor: user, workspaceId, boardId })
+            .entity(newItemUpdate.id, ENTITY_TYPES.ITEM_UPDATE)
+            .forItem(itemId, itemTitle)
+            .withAction('CREATE')
+            .withChanges(Changes.created(content))
+            .build()
 
-        LogService.register({
-            userId,
-            workspaceId,
-            boardId,
-            action: 'CREATE',
-            entityType: 'ITEM_UPDATE',
-            entityId: newItemUpdate.id,
-            newValue: { content }
-        })
-
-        MentionService.process({
-            actor: user,
-            boardId,
-            itemId,
-            itemTitle,
-            entityId: newItemUpdate.id,
-            entityType: 'ITEM_UPDATE',
-            text: content
-        })
-
-        appEventEmitter.emit('item.action', {
-            actor: user,
-            boardId,
-            itemId,
-            entityId: newItemUpdate.id,
-            entityType: 'ITEM_UPDATE',
-            action: NOTIFICATION_TYPES.ITEM_UPDATE_CREATED,
-            content: { text: content }
-        })
-
+        LogService.register(record)
+        MentionService.process(record)
+        appEventEmitter.emit('item.action', record)
         emitToRoom(`board:${boardId}`, 'item_update:created', newItemUpdate)
 
         return newItemUpdate
@@ -59,49 +39,31 @@ const ItemUpdateService = {
     },
 
     async update({ user, itemUpdateId, content }) {
-        const userId = user.id
         const current = await ItemUpdateRespository.findById(itemUpdateId)
         if (!current)
             throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.ITEM_UPDATE)
+
+        const userId = user.id
         const isOwner = current.user_id === userId
         if (!isOwner)
             throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('editar', 'ITEM_UPDATE'))
+
         const { boardId, workspaceId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.ITEM, current.item_id)
+
         if (current.content === content) return ItemUpdatePresenter.update(current)
+
         const updatedItemUpdate = await ItemUpdateRespository.update(itemUpdateId, content)
 
-        LogService.register({
-            userId,
-            workspaceId,
-            boardId,
-            action: 'UPDATE',
-            entityType: 'ITEM_UPDATE',
-            entityId: itemUpdateId,
-            oldValue: { content: current.content },
-            newValue: { content }
-        })
+        const record = new ActionBuilder({ actor: user, workspaceId, boardId })
+            .entity(itemUpdateId, ENTITY_TYPES.ITEM_UPDATE)
+            .forItem(current.item_id, current.item.title)
+            .withAction('UPDATE')
+            .withChanges(Changes.updated(current.content, content))
+            .build()
 
-        MentionService.process({
-            actor: user,
-            boardId,
-            itemId: current.item_id,
-            itemTitle: current.item.title,
-            entityId: itemUpdateId,
-            entityType: 'ITEM_UPDATE',
-            text: content,
-            oldText: current.content
-        })
-
-        appEventEmitter.emit('item.action', {
-            actor: user,
-            boardId,
-            itemId: current.item_id,
-            entityType: 'ITEM_UPDATE',
-            entityId: itemUpdateId,
-            action: NOTIFICATION_TYPES.ITEM_UPDATE_UPDATED,
-            content: null
-        })
-
+        LogService.register(record)
+        MentionService.process(record)
+        appEventEmitter.emit('item.action', record)
         emitToRoom(`board:${boardId}`, 'item_update:updated', updatedItemUpdate)
 
         return updatedItemUpdate
@@ -111,6 +73,7 @@ const ItemUpdateService = {
         const itemUpdate = await ItemUpdateRespository.findById(itemUpdateId)
         if (!itemUpdate)
             throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.ITEM_UPDATE)
+
         const { boardId, workspaceId, creatorId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.ITEM, itemUpdate.item_id)
         const userId = user.id
         const isOwner = itemUpdate.user_id === userId
@@ -118,28 +81,18 @@ const ItemUpdateService = {
         const isSystemAdmin = user.role === 'ADMIN'
         if (!isOwner && !isBoardOwner && !isSystemAdmin)
             throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('excluir', 'ITEM_UPDATE'))
+
         const deletedItemUpdate = await ItemUpdateRespository.delete(itemUpdateId)
 
-        LogService.register({
-            userId,
-            workspaceId,
-            boardId,
-            action: 'DELETE',
-            entityType: 'ITEM_UPDATE',
-            entityId: itemUpdateId,
-            oldValue: { content: itemUpdate.content }
-        })
+        const record = new ActionBuilder({ actor: user, workspaceId, boardId })
+            .entity(itemUpdateId, ENTITY_TYPES.ITEM_UPDATE)
+            .forItem(itemUpdate.item_id, itemUpdate.item.title)
+            .withAction('DELETE')
+            .withChanges(Changes.deleted(itemUpdate.content))
+            .build()
 
-        appEventEmitter.emit('item.action', {
-            actor: user,
-            boardId,
-            itemId: itemUpdate.item_id,
-            entityType: 'ITEM_UPDATE',
-            entityId: itemUpdateId,
-            action: NOTIFICATION_TYPES.ITEM_UPDATE_DELETED,
-            content: null
-        })
-
+        LogService.register(record)
+        appEventEmitter.emit('item.action', record)
         emitToRoom(`board:${boardId}`, 'item_update:deleted', { itemUpdateId })
 
         return deletedItemUpdate

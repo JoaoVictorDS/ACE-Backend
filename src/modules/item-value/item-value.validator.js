@@ -15,7 +15,7 @@ const upsertItemValueSchema = {
             z.array(z.union([z.string(), z.number()])),
             z.null(),
             z.undefined()
-        ])
+        ]).nonoptional('O campo "value" é obrigatório')
     })
 }
 

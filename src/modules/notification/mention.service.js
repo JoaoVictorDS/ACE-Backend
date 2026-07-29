@@ -16,10 +16,10 @@ const MentionService = {
         return cleanText
     },
 
-    async process({ actor, boardId, itemId, itemTitle, entityId, entityType, text, oldText = '' }) {
-        try {
-            if (!text || typeof text !== 'string') return
+    async process({ actor, boardId, itemId, entityId, entityType, notificationPayload }) {
+        const { before, after } = notificationPayload.changes
 
+        try {
             const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g
 
             const extractIds = (content) => {
@@ -33,8 +33,8 @@ const MentionService = {
                 return [...new Set(ids)]
             }
 
-            const currentIds = extractIds(text)
-            const previousIds = extractIds(oldText)
+            const currentIds = extractIds(after)
+            const previousIds = extractIds(before)
             const idsToNotify = currentIds.filter(id => !previousIds.includes(id))
 
             if (idsToNotify.length === 0) return
@@ -49,14 +49,12 @@ const MentionService = {
                 itemId,
                 entityId,
                 entityType,
-                action: NOTIFICATION_TYPES.USER_MENTIONED,
-                specificRecipients: finalIds,
-                content: {
-                    text: text
-                }
+                notificationAction: NOTIFICATION_TYPES.USER_MENTIONED,
+                notificationPayload: notificationPayload,
+                specificRecipients: finalIds
             })
         } catch (error) {
-            logger.warn({ error: error.message, boardId, itemId, actorId: actor?.id }, 'Mention processing failed')
+            logger.warn({ error: error.message }, 'Processo de Mention falhou')
         }
     }
 }

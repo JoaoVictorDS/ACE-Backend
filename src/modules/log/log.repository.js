@@ -24,7 +24,7 @@ const LogRepository = {
             where: { workspace_id: workspaceId },
             take: limit,
             skip,
-            include: { user: { select: { name: true, email: true } } },
+            include: { actor: { select: { id: true, name: true, email: true } } },
             orderBy: { created_at: 'desc' },
         })
     },
@@ -36,7 +36,7 @@ const LogRepository = {
             where: { board_id: boardId },
             take: limit,
             skip,
-            include: { user: { select: { name: true, email: true } } },
+            include: { actor: { select: { id: true, name: true, email: true } } },
             orderBy: { created_at: 'desc' },
         })
     },

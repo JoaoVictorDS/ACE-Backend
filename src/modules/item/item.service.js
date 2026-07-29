@@ -19,7 +19,7 @@ const ItemService = {
         })
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             workspaceId,
             boardId,
             action: 'CREATE',
@@ -64,7 +64,7 @@ const ItemService = {
         const updatedItem = await ItemRepository.update(itemId, title)
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             workspaceId,
             boardId,
             action: 'UPDATE',
@@ -109,7 +109,7 @@ const ItemService = {
         })
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             workspaceId,
             boardId,
             action: 'DELETE',
@@ -183,7 +183,7 @@ const ItemService = {
         })
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             workspaceId,
             boardId,
             action: 'MOVE',

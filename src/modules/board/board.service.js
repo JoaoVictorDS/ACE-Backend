@@ -5,7 +5,7 @@ const BoardRepository = require('./board.repository')
 const ItemRepository = require('../item/item.repository')
 const { NotFoundError, AuthorizationError, ConflictError } = require('../../shared/errors')
 const { TransactionManager } = require('../../shared/database')
-const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { PermissionService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
@@ -18,7 +18,7 @@ const BoardService = {
         const newBoard = await BoardRepository.create(name, workspaceId, userId, nextOrder)
 
         LogService.register({
-            userId,
+            actorId: userId,
             workspaceId,
             boardId: newBoard.id,
             action: 'CREATE',
@@ -129,7 +129,7 @@ const BoardService = {
         const updatedBoard = await BoardRepository.update(boardId, data)
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             boardId,
             workspaceId,
             action: 'UPDATE',

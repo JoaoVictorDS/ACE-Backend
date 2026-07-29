@@ -60,7 +60,7 @@ const ColumnService = {
         const result = await ColumnRepository.create(columnData)
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             workspaceId,
             boardId,
             action: 'CREATE',
@@ -152,7 +152,7 @@ const ColumnService = {
 
         if (changes.length > 0) {
             LogService.register({
-                userId: user.id,
+                actorId: user.id,
                 workspaceId,
                 boardId,
                 action: 'UPDATE',
@@ -189,7 +189,7 @@ const ColumnService = {
         await ColumnRepository.decrementOrderAfter(boardId, columnToDelete.order)
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             workspaceId,
             boardId,
             action: 'DELETE',
@@ -255,7 +255,7 @@ const ColumnService = {
         const result = await ColumnRepository.findRestrictions(columnId)
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             workspaceId,
             boardId,
             action: 'UPDATE',

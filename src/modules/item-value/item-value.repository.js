@@ -4,8 +4,7 @@ const ItemValueRepository = {
 
     async findByItemAndColumn(itemId, columnId) {
         return prisma.itemValue.findUnique({
-            where: { item_id_column_id: { item_id: itemId, column_id: columnId } },
-            include: { item: { select: { title: true } } }
+            where: { item_id_column_id: { item_id: itemId, column_id: columnId } }
         })
     },
 

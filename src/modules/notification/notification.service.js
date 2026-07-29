@@ -3,7 +3,6 @@ const ItemAssigneeRepository = require('../item/item-assignee.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const NotificationRepository = require('./notification.repository')
 const UserNotificationSettingRepository = require('../user-notification-setting/user-notification-setting.repository')
-const NotificationDictionary = require('./notification.dictionary')
 const NotificationPresenter = require('./notification.presenter')
 const { NotFoundError, AuthorizationError } = require('../../shared/errors')
 const { PaginationService } = require('../../shared/services')
@@ -12,12 +11,12 @@ const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 const NotificationService = {
 
     init() {
-        appEventEmitter.on('item.action', (payload) => this.handleItem(payload))
+        appEventEmitter.on('item.action', (record) => this.handleItem(record))
         logger.info('Notifications: Listeners ativos')
     },
 
-    async handleItem(payload) {
-        const { actor, boardId, itemId, entityType, entityId, action, content, specificRecipients } = payload
+    async handleItem(record) {
+        const { actor, boardId, itemId, entityId, entityType, notificationAction, notificationPayload, specificRecipients } = record
 
         try {
             const assignedUsersIdsSet = new Set()
@@ -32,11 +31,11 @@ const NotificationService = {
                 admins.forEach(a => assignedUsersIdsSet.add(a.user_id))
             }
 
-            if (content?.changes?.removedUserIds) {
-                content.changes.removedUserIds.forEach(id => assignedUsersIdsSet.add(id))
+            if (notificationPayload?.changes?.removedUserIds) {
+                notificationPayload.changes.removedUserIds.forEach(id => assignedUsersIdsSet.add(id))
             }
-            if (content?.changes?.addedUserIds) {
-                content.changes.addedUserIds.forEach(id => assignedUsersIdsSet.add(id))
+            if (notificationPayload?.changes?.addedUserIds) {
+                notificationPayload.changes.addedUserIds.forEach(id => assignedUsersIdsSet.add(id))
             }
 
             assignedUsersIdsSet.delete(actor.id)
@@ -51,7 +50,7 @@ const NotificationService = {
             )
 
             const finalAssignedUserIds = assignedUsersIds.filter(userId => {
-                const settingsForUser = userSettings.filter(s => s.user_id === userId && s.action_type === action)
+                const settingsForUser = userSettings.filter(s => s.user_id === userId && s.action_type === notificationAction)
                 const specificSetting = settingsForUser.find(s => s.board_id === boardId)
                 const globalSetting = settingsForUser.find(s => s.board_id === null)
 
@@ -66,18 +65,14 @@ const NotificationService = {
 
             if (finalAssignedUserIds.length === 0) return
 
-            const contentString = content && Object.keys(content).length > 0
-                ? JSON.stringify(content)
-                : null
-
             const notificationsData = finalAssignedUserIds.map(userId => ({
                 user_id: userId,
                 actor_id: actor.id,
                 item_id: itemId,
                 entity_type: entityType,
                 entity_id: entityId,
-                action: action,
-                content: contentString,
+                action: notificationAction,
+                payload: notificationPayload,
             }))
 
             await NotificationRepository.createMany(notificationsData)

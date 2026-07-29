@@ -68,7 +68,7 @@ const WorkspaceMemberService = {
 
         if (!existingMember) {
             LogService.register({
-                userId,
+                actorId: userId,
                 workspaceId,
                 action: 'CREATE',
                 entityType: 'MEMBER',
@@ -77,7 +77,7 @@ const WorkspaceMemberService = {
             })
         } else if (existingMember.role !== role) {
             LogService.register({
-                userId,
+                actorId: userId,
                 workspaceId,
                 action: 'UPDATE',
                 entityType: 'MEMBER',
@@ -118,7 +118,7 @@ const WorkspaceMemberService = {
         })
 
         LogService.register({
-            userId,
+            actorId: userId,
             workspaceId,
             action: 'DELETE',
             entityType: 'MEMBER',
@@ -163,7 +163,7 @@ const WorkspaceMemberService = {
         })
 
         LogService.register({
-            userId,
+            actorId: userId,
             workspaceId,
             action: 'DELETE',
             entityType: 'MEMBER',

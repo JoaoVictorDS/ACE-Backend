@@ -18,7 +18,7 @@ const CommentService = {
         const newComment = await CommentRepository.create(itemId, userId, content)
 
         LogService.register({
-            userId,
+            actorId: userId,
             workspaceId,
             boardId,
             action: 'CREATE',
@@ -71,7 +71,7 @@ const CommentService = {
         const updatedComment = await CommentRepository.update(commentId, content)
 
         LogService.register({
-            userId,
+            actorId: userId,
             workspaceId,
             boardId,
             action: 'UPDATE',
@@ -123,7 +123,7 @@ const CommentService = {
         const deletedComment = await CommentRepository.delete(commentId)
 
         LogService.register({
-            userId,
+            actorId: userId,
             workspaceId,
             boardId,
             action: 'DELETE',

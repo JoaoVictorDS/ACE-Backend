@@ -16,7 +16,7 @@ const WorkspaceService = {
         const newWorkspace = await WorkspaceRepository.create(userId, name, nextOrder)
 
         LogService.register({
-            userId,
+            actorId: userId,
             workspaceId: newWorkspace.id,
             action: 'CREATE',
             entityType: 'WORKSPACE',
@@ -77,7 +77,7 @@ const WorkspaceService = {
         const updatedWorkspace = await WorkspaceRepository.update(workspaceId, data)
 
         LogService.register({
-            userId: user.id,
+            actorId: user.id,
             workspaceId,
             action: 'UPDATE',
             entityType: 'WORKSPACE',
