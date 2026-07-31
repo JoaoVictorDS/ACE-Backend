@@ -21,16 +21,18 @@ const BoardRepository = {
 
     async findByIdWithStructure(boardId, userId) {
         return prisma.board.findUnique({
-            where: { id: boardId },
+            where: { id: boardId, deleted_at: null },
             include: {
                 board_members: {
                     where: { user_id: userId }
                 },
                 columns: {
+                    where: { deleted_at: null },
                     orderBy: [{ order: 'asc' }, { id: 'asc' }],
                     include: { restrictions: true }
                 },
                 sections: {
+                    where: { deleted_at: null },
                     orderBy: [{ order: 'asc' }, { id: 'asc' }],
                     include: {
                         items: {
@@ -52,24 +54,33 @@ const BoardRepository = {
 
     async findById(boardId) {
         return prisma.board.findUnique({
-            where: { id: boardId }
+            where: { id: boardId, deleted_at: null }
         })
     },
 
     async update(boardId, data) {
         return prisma.board.update({
-            where: { id: boardId },
+            where: { id: boardId, deleted_at: null },
             data
         })
     },
 
     async findBoardDeletionContext(boardId) {
         return prisma.board.findUnique({
-            where: { id: boardId },
+            where: { id: boardId, deleted_at: null },
             select: {
                 name: true,
                 _count: { select: { columns: true, sections: true } }
             }
+        })
+    },
+
+    async softDelete(boardId, tx = null) {
+        const client = tx || prisma
+
+        return client.board.update({
+            where: { id: boardId },
+            data: { deleted_at: new Date() }
         })
     },
 

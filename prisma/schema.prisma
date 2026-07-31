@@ -83,6 +83,7 @@ model User {
   notifications_received Notification[]            @relation("Recipient")
   notifications_sent     Notification[]            @relation("Actor")
   notification_settings  UserNotificationSetting[]
+  undoActions            UndoAction[]
 
   @@map("users")
 }
@@ -110,8 +111,9 @@ model Workspace {
   creator_id Int  @map("creator_id")
   creator    User @relation("WorkspaceCreator", fields: [creator_id], references: [id])
 
-  created_at DateTime @default(now()) @map("created_at")
-  updated_at DateTime @updatedAt @map("updated_at")
+  created_at DateTime  @default(now()) @map("created_at")
+  updated_at DateTime  @updatedAt @map("updated_at")
+  deleted_at DateTime? @map("deleted_at")
 
   boards            Board[]
   workspace_members WorkspaceMember[]
@@ -133,14 +135,16 @@ model Board {
   workspace_id Int       @map("workspace_id")
   workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
 
-  created_at DateTime @default(now()) @map("created_at")
-  updated_at DateTime @updatedAt @map("updated_at")
+  created_at DateTime  @default(now()) @map("created_at")
+  updated_at DateTime  @updatedAt @map("updated_at")
+  deleted_at DateTime? @map("deleted_at")
 
   columns               Column[]
   sections              Section[]
   board_members         BoardMember[]
   activities            ActivityLog[]
   notification_settings UserNotificationSetting[]
+  undoActions           UndoAction[]
 
   @@map("boards")
 }
@@ -152,8 +156,9 @@ model Section {
   name     String
   order    Int    @default(0)
 
-  created_at DateTime @default(now()) @map("created_at")
-  updated_at DateTime @updatedAt @map("updated_at")
+  created_at DateTime  @default(now()) @map("created_at")
+  updated_at DateTime  @updatedAt @map("updated_at")
+  deleted_at DateTime? @map("deleted_at")
 
   items Item[]
 
@@ -170,8 +175,9 @@ model Column {
   formula_expression String?        @map("formula_expression")
   order              Int            @default(0)
 
-  created_at DateTime @default(now()) @map("created_at")
-  updated_at DateTime @updatedAt @map("updated_at")
+  created_at DateTime  @default(now()) @map("created_at")
+  updated_at DateTime  @updatedAt @map("updated_at")
+  deleted_at DateTime? @map("deleted_at")
 
   item_values    ItemValue[]
   item_assignees ItemAssignee[]
@@ -204,8 +210,9 @@ model Item {
   title      String
   order      Int     @default(0)
 
-  created_at DateTime @default(now()) @map("created_at")
-  updated_at DateTime @updatedAt @map("updated_at")
+  created_at DateTime  @default(now()) @map("created_at")
+  updated_at DateTime  @updatedAt @map("updated_at")
+  deleted_at DateTime? @map("deleted_at")
 
   item_values   ItemValue[]
   comments      Comment[]
@@ -263,8 +270,9 @@ model ItemUpdate {
 
   replies ItemUpdate[] @relation("ThreadReplies")
 
-  created_at DateTime @default(now()) @map("created_at")
-  updated_at DateTime @updatedAt @map("updated_at")
+  created_at DateTime  @default(now()) @map("created_at")
+  updated_at DateTime  @updatedAt @map("updated_at")
+  deleted_at DateTime? @map("deleted_at")
 
   @@map("item_updates")
 }
@@ -281,8 +289,9 @@ model Comment {
 
   replies Comment[] @relation("ThreadReplies")
 
-  created_at DateTime @default(now()) @map("created_at")
-  updated_at DateTime @updatedAt @map("updated_at")
+  created_at DateTime  @default(now()) @map("created_at")
+  updated_at DateTime  @updatedAt @map("updated_at")
+  deleted_at DateTime? @map("deleted_at")
 
   @@index([item_id])
   @@index([created_at])
@@ -365,4 +374,25 @@ model ActivityLog {
   @@index([entity_type, entity_id])
   @@index([created_at])
   @@map("activity_logs")
+}
+
+model UndoAction {
+  id          Int            @id @default(autoincrement())
+  actor_id    Int            @map("actor_id")
+  actor       User           @relation(fields: [actor_id], references: [id])
+  board_id    Int            @map("board_id")
+  board       Board          @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  action      ActivityAction
+  entity_type EntityType     @map("entity_type")
+  entity_id   Int            @map("entity_id")
+  snapshot    Json?          @map("snapshot")
+  expires_at  DateTime       @map("expires_at")
+  consumed_at DateTime?      @map("consumed_at")
+
+  created_at DateTime @default(now()) @map("created_at")
+
+  @@index([actor_id, expires_at])
+  @@index([board_id])
+  @@index([entity_type, entity_id])
+  @@map("undo_actions")
 }

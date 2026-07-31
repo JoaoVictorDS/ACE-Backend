@@ -1,25 +1,69 @@
-const { logger } = require('../../config')
+const { appEventEmitter, logger } = require('../../config')
 const LogRepository = require('./log.repository')
 const { PERMISSION_LEVELS, RESOURCE_TYPES } = require('../../shared/constants')
 const { PermissionService, PaginationService } = require('../../shared/services')
+const { DOMAIN_EVENT } = require('../../shared/events/domain-event')
 const LogPresenter = require('./log.presenter')
+
+const TRUNCATE_AT = 500
 
 const LogService = {
 
-    async register({ actor, boardId, logAction, entityType, entityId, logPayload }, tx = null) {
+    init() {
+        appEventEmitter.on(DOMAIN_EVENT, (event) => this.handleEvent(event))
+        logger.info('Log: Listener ativo')
+    },
+
+    async handleEvent(event) {
+        if (event.action === 'USER_MENTIONED') return // não é um ActivityAction — não gera log
+
+        await this.register({
+            actorId: event.actor.id,
+            workspaceId: event.workspaceId,
+            boardId: event.boardId,
+            entityType: event.entityType,
+            entityId: event.entityId,
+            action: event.action,
+            payload: {
+                resource: event.resource,
+                ...(event.changes && { changes: this._truncateChanges(event.changes) }),
+            },
+        })
+    },
+
+    async register({ actorId, workspaceId, boardId, action, entityType, entityId, payload, tx = null }) {
         try {
             await LogRepository.create({
-                actor_id: actor.id,
-                workspace_id: logPayload.resource.workspaceId,
+                actor_id: actorId,
+                workspace_id: workspaceId,
                 board_id: boardId,
-                action: logAction,
-                entity_id: entityId,
+                action,
                 entity_type: entityType,
-                payload: logPayload
+                entity_id: entityId,
+                payload,
             }, tx)
-
         } catch (error) {
-            logger.error({ error: error.message }, 'Registro de Activity log falhou')
+            logger.error(
+                { error: error.message, actorId, workspaceId, boardId, action, entityType, entityId },
+                'Activity log registration failed'
+            )
+        }
+    },
+
+    _truncateChanges(changes) {
+        const truncate = (val) =>
+            typeof val === 'string' && val.length > TRUNCATE_AT
+                ? `${val.substring(0, TRUNCATE_AT)}...`
+                : val
+
+        if (Array.isArray(changes.fields)) {
+            return { ...changes, fields: changes.fields.map(f => ({ ...f, before: truncate(f.before), after: truncate(f.after) })) }
+        }
+
+        return {
+            ...changes,
+            ...('before' in changes && { before: truncate(changes.before) }),
+            ...('after' in changes && { after: truncate(changes.after) }),
         }
     },
 
@@ -29,9 +73,8 @@ const LogService = {
             LogRepository.findByWorkspacePaginated(workspaceId, page, limit),
             LogRepository.countByWorkspace(workspaceId)
         ])
-        const formattedLogs = LogPresenter.formatMany(data)
-
-        return PaginationService.createPaginatedResponse(formattedLogs, total, page, limit)
+        
+        return PaginationService.createPaginatedResponse(LogPresenter.formatMany(data), total, page, limit)
     },
 
     async getByBoard({ user, boardId, page, limit }) {
@@ -40,11 +83,9 @@ const LogService = {
             LogRepository.findByBoardPaginated(boardId, page, limit),
             LogRepository.countByBoard(boardId)
         ])
-        const formattedLogs = LogPresenter.formatMany(data)
 
-        return PaginationService.createPaginatedResponse(formattedLogs, total, page, limit)
+        return PaginationService.createPaginatedResponse(LogPresenter.formatMany(data), total, page, limit)
     },
-
 }
 
 module.exports = LogService

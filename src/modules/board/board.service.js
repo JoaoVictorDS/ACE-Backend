@@ -1,4 +1,4 @@
-const { emitToRoom } = require('../../config')
+const { emitToRoom, appEventEmitter } = require('../../config')
 const LogService = require('../log/log.service')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const BoardRepository = require('./board.repository')
@@ -8,6 +8,7 @@ const { TransactionManager } = require('../../shared/database')
 const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { PermissionService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
+const { DOMAIN_EVENT } = require('../../shared/events/domain-event')
 
 const BoardService = {
 
@@ -17,14 +18,23 @@ const BoardService = {
         const nextOrder = await BoardMemberRepository.findMaxOrderByWorkspace(userId, workspaceId)
         const newBoard = await BoardRepository.create(name, workspaceId, userId, nextOrder)
 
-        LogService.register({
+        appEventEmitter.emit(DOMAIN_EVENT, {
             actorId: userId,
             workspaceId,
             boardId: newBoard.id,
             action: 'CREATE',
             entityType: 'BOARD',
             entityId: newBoard.id,
-            newValue: { name }
+            changes: { before: null, after: { name } },
+            snapshot: {
+                before: null,
+                after: {
+                    id: newBoard.id,
+                    creator_id: newBoard.creator_id,
+                    name,
+                    deleted_at: null,
+                }
+            }
         })
 
         return newBoard

@@ -3,63 +3,86 @@ const ItemAssigneeRepository = require('../item/item-assignee.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const NotificationRepository = require('./notification.repository')
 const UserNotificationSettingRepository = require('../user-notification-setting/user-notification-setting.repository')
+const NotificationDictionary = require('./notification.dictionary')
 const NotificationPresenter = require('./notification.presenter')
 const { NotFoundError, AuthorizationError } = require('../../shared/errors')
 const { PaginationService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
+const { DOMAIN_EVENT } = require('../../shared/events/domain-event')
+
+const ACTION_SUFFIX = { CREATE: 'CREATED', UPDATE: 'UPDATED', DELETE: 'DELETED', MOVE: 'MOVED', RESTORE: 'RESTORED' }
 
 const NotificationService = {
 
     init() {
-        appEventEmitter.on('item.action', (record) => this.handleItem(record))
-        logger.info('Notifications: Listeners ativos')
+        appEventEmitter.on(DOMAIN_EVENT, (event) => this.handleEvent(event))
+        logger.info('Notifications: Listener ativo')
     },
 
-    async handleItem(record) {
-        const { actor, boardId, itemId, entityId, entityType, notificationAction, notificationPayload, specificRecipients } = record
+    async handleEvent(event) {
+        if (!event.itemId) return // BOARD/WORKSPACE-level — não notifica, por enquanto
 
+        const action = this._resolveAction(event)
+        if (!action) return
+
+        await this._persist({
+            actor: event.actor,
+            boardId: event.boardId,
+            itemId: event.itemId,
+            entityType: event.entityType,
+            entityId: event.entityId,
+            action,
+            specificRecipients: event.specificRecipients,
+            payload: this._buildPayload(event),
+        })
+    },
+
+    _resolveAction(event) {
+        if (event.action === 'USER_MENTIONED') return 'USER_MENTIONED'
+        const suffix = ACTION_SUFFIX[event.action]
+        return suffix ? `${event.entityType}_${suffix}` : null
+    },
+
+    _buildPayload(event) {
+        // Regra centralizada: LONG_TEXT nunca aparece em notificação — nenhum
+        // service upstream precisa saber disso.
+        const isLongText = event.resource.column?.dataType === 'LONG_TEXT'
+
+        return {
+            resource: event.resource,
+            ...(event.changes && !isLongText && { changes: event.changes }),
+        }
+    },
+
+    async _persist({ actor, boardId, itemId, entityType, entityId, action, specificRecipients, payload }) {
         try {
             const assignedUsersIdsSet = new Set()
 
-            if (specificRecipients && specificRecipients.length > 0) {
+            if (specificRecipients?.length > 0) {
                 specificRecipients.forEach(id => assignedUsersIdsSet.add(id))
             } else {
                 const assignees = await ItemAssigneeRepository.findByItem(itemId)
                 const admins = await BoardMemberRepository.findByBoardAndRoles(boardId, ['ADMIN', 'OWNER'])
-
                 assignees.forEach(a => assignedUsersIdsSet.add(a.user_id))
                 admins.forEach(a => assignedUsersIdsSet.add(a.user_id))
             }
 
-            if (notificationPayload?.changes?.removedUserIds) {
-                notificationPayload.changes.removedUserIds.forEach(id => assignedUsersIdsSet.add(id))
-            }
-            if (notificationPayload?.changes?.addedUserIds) {
-                notificationPayload.changes.addedUserIds.forEach(id => assignedUsersIdsSet.add(id))
-            }
+            payload?.changes?.removedUserIds?.forEach(id => assignedUsersIdsSet.add(id))
+            payload?.changes?.addedUserIds?.forEach(id => assignedUsersIdsSet.add(id))
 
             assignedUsersIdsSet.delete(actor.id)
-
             if (assignedUsersIdsSet.size === 0) return
 
             const assignedUsersIds = Array.from(assignedUsersIdsSet)
-
-            const userSettings = await UserNotificationSettingRepository.findUserSettings(
-                assignedUsersIds,
-                boardId
-            )
+            const userSettings = await UserNotificationSettingRepository.findUserSettings(assignedUsersIds, boardId)
 
             const finalAssignedUserIds = assignedUsersIds.filter(userId => {
-                const settingsForUser = userSettings.filter(s => s.user_id === userId && s.action_type === notificationAction)
+                const settingsForUser = userSettings.filter(s => s.user_id === userId && s.action_type === action)
                 const specificSetting = settingsForUser.find(s => s.board_id === boardId)
                 const globalSetting = settingsForUser.find(s => s.board_id === null)
 
-                if (specificSetting) {
-                    return specificSetting.enabled
-                } else if (globalSetting) {
-                    return globalSetting.enabled
-                }
-
+                if (specificSetting) return specificSetting.enabled
+                if (globalSetting) return globalSetting.enabled
                 return true
             })
 
@@ -68,26 +91,34 @@ const NotificationService = {
             const notificationsData = finalAssignedUserIds.map(userId => ({
                 user_id: userId,
                 actor_id: actor.id,
-                item_id: itemId,
                 entity_type: entityType,
                 entity_id: entityId,
-                action: notificationAction,
-                payload: notificationPayload,
+                item_id: itemId,
+                action,
+                payload,
             }))
 
             await NotificationRepository.createMany(notificationsData)
 
             const io = getIO()
+            const template = NotificationDictionary[action] || NotificationDictionary['DEFAULT']
 
             await Promise.all(finalAssignedUserIds.map(async (userId) => {
                 const totalUnread = await NotificationRepository.countUnread(userId)
 
-                io.to(`user:${userId}`).emit('notification:refresh', {
-                    unread_count: totalUnread
+                io.to(`user:${userId}`).emit('notification:received', {
+                    unread_count: totalUnread,
+                    data: {
+                        message: template(actor.name, payload, userId),
+                        entity_type: entityType,
+                        entity_id: entityId,
+                        item_id: itemId,
+                        created_at: new Date(),
+                    }
                 })
             }))
         } catch (error) {
-            logger.error({ error: error.message, stack: error.stack }, 'Erro critico no NotificationService')
+            logger.error({ error: error.message }, 'Erro crítico no NotificationService')
         }
     },
 
@@ -97,22 +128,15 @@ const NotificationService = {
             NotificationRepository.findByUserPaginated(userId, page, limit),
             NotificationRepository.countByUser(userId)
         ])
-        const formattedNotifications = NotificationPresenter.formatMany(data)
-
-        return PaginationService.createPaginatedResponse(formattedNotifications, total, page, limit)
+        return PaginationService.createPaginatedResponse(NotificationPresenter.formatMany(data), total, page, limit)
     },
 
     async markAsRead({ user, notificationId }) {
         const notification = await NotificationRepository.findById(notificationId)
-
-        if (!notification) {
-            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.NOTIFICATION)
-        }
-
+        if (!notification) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.NOTIFICATION)
         if (notification.user_id !== user.id) {
             throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('marcar como lida', 'NOTIFICATION'))
         }
-
         return await NotificationRepository.markAsRead(notificationId)
     },
 }

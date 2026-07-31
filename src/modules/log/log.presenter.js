@@ -3,8 +3,6 @@ const logger = require('../../config/logger')
 class LogPresenter {
 
     static format(log) {
-        const meta = this._parseContent(log.payload)
-
         return {
             id: log.id,
             actor: {
@@ -26,18 +24,6 @@ class LogPresenter {
 
     static formatMany(logs) {
         return logs.map(log => this.format(log))
-    }
-
-    static _parseContent(content) {
-        if (!content) return {}
-        if (typeof content === 'object') return content
-
-        try {
-            return JSON.parse(content)
-        } catch (error) {
-            logger.warn('Falha no parseContent do Log:', error)
-            return {}
-        }
     }
 
 }

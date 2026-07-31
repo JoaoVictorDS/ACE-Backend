@@ -4,8 +4,7 @@ const logger = require('../../config/logger')
 class NotificationPresenter {
 
     static format(notification) {
-        const meta = this._parseContent(notification.payload)
-        const messageText = this._buildMessage(notification, meta)
+        const messageText = this._buildMessage(notification, notification.payload)
 
         return {
             id: notification.id,
@@ -29,18 +28,6 @@ class NotificationPresenter {
 
     static formatMany(notifications) {
         return notifications.map(notif => this.format(notif))
-    }
-
-    static _parseContent(content) {
-        if (!content) return {}
-        if (typeof content === 'object') return content
-
-        try {
-            return JSON.parse(content)
-        } catch (error) {
-            logger.warn('Falha no parseContent da notificação:', error)
-            return {}
-        }
     }
 
     static _buildMessage(notification, meta) {

@@ -1,16 +1,15 @@
 const { appEventEmitter, emitToRoom } = require('../../config')
 const ColumnService = require('../column/column.service')
 const ItemAssigneeService = require('../item/item-assignee.service')
-const LogService = require('../log/log.service')
 const ItemValueRepository = require('./item-value.repository')
 const ColumnRepository = require('../column/column.repository')
 const UserRepository = require('../user/user.repository')
 const ItemRepository = require('../item/item.repository')
 const ItemValuePresenter = require('./item-value.presenter.js')
-const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
+const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { PermissionService } = require('../../shared/services')
 const { TransactionManager } = require('../../shared/database')
-const { ActionBuilder, Changes } = require('../../shared/builders')
+const { DOMAIN_EVENT } = require('../../shared/events/domain-event.js')
 
 const ItemValueService = {
 
@@ -79,34 +78,38 @@ const ItemValueService = {
             const addedUserIds = newIds.filter(id => !oldIds.includes(id))
             const removedUserIds = oldIds.filter(id => !newIds.includes(id))
 
-            const userFactories = {
-                CREATE: () => Changes.userCreated({ after: formattedNew, addedUserIds }),
-                UPDATE: () => Changes.userUpdated({ before: formattedOld, after: formattedNew, addedUserIds, removedUserIds }),
-                DELETE: () => Changes.userDeleted({ before: formattedOld, removedUserIds })
+            changes = {
+                before: oldValue || null,
+                after: sanitizedValue || null,
+                addedUserIds: newIds.filter(id => !oldIds.includes(id)),
+                removedUserIds: oldIds.filter(id => !newIds.includes(id)),
             }
-            changes = userFactories[action]()
         } else {
-            const valueFactories = {
-                CREATE: () => Changes.created(sanitizedValue),
-                UPDATE: () => Changes.updated(oldValue, sanitizedValue),
-                DELETE: () => Changes.deleted(oldValue)
+            changes = {
+                before: oldValue || null,
+                after: sanitizedValue || null,
             }
-            changes = valueFactories[action]()
         }
 
         const { title } = await ItemRepository.findItemTitle(itemId)
         const entityId = result?.id ?? currentItemValue?.id
-        const record = new ActionBuilder({ actor: user, workspaceId, boardId })
-            .entity(entityId, ENTITY_TYPES.ITEM_VALUE)
-            .forItem(itemId, title)
-            .withAction(action)
-            .withColumn({ id: column.id, name: column.name, dataType: column.data_type })
-            .withChanges(changes)
-            .build()
 
-        LogService.register(record)
-
-        appEventEmitter.emit('item.action', record)
+        appEventEmitter.emit(DOMAIN_EVENT, {
+            actor: user,
+            workspaceId,
+            boardId,
+            itemId,
+            entityType: ENTITY_TYPES.ITEM_VALUE,
+            entityId,
+            action,
+            resource: {
+                workspaceId,
+                boardId,
+                item: { id: itemId, title },
+                column: { id: columnId, name: column.name, dataType: column.data_type },
+            },
+            changes,
+        })
 
         const response = {
             action,
