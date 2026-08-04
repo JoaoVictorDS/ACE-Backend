@@ -24,7 +24,11 @@ const BoardService = {
             action: 'CREATE',
             entityType: ENTITY_TYPES.BOARD,
             entityId: newBoard.id,
-            resource: { workspaceId, boardId: newBoard.id, board: { id: newBoard.id, name: newBoard.name } },
+            resource: {
+                workspaceId,
+                boardId: newBoard.id,
+                board: { id: newBoard.id, name: newBoard.name }
+            },
             changes: { before: null, after: newBoard.name },
             snapshot: {
                 before: null,
@@ -105,7 +109,6 @@ const BoardService = {
         const hasChanges = Object.keys(data).some(
             (key) => data[key] !== undefined && data[key] !== currentBoard[key]
         )
-
         if (!hasChanges) return currentBoard
 
         const FIELD_LABELS = {
@@ -128,7 +131,11 @@ const BoardService = {
             action: 'UPDATE',
             entityType: ENTITY_TYPES.BOARD,
             entityId: boardId,
-            resource: { workspaceId, boardId, board: { id: updatedBoard.id, name: updatedBoard.name } },
+            resource: {
+                workspaceId,
+                boardId,
+                board: { id: updatedBoard.id, name: updatedBoard.name }
+            },
             changes: { fields }
         })
 
@@ -143,6 +150,8 @@ const BoardService = {
             BoardRepository.findBoardDeletionContext(boardId),
             ItemRepository.countByBoard(boardId)
         ])
+        if (!board) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.BOARD)
+
         const { columns: columnsCount, sections: sectionsCount } = board._count
         const hasContent = columnsCount > 0 || sectionsCount > 0 || itemsCount > 0
 
@@ -154,11 +163,7 @@ const BoardService = {
             )
         }
 
-        const result = await TransactionManager.run(async (tx) => {
-            await BoardMemberRepository.decrementOrderAfterBoardDeletion(boardId, workspaceId, tx)
-
-            return await BoardRepository.softDelete(boardId, tx)
-        })
+        const deletedBoard = await BoardRepository.softDelete(boardId)
 
         appEventEmitter.emit(DOMAIN_EVENT, {
             actor: user,
@@ -167,13 +172,17 @@ const BoardService = {
             action: 'DELETE',
             entityType: ENTITY_TYPES.BOARD,
             entityId: boardId,
-            resource: { workspaceId, boardId, board: { id: boardId, name: board.name } },
+            resource: {
+                workspaceId,
+                boardId,
+                board: { id: boardId, name: board.name }
+            },
             changes: { before: board.name, after: null },
             snapshot: {
                 before: {
                     id: board.id,
                     creator_id: board.creator_id,
-                    workspace_id: workspaceId,
+                    workspace_id: board.workspace_id,
                     name: board.name,
                     color: board.color,
                     item_label_singular: board.item_label_singular,
@@ -186,7 +195,7 @@ const BoardService = {
 
         emitToRoom(`board:${boardId}`, 'board:deleted', { boardId })
 
-        return result
+        return deletedBoard
     },
 
 }

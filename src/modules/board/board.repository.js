@@ -47,7 +47,7 @@ const BoardRepository = {
 
     async findPermissionContext(boardId) {
         return prisma.board.findUnique({
-            where: { id: boardId },
+            where: { id: boardId, deleted_at: null },
             select: { id: true, workspace_id: true, creator_id: true }
         })
     },
@@ -77,6 +77,11 @@ const BoardRepository = {
             where: { id: boardId, deleted_at: null },
             select: {
                 name: true,
+                color: true,
+                creator_id: true,
+                workspace_id: true,
+                item_label_singular: true,
+                item_label_plural: true,
                 _count: { select: { columns: true, sections: true } }
             }
         })

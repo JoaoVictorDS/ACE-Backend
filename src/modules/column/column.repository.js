@@ -2,14 +2,9 @@ const prisma = require('../../config/prisma')
 
 const ColumnRepository = {
 
-    /**
-     * Busca column por ID para verificar permissão
-     * @param {number} columnId - ID da column
-     * @returns {Promise<object>} { board_id, board: { workspace_id } }
-     */
     async findPermissionContext(columnId) {
         return prisma.column.findUnique({
-            where: { id: columnId },
+            where: { id: columnId, deleted_at: null },
             select: {
                 board_id: true,
                 board: { select: { workspace_id: true, creator_id: true } }
@@ -17,37 +12,22 @@ const ColumnRepository = {
         })
     },
 
-    /**
-     * Busca coluna completa por ID
-     * @param {number} columnId
-     * @returns {Promise<object>} Column com restrições
-     */
     async findById(columnId) {
         return prisma.column.findUnique({
-            where: { id: columnId },
+            where: { id: columnId, deleted_at: null },
             include: { restrictions: true }
         })
     },
 
-    /**
-     * Busca coluna apenas para validação (sem restrictions)
-     * @param {number} columnId
-     * @returns {Promise<object>} Column básico
-     */
     async findByIdBasic(columnId) {
         return prisma.column.findUnique({
-            where: { id: columnId }
+            where: { id: columnId, deleted_at: null }
         })
     },
 
-    /**
-     * Busca todas as colunas de um quadro
-     * @param {number} boardId
-     * @returns {Promise<array>} Colunas ordenadas
-     */
     async findByBoard(boardId) {
         return prisma.column.findMany({
-            where: { board_id: boardId },
+            where: { board_id: boardId, deleted_at: null },
             orderBy: [{ order: 'asc' }, { id: 'asc' }],
             include: { restrictions: true }
         })
@@ -55,7 +35,7 @@ const ColumnRepository = {
 
     async findByIdForValueValidation(columnId) {
         return prisma.column.findUnique({
-            where: { id: columnId },
+            where: { id: columnId, deleted_at: null },
             select: {
                 id: true,
                 name: true,
@@ -65,80 +45,55 @@ const ColumnRepository = {
         })
     },
 
-    /**
-     * Busca próxima ordem para nova coluna
-     * @param {number} boardId
-     * @returns {Promise<number>} Próxima ordem (ou 0 se primeira)
-     */
     async findMaxOrder(boardId) {
         const result = await prisma.column.findFirst({
-            where: { board_id: boardId },
+            where: { board_id: boardId, deleted_at: null },
             orderBy: { order: 'desc' },
             select: { order: true }
         })
         return result ? result.order + 1 : 0
     },
 
-    /**
-     * Cria nova coluna
-     * @param {object} data - { board_id, name, data_type, formula_expression, options, order }
-     * @returns {Promise<object>} Coluna criada
-     */
     async create(data) {
         return prisma.column.create({ data })
     },
 
-    /**
-     * Atualiza coluna
-     * @param {number} columnId
-     * @param {object} data - { name, data_type, formula_expression, options }
-     * @returns {Promise<object>} Coluna atualizada
-     */
     async update(columnId, data) {
         return prisma.column.update({
-            where: { id: columnId },
+            where: { id: columnId, deleted_at: null },
             data
         })
     },
 
-    /**
-     * Deleta coluna
-     * @param {number} columnId
-     * @returns {Promise<void>}
-     */
+    async softDelete(columnId) {
+        return prisma.column.update({
+            where: { id: columnId },
+            data: { deleted_at: new Date() }
+        })
+    },
+
     async delete(columnId) {
         return prisma.column.delete({
             where: { id: columnId }
         })
     },
 
-    /**
-     * Reordena colunas após exclusão (decrementa ordem)
-     * @param {number} boardId
-     * @param {number} fromOrder - ordem mínima (exclusive)
-     * @returns {Promise<object>} { count }
-     */
     async decrementOrderAfter(boardId, fromOrder) {
         return prisma.column.updateMany({
             where: {
                 board_id: boardId,
+                deleted_at: null,
                 order: { gt: fromOrder }
             },
             data: { order: { decrement: 1 } }
         })
     },
 
-    /**
-     * Reordena colunas ao mover (para cima)
-     * @param {number} boardId
-     * @param {number} fromOrder
-     * @param {number} toOrder
-     * @returns {Promise<object>} { count }
-     */
     async incrementOrderRange(boardId, fromOrder, toOrder) {
         return prisma.column.updateMany({
             where: {
                 board_id: boardId,
+                deleted_at: null,
                 order: {
                     gte: toOrder,
                     lt: fromOrder
@@ -148,17 +103,11 @@ const ColumnRepository = {
         })
     },
 
-    /**
-     * Reordena colunas ao mover (para baixo)
-     * @param {number} boardId
-     * @param {number} fromOrder
-     * @param {number} toOrder
-     * @returns {Promise<object>} { count }
-     */
     async decrementOrderRange(boardId, fromOrder, toOrder) {
         return prisma.column.updateMany({
             where: {
                 board_id: boardId,
+                deleted_at: null,
                 order: {
                     gt: fromOrder,
                     lte: toOrder
@@ -168,59 +117,33 @@ const ColumnRepository = {
         })
     },
 
-    /**
-     * Atualiza ordem da coluna
-     * @param {number} columnId
-     * @param {number} newOrder
-     * @returns {Promise<object>} Coluna atualizada
-     */
     async updateOrder(columnId, newOrder) {
         return prisma.column.update({
-            where: { id: columnId },
+            where: { id: columnId, deleted_at: null },
             data: { order: newOrder }
         })
     },
 
-    /**
-     * Conta total de colunas no quadro
-     * @param {number} boardId
-     * @returns {Promise<number>}
-     */
     async countByBoard(boardId) {
         return prisma.column.count({
-            where: { board_id: boardId }
+            where: { board_id: boardId, deleted_at: null }
         })
     },
 
-    /**
-     * Deleta restrições antigas
-     * @param {number} columnId
-     * @returns {Promise<object>} { count }
-     */
-    async deleteRestrictions(columnId) {
-        return prisma.columnRestriction.deleteMany({
-            where: { column_id: columnId }
-        })
-    },
-
-    /**
-     * Cria restrições em batch
-     * @param {array} restrictions - Array com { column_id, user_id, board_role, can_view, can_edit }
-     * @returns {Promise<object>} { count }
-     */
     async createRestrictions(restrictions) {
         return prisma.columnRestriction.createMany({
             data: restrictions
         })
     },
 
-    /**
-     * Busca restrições atualizadas de uma coluna
-     * @param {number} columnId
-     * @returns {Promise<array>} Restrições
-     */
     async findRestrictions(columnId) {
         return prisma.columnRestriction.findMany({
+            where: { column_id: columnId }
+        })
+    },
+
+    async deleteRestrictions(columnId) {
+        return prisma.columnRestriction.deleteMany({
             where: { column_id: columnId }
         })
     },

@@ -9,6 +9,7 @@ const { NotFoundError, AuthorizationError } = require('../../shared/errors')
 const { PaginationService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 const { DOMAIN_EVENT } = require('../../shared/events/domain-event')
+const { diffUserIds } = require('./notification.utils')
 
 const ACTION_SUFFIX = { CREATE: 'CREATED', UPDATE: 'UPDATED', DELETE: 'DELETED', MOVE: 'MOVED', RESTORE: 'RESTORED' }
 
@@ -36,7 +37,7 @@ const NotificationService = {
             entityId: event.entityId,
             action,
             specificRecipients: event.specificRecipients,
-            payload: this._buildPayload(event),
+            payload: this._buildPayload(event, action),
         })
     },
 
@@ -46,7 +47,7 @@ const NotificationService = {
         return suffix ? `${event.entityType}_${suffix}` : null
     },
 
-    _buildPayload(event) {
+    _buildPayload(event, action) {
         const includesChanges = NOTIFICATIONS_USING_CHANGES.includes(action)
         const isLongText = event.resource.column?.dataType === 'LONG_TEXT'
 
@@ -93,7 +94,7 @@ const NotificationService = {
 
             if (finalAssignedUserIds.length === 0) return
 
-            const notificationsData = finalAssignedUserIds.map(userId => ({
+            await NotificationRepository.createMany(finalAssignedUserIds.map(userId => ({
                 user_id: userId,
                 actor_id: actor.id,
                 entity_type: entityType,
@@ -101,9 +102,7 @@ const NotificationService = {
                 item_id: itemId,
                 action,
                 payload,
-            }))
-
-            await NotificationRepository.createMany(notificationsData)
+            })))
 
             const io = getIO()
             const template = NotificationDictionary[action] || NotificationDictionary['DEFAULT']

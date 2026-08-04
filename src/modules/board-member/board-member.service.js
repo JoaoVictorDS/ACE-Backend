@@ -77,6 +77,7 @@ const BoardMemberService = {
                 action: isNewMember ? 'CREATE' : 'UPDATE',
                 resource: {
                     workspaceId,
+                    boardId,
                     board: { id: boardId, name: boardName },
                     member: { userId: targetUserId, userName: targetUserName }
                 },
@@ -125,6 +126,7 @@ const BoardMemberService = {
             action: 'DELETE',
             resource: {
                 workspaceId: membership.board.workspace_id,
+                boardId,
                 board: { id: boardId, name: boardName },
                 member: { userId: memberIdToRemove, userName: membership.user.name, selfInitiated: false }
             },
@@ -181,7 +183,8 @@ const BoardMemberService = {
             entityId: membership.id,
             action: 'DELETE',
             resource: {
-                workspaceId: membership.board.workspace_id, boardId,
+                workspaceId: membership.board.workspace_id,
+                boardId,
                 board: { id: boardId, name: boardName },
                 member: { userId, userName: membership.user.name, selfInitiated: true },
             },

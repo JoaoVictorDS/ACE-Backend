@@ -31,14 +31,12 @@ const ColumnController = {
 
     update: catchAsync(async (req, res, next) => {
         const { column_id: columnId } = req.validated.params
-        const { data_type: dataType, formula_expression: formulaExpression, ...otherFields } = req.validated.body
+        const data = req.validated.body
 
         const updatedColumn = await ColumnService.update({
             user: req.user,
             columnId,
-            dataType,
-            formulaExpression,
-            ...otherFields
+            data
         })
 
         return res.status(200).json(updatedColumn)

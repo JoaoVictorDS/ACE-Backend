@@ -1,4 +1,4 @@
-const { emitToRoom } = require('../../config')
+const { emitToRoom, appEventEmitter } = require('../../config')
 const LogService = require('../log/log.service')
 const ColumnRepository = require('./column.repository')
 const ItemAssigneeRepository = require('../item/item-assignee.repository')
@@ -6,9 +6,10 @@ const ItemValueRepository = require('../item-value/item-value.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const ColumnValueValidator = require('./column.value-validator')
 const { NotFoundError, AuthorizationError, ConflictError } = require('../../shared/errors')
-const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { PermissionService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
+const { DOMAIN_EVENT } = require('../../shared/events/domain-event')
 
 const ColumnService = {
 
@@ -48,35 +49,46 @@ const ColumnService = {
 
         const nextOrder = await ColumnRepository.findMaxOrder(boardId)
 
-        const columnData = {
+        const newColumn = await ColumnRepository.create({
             board_id: boardId,
             name,
             data_type: dataType,
             formula_expression: dataType === 'FORMULA' ? formulaExpression : null,
             options: dataType === 'SELECT' ? options : null,
             order: nextOrder,
-        }
+        })
 
-        const result = await ColumnRepository.create(columnData)
-
-        LogService.register({
-            actorId: user.id,
+        appEventEmitter.emit(DOMAIN_EVENT, {
+            actor: user,
             workspaceId,
             boardId,
             action: 'CREATE',
-            entityType: 'COLUMN',
-            entityId: result.id,
-            newValue: {
-                name,
-                data_type: dataType,
-                options,
-                formula_expression: formulaExpression
+            entityType: ENTITY_TYPES.COLUMN,
+            entityId: newColumn.id,
+            resource: {
+                workspaceId,
+                boardId,
+                column: { id: newColumn.id, name: newColumn.name }
+            },
+            changes: { before: null, after: newColumn.name },
+            snapshot: {
+                before: null,
+                after: {
+                    id: newColumn.id,
+                    board_id: newColumn.board_id,
+                    name: newColumn.name,
+                    data_type: newColumn.data_type,
+                    formula_expression: newColumn.formula_expression,
+                    options: newColumn.options,
+                    order: newColumn.order,
+                    deleted_at: null,
+                }
             }
         })
 
-        emitToRoom(`board:${boardId}`, 'column:created', result)
+        emitToRoom(`board:${boardId}`, 'column:created', newColumn)
 
-        return result
+        return newColumn
     },
 
     async getByBoard({ user, boardId }) {
@@ -98,74 +110,60 @@ const ColumnService = {
         })
     },
 
-    async update({ user, columnId, name, dataType, options, formulaExpression }) {
+    async update({ user, columnId, data }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
-        const column = await ColumnRepository.findByIdBasic(columnId)
-        if (!column) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
+        const currentColumn = await ColumnRepository.findByIdBasic(columnId)
+        if (!currentColumn) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
 
-        const hasDataTypeChanged = dataType && dataType !== column.data_type
-        const hasNameChanged = name && name !== column.name
-        const hasOptionsChanged = (options && JSON.stringify(options) !== JSON.stringify(column.options)) || (hasDataTypeChanged && column.data_type === 'SELECT'
+        const hasChanges = Object.keys(data).some(
+            (key) => data[key] !== undefined && data[key] !== currentColumn[key]
         )
-        const finalDataType = dataType ?? column.data_type
-        const finalOptions = finalDataType === 'SELECT' ? (options ?? column.options) : null
-        const finalFormula = finalDataType === 'FORMULA' ? (formulaExpression ?? column.formula_expression) : null
+        if (!hasChanges) return currentColumn
 
-        const changes = []
-        if (hasNameChanged) {
-            changes.push({
-                field: 'name',
-                old: column.name,
-                new: name
-            })
+        const FIELD_LABELS = {
+            name: 'nome',
+            data_type: 'tipo de dados',
+            options: 'opções',
+            formula_expression: 'expressão da fórmula',
         }
-        if (hasDataTypeChanged) {
-            changes.push({
-                field: 'data_type',
-                old: column.data_type,
-                new: dataType
-            })
-        }
-        if (hasOptionsChanged) {
-            changes.push({
-                field: 'options',
-                old: Array.isArray(column.options) ? column.options : '',
-                new: Array.isArray(options) ? options : ''
-            })
-        }
+
+        const fields = Object.keys(FIELD_LABELS)
+            .filter(key => data[key] !== undefined && data[key] !== currentColumn[key])
+            .map(field => ({ field, label: FIELD_LABELS[field], before: currentColumn[field], after: data[field] }))
+
+        const dataType = data.data_type
+        const hasDataTypeChanged = dataType && dataType !== currentColumn.data_type
+
         if (hasDataTypeChanged) {
             await Promise.all([
                 ItemValueRepository.deleteItemValuesByColumn(columnId),
-                column.data_type === 'USER'
+                currentColumn.data_type === 'USER'
                     ? ItemAssigneeRepository.deleteItemAssignees(columnId)
                     : Promise.resolve()
             ])
         }
 
-        const result = await ColumnRepository.update(columnId, {
-            name: name ?? undefined,
-            data_type: finalDataType,
-            options: finalOptions,
-            formula_expression: finalFormula
-        })
+        const updatedColumn = await ColumnRepository.update(columnId, data)
 
-        if (changes.length > 0) {
-            LogService.register({
-                actorId: user.id,
+        appEventEmitter.emit(DOMAIN_EVENT, {
+            actor: user,
+            workspaceId,
+            boardId,
+            action: 'UPDATE',
+            entityType: ENTITY_TYPES.COLUMN,
+            entityId: columnId,
+            resource: {
                 workspaceId,
                 boardId,
-                action: 'UPDATE',
-                entityType: 'COLUMN',
-                entityId: columnId,
-                oldValue: Object.fromEntries(changes.map(c => [c.field, c.old])),
-                newValue: Object.fromEntries(changes.map(c => [c.field, c.new]))
-            })
-        }
+                column: { id: updatedColumn.id, name: updatedColumn.name }
+            },
+            changes: { fields }
+        })
 
-        emitToRoom(`board:${boardId}`, 'column:updated', result)
+        emitToRoom(`board:${boardId}`, 'column:updated', updatedColumn)
 
-        return result
+        return updatedColumn
     },
 
     async delete({ user, columnId, force = false }) {
@@ -180,6 +178,7 @@ const ColumnService = {
             throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT('a coluna', `${affectedValuesCount} itens`))
         }
 
+        // provavelmente isso vai ser removido, pois com o soft delete não queremos que esses dados sejam apagados 
         await Promise.all([
             ItemValueRepository.deleteItemValuesByColumn(columnId),
             ItemAssigneeRepository.deleteItemAssignees(columnId)
