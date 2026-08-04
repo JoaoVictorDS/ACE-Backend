@@ -12,6 +12,8 @@ const { DOMAIN_EVENT } = require('../../shared/events/domain-event')
 
 const ACTION_SUFFIX = { CREATE: 'CREATED', UPDATE: 'UPDATED', DELETE: 'DELETED', MOVE: 'MOVED', RESTORE: 'RESTORED' }
 
+const NOTIFICATIONS_USING_CHANGES = ['ITEM_UPDATED', 'ITEM_VALUE_CREATED', 'ITEM_VALUE_UPDATED', 'ITEM_VALUE_DELETED']
+
 const NotificationService = {
 
     init() {
@@ -20,7 +22,8 @@ const NotificationService = {
     },
 
     async handleEvent(event) {
-        if (!event.itemId) return // BOARD/WORKSPACE-level — não notifica, por enquanto
+        const canResolveRecipients = event.itemId || event.specificRecipients?.length > 0
+        if (!canResolveRecipients) return
 
         const action = this._resolveAction(event)
         if (!action) return
@@ -44,13 +47,12 @@ const NotificationService = {
     },
 
     _buildPayload(event) {
-        // Regra centralizada: LONG_TEXT nunca aparece em notificação — nenhum
-        // service upstream precisa saber disso.
+        const includesChanges = NOTIFICATIONS_USING_CHANGES.includes(action)
         const isLongText = event.resource.column?.dataType === 'LONG_TEXT'
 
         return {
             resource: event.resource,
-            ...(event.changes && !isLongText && { changes: event.changes }),
+            ...(event.changes && includesChanges && !isLongText && { changes: event.changes }),
         }
     },
 
@@ -67,8 +69,11 @@ const NotificationService = {
                 admins.forEach(a => assignedUsersIdsSet.add(a.user_id))
             }
 
-            payload?.changes?.removedUserIds?.forEach(id => assignedUsersIdsSet.add(id))
-            payload?.changes?.addedUserIds?.forEach(id => assignedUsersIdsSet.add(id))
+            if (payload?.resource?.column?.dataType === 'USER') {
+                const { addedUserIds, removedUserIds } = diffUserIds(payload.changes?.before, payload.changes?.after)
+                const affectedIds = [...addedUserIds, ...removedUserIds]
+                affectedIds.forEach(id => assignedUsersIdsSet.add(id))
+            }
 
             assignedUsersIdsSet.delete(actor.id)
             if (assignedUsersIdsSet.size === 0) return
@@ -112,6 +117,7 @@ const NotificationService = {
                         message: template(actor.name, payload, userId),
                         entity_type: entityType,
                         entity_id: entityId,
+                        board_id: boardId,
                         item_id: itemId,
                         created_at: new Date(),
                     }

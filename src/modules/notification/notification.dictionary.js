@@ -1,3 +1,5 @@
+const { diffUserIds } = require('./notification.utils')
+
 const NotificationDictionary = {
 
     ITEM_CREATED: (actorName, meta) =>
@@ -47,13 +49,14 @@ const NotificationDictionary = {
 
     ITEM_VALUE_UPDATED: (actorName, meta, recipientId) => {
         const { item, column } = meta.resource
-        const { before, after, addedUserIds, removedUserIds } = meta.changes || {}
+        const { before, after } = meta.changes || {}
 
         if (column.dataType === 'USER') {
-            if (recipientId && removedUserIds?.includes(recipientId)) {
+            const { addedUserIds, removedUserIds } = diffUserIds(before, after)
+            if (recipientId && removedUserIds.includes(recipientId)) {
                 return `**${actorName}** removeu **você** da tarefa **${item.title}**`
             }
-            if (recipientId && addedUserIds?.includes(recipientId)) {
+            if (recipientId && addedUserIds.includes(recipientId)) {
                 return `**${actorName}** designou **você** para a tarefa **${item.title}**`
             }
             return `**${actorName}** atualizou os responsáveis em **${item.title}**`
@@ -115,6 +118,40 @@ const NotificationDictionary = {
 
         const location = locationMap[mentionSource] ?? `em **${item.title}**`
         return `**${actorName}** mencionou você ${location}`
+    },
+
+    // ─── MEMBERS ───────────────────────────────────────────────────────────────
+
+    MEMBER_CREATED: (actorName, meta, recipientId) => {
+        const { board, member } = meta.resource
+        const { after: role } = meta.changes || {}
+
+        if (recipientId === member.userId) {
+            return `**${actorName}** adicionou **você** ao quadro **${board.name}** como **${role}**`
+        }
+        return `**${actorName}** adicionou **${member.userName}** ao quadro **${board.name}**`
+    },
+
+    MEMBER_UPDATED: (actorName, meta, recipientId) => {
+        const { board, member } = meta.resource
+        const { after: role } = meta.changes || {}
+
+        if (recipientId === member.userId) {
+            return `**${actorName}** alterou seu cargo no quadro **${board.name}** para **${role}**`
+        }
+        return `**${actorName}** alterou o cargo de **${member.userName}** para **${role}** em **${board.name}**`
+    },
+
+    MEMBER_DELETED: (actorName, meta, recipientId) => {
+        const { board, member } = meta.resource
+
+        if (member.selfInitiated) {
+            return `**${member.userName}** saiu do quadro **${board.name}**`
+        }
+        if (recipientId === member.userId) {
+            return `**${actorName}** removeu **você** do quadro **${board.name}**`
+        }
+        return `**${actorName}** removeu **${member.userName}** do quadro **${board.name}**`
     },
 
     // ─── FALLBACK ──────────────────────────────────────────────────────────────

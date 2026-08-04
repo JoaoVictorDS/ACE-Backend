@@ -1,13 +1,14 @@
-const { emitToRoom } = require('../../config')
-const LogService = require('../log/log.service')
+const { emitToRoom, appEventEmitter } = require('../../config')
 const BoardMemberRepository = require('./board-member.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
 const UserRepository = require('../user/user.repository')
 const { PermissionService } = require('../../shared/services')
 const { TransactionManager } = require('../../shared/database')
 const { AuthorizationError, NotFoundError, ConflictError, ValidationError } = require('../../shared/errors')
-const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
+const { DOMAIN_EVENT } = require('../../shared/events/domain-event')
+const BoardRepository = require('../board/board.repository')
 
 const BoardMemberService = {
 
@@ -54,37 +55,38 @@ const BoardMemberService = {
                 ))
         }
 
+        const isNewMember = !existingMember
+        const isNoOp = existingMember && existingMember.role === role
+
         let nextOrder = 0
-        if (!existingMember) {
+        if (isNewMember) {
             nextOrder = await BoardMemberRepository.findMaxOrderByWorkspace(userId, workspaceId)
         }
 
         const member = await BoardMemberRepository.upsertMember(targetUserId, boardId, role, nextOrder)
 
-        if (!existingMember) {
-            LogService.register({
-                actorId: userId,
-                boardId,
+        if (!isNoOp) {
+            const { name: boardName } = await BoardRepository.findBoardName(boardId)
+
+            appEventEmitter.emit(DOMAIN_EVENT, {
+                actor: user,
                 workspaceId,
-                action: 'CREATE',
-                entityType: 'MEMBER',
-                entityId: targetUserId,
-                newValue: { role }
-            })
-        } else if (existingMember.role !== role) {
-            LogService.register({
-                actorId: userId,
                 boardId,
-                workspaceId,
-                action: 'UPDATE',
-                entityType: 'MEMBER',
-                entityId: targetUserId,
-                oldValue: { role: existingMember.role },
-                newValue: { role }
+                entityType: ENTITY_TYPES.MEMBER,
+                entityId: member.id,
+                action: isNewMember ? 'CREATE' : 'UPDATE',
+                resource: {
+                    workspaceId,
+                    board: { id: boardId, name: boardName },
+                    member: { userId: targetUserId, userName: targetUserName }
+                },
+                changes: { before: existingMember?.role ?? null, after: role },
+                specificRecipients: [targetUserId],
             })
         }
 
         emitToRoom(`board:${boardId}`, 'board_member:changed', member)
+
         return member
     },
 
@@ -112,15 +114,28 @@ const BoardMemberService = {
             return await this._performRemoval(tx, { membership })
         })
 
-        LogService.register({
-            actorId: userId,
-            boardId,
+        const { name: boardName } = await BoardRepository.findBoardName(boardId)
+
+        appEventEmitter.emit(DOMAIN_EVENT, {
+            actor: user,
             workspaceId: membership.board.workspace_id,
+            boardId,
+            entityType: ENTITY_TYPES.MEMBER,
+            entityId: membership.id,
             action: 'DELETE',
-            entityType: 'MEMBER',
-            entityId: memberIdToRemove,
-            oldValue: { role: membership.role }
+            resource: {
+                workspaceId: membership.board.workspace_id,
+                board: { id: boardId, name: boardName },
+                member: { userId: memberIdToRemove, userName: membership.user.name, selfInitiated: false }
+            },
+            changes: { before: membership.role, after: null },
+            snapshot: {
+                before: { id: membership.id, user_id: memberIdToRemove, board_id: boardId, role: membership.role, order: membership.order },
+                after: null
+            },
+            specificRecipients: [memberIdToRemove]
         })
+
         emitToRoom(`board:${boardId}`, 'board_member:removed', { memberId: memberIdToRemove })
 
         return result
@@ -152,19 +167,32 @@ const BoardMemberService = {
         const membership = await BoardMemberRepository.findMembershipWithBoardAndUser(boardId, userId)
         if (!membership) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.BOARD_MEMBER)
 
-        const result = await TransactionManager.run(async (tx) => {
-            return await this._performRemoval(tx, { membership })
+        const [result, admins, { name: boardName }] = await Promise.all([
+            TransactionManager.run(async (tx) => this._performRemoval(tx, { membership })),
+            BoardMemberRepository.findByBoardAndRoles(boardId, ['ADMIN', 'OWNER']),
+            BoardRepository.findBoardName(boardId),
+        ])
+
+        appEventEmitter.emit(DOMAIN_EVENT, {
+            actor: user,
+            workspaceId: membership.board.workspace_id,
+            boardId,
+            entityType: ENTITY_TYPES.MEMBER,
+            entityId: membership.id,
+            action: 'DELETE',
+            resource: {
+                workspaceId: membership.board.workspace_id, boardId,
+                board: { id: boardId, name: boardName },
+                member: { userId, userName: membership.user.name, selfInitiated: true },
+            },
+            changes: { before: membership.role, after: null },
+            snapshot: {
+                before: { id: membership.id, user_id: userId, board_id: boardId, role: membership.role, order: membership.order },
+                after: null
+            },
+            specificRecipients: admins.map(a => a.user_id),
         })
 
-        LogService.register({
-            actorId: userId,
-            boardId,
-            workspaceId: membership.board.workspace_id,
-            action: 'DELETE',
-            entityType: 'MEMBER',
-            entityId: userId,
-            oldValue: { role: membership.role }
-        })
         emitToRoom(`board:${boardId}`, 'board_member:leaved', { memberId: userId })
 
         return result

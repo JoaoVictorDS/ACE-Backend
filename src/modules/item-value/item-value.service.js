@@ -57,40 +57,10 @@ const ItemValueService = {
             return record
         })
 
-        let changes
-
-        if (isUserColumn) {
-            const extractIds = (val) => val ? val.split(',').map(id => Number(id.trim())).filter(id => id > 0) : []
-            const oldIds = extractIds(oldValue)
-            const newIds = extractIds(sanitizedValue)
-            const allIds = [...new Set([...oldIds, ...newIds])]
-
-            let userMap = new Map()
-            if (allIds.length > 0) {
-                const fetchedUsers = await UserRepository.findByIds(allIds)
-                userMap = new Map(fetchedUsers.map(u => [u.id, u.name]))
-            }
-
-            const formatUsers = (ids) => ids.map(id => userMap.get(id)).join(', ')
-            const formattedOld = formatUsers(oldIds)
-            const formattedNew = formatUsers(newIds)
-
-            const addedUserIds = newIds.filter(id => !oldIds.includes(id))
-            const removedUserIds = oldIds.filter(id => !newIds.includes(id))
-
-            changes = {
-                before: oldValue || null,
-                after: sanitizedValue || null,
-                addedUserIds: newIds.filter(id => !oldIds.includes(id)),
-                removedUserIds: oldIds.filter(id => !newIds.includes(id)),
-            }
-        } else {
-            changes = {
-                before: oldValue || null,
-                after: sanitizedValue || null,
-            }
+        const changes = {
+            before: oldValue || null,
+            after: sanitizedValue || null,
         }
-
         const { title } = await ItemRepository.findItemTitle(itemId)
         const entityId = result?.id ?? currentItemValue?.id
 

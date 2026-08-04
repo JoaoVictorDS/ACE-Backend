@@ -1,5 +1,4 @@
 const { emitToRoom, appEventEmitter } = require('../../config')
-const LogService = require('../log/log.service')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const BoardRepository = require('./board.repository')
 const ItemRepository = require('../item/item.repository')
@@ -19,19 +18,24 @@ const BoardService = {
         const newBoard = await BoardRepository.create(name, workspaceId, userId, nextOrder)
 
         appEventEmitter.emit(DOMAIN_EVENT, {
-            actorId: userId,
+            actor: user,
             workspaceId,
             boardId: newBoard.id,
             action: 'CREATE',
-            entityType: 'BOARD',
+            entityType: ENTITY_TYPES.BOARD,
             entityId: newBoard.id,
-            changes: { before: null, after: { name } },
+            resource: { workspaceId, boardId: newBoard.id, board: { id: newBoard.id, name: newBoard.name } },
+            changes: { before: null, after: newBoard.name },
             snapshot: {
                 before: null,
                 after: {
                     id: newBoard.id,
                     creator_id: newBoard.creator_id,
-                    name,
+                    workspace_id: newBoard.workspace_id,
+                    name: newBoard.name,
+                    color: newBoard.color,
+                    item_label_singular: newBoard.item_label_singular,
+                    item_label_plural: newBoard.item_label_plural,
                     deleted_at: null,
                 }
             }
@@ -102,51 +106,30 @@ const BoardService = {
             (key) => data[key] !== undefined && data[key] !== currentBoard[key]
         )
 
-        if (!hasChanges) {
-            return currentBoard
+        if (!hasChanges) return currentBoard
+
+        const FIELD_LABELS = {
+            name: 'nome',
+            color: 'cor',
+            item_label_singular: 'rótulo de item (singular)',
+            item_label_plural: 'rótulo de item (plural)',
         }
 
-        const changes = []
-        if (data.name && data.name !== currentBoard.name) {
-            changes.push({
-                field: 'name',
-                old: currentBoard.name,
-                new: data.name
-            })
-        }
-        if (data.color && data.color !== currentBoard.color) {
-            changes.push({
-                field: 'color',
-                old: currentBoard.color,
-                new: data.color
-            })
-        }
-        if (data.item_label_singular && data.item_label_singular !== currentBoard.item_label_singular) {
-            changes.push({
-                field: 'item_label_singular',
-                old: currentBoard.item_label_singular,
-                new: data.item_label_singular
-            })
-        }
-        if (data.item_label_plural && data.item_label_plural !== currentBoard.item_label_plural) {
-            changes.push({
-                field: 'item_label_plural',
-                old: currentBoard.item_label_plural,
-                new: data.item_label_plural
-            })
-        }
+        const fields = Object.keys(FIELD_LABELS)
+            .filter(key => data[key] !== undefined && data[key] !== currentBoard[key])
+            .map(field => ({ field, label: FIELD_LABELS[field], before: currentBoard[field], after: data[field] }))
 
         const updatedBoard = await BoardRepository.update(boardId, data)
 
-        LogService.register({
-            actorId: user.id,
-            boardId,
+        appEventEmitter.emit(DOMAIN_EVENT, {
+            actor: user,
             workspaceId,
+            boardId,
             action: 'UPDATE',
-            entityType: 'BOARD',
+            entityType: ENTITY_TYPES.BOARD,
             entityId: boardId,
-            oldValue: Object.fromEntries(changes.map(c => [c.field, c.old])),
-            newValue: Object.fromEntries(changes.map(c => [c.field, c.new]))
+            resource: { workspaceId, boardId, board: { id: updatedBoard.id, name: updatedBoard.name } },
+            changes: { fields }
         })
 
         emitToRoom(`board:${boardId}`, 'board:updated', updatedBoard)
@@ -174,18 +157,31 @@ const BoardService = {
         const result = await TransactionManager.run(async (tx) => {
             await BoardMemberRepository.decrementOrderAfterBoardDeletion(boardId, workspaceId, tx)
 
-            await LogService.register({
-                userId: user.id,
-                boardId: boardId,
-                workspaceId: workspaceId,
-                action: 'DELETE',
-                entityType: 'BOARD',
-                entityId: boardId,
-                oldValue: { name: board.name },
-                tx
-            })
+            return await BoardRepository.softDelete(boardId, tx)
+        })
 
-            return await BoardRepository.delete(boardId, tx)
+        appEventEmitter.emit(DOMAIN_EVENT, {
+            actor: user,
+            workspaceId,
+            boardId,
+            action: 'DELETE',
+            entityType: ENTITY_TYPES.BOARD,
+            entityId: boardId,
+            resource: { workspaceId, boardId, board: { id: boardId, name: board.name } },
+            changes: { before: board.name, after: null },
+            snapshot: {
+                before: {
+                    id: board.id,
+                    creator_id: board.creator_id,
+                    workspace_id: workspaceId,
+                    name: board.name,
+                    color: board.color,
+                    item_label_singular: board.item_label_singular,
+                    item_label_plural: board.item_label_plural,
+                    deleted_at: null,
+                },
+                after: null
+            }
         })
 
         emitToRoom(`board:${boardId}`, 'board:deleted', { boardId })

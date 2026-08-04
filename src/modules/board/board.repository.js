@@ -58,6 +58,13 @@ const BoardRepository = {
         })
     },
 
+    async findBoardName(boardId) {
+        return prisma.board.findUnique({
+            where: { id: boardId, deleted_at: null },
+            select: { name: true }
+        })
+    },
+
     async update(boardId, data) {
         return prisma.board.update({
             where: { id: boardId, deleted_at: null },

@@ -43,13 +43,6 @@ const UserRepository = {
         })
     },
 
-    async findByIds(userIds) {
-        return prisma.user.findMany({
-            where: { id: { in: userIds } },
-            select: { id: true, name: true }
-        })
-    },
-
     async updateRefreshToken(userId, refreshToken) {
         return prisma.user.update({
             where: { id: userId },
