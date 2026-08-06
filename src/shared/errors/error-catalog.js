@@ -4,7 +4,7 @@
  * Uma única fonte da verdade para todas as mensagens de erro da aplicação.
  * Mantém concordância gramatical automática e é facilmente extensível.
  * 
- * Estrutura: { TIPO_RECURSO: { TIPO_ERRO: { status, code, message } } }
+ * Estrutura: { TIPO_RECURSO: { TIPO_ERRO: { code, message } } }
  */
 
 const { getResourceMetadata } = require('../constants/resource-metadata')
@@ -78,32 +78,26 @@ const ERROR_CATALOG = {
     // ═══════════════════════════════════════════════════════════════
     AUTHENTICATION: {
         FAILED: {
-            status: 401,
             code: 'AUTHENTICATION_FAILED',
             message: 'Falha na autenticação. Por favor, faça login novamente',
         },
         INVALID_CREDENTIALS: {
-            status: 401,
             code: 'INVALID_CREDENTIALS',
             message: 'E-mail ou senha inválidos',
         },
         SESSION_EXPIRED: {
-            status: 401,
             code: 'SESSION_EXPIRED',
             message: 'Sua sessão expirou. Por favor, faça login novamente',
         },
         TOKEN_NOT_PROVIDED: {
-            status: 401,
             code: 'TOKEN_NOT_PROVIDED',
             message: 'Token não fornecido',
         },
         TOKEN_INVALID: {
-            status: 401,
             code: 'TOKEN_INVALID',
             message: 'Token inválido',
         },
         TOKEN_EXPIRED: {
-            status: 401,
             code: 'TOKEN_EXPIRED',
             message: 'Token expirado',
         },
@@ -114,32 +108,26 @@ const ERROR_CATALOG = {
     // ═══════════════════════════════════════════════════════════════
     AUTHORIZATION: {
         FORBIDDEN: {
-            status: 403,
             code: 'AUTHORIZATION_ERROR',
             message: 'Você não tem permissão para realizar esta ação',
         },
         FORBIDDEN_ACTION: (action, resourceKey) => ({
-            status: 403,
             code: 'AUTHORIZATION_ERROR',
             message: forbiddenActionMessage(action, resourceKey),
         }),
         UNAUTHORIZED: (resourceKey) => ({
-            status: 403,
             code: 'AUTHORIZATION_ERROR',
             message: unauthorizedMessage(resourceKey),
         }),
         NOT_MEMBER: (resourceKey) => ({
-            status: 403,
             code: 'NOT_MEMBER',
             message: notMemberMessage(resourceKey),
         }),
         INSUFFICIENT_ROLE: (requiredRole, userRole) => ({
-            status: 403,
             code: 'INSUFFICIENT_ROLE',
             message: `Role insuficiente. Requerido: ${requiredRole}, você tem: ${userRole}`,
         }),
         INSUFFICIENT_PERMISSIONS_FOR_SYSTEM_ADMIN: {
-            status: 403,
             code: 'INSUFFICIENT_PERMISSIONS',
             message: 'Apenas administradores do sistema podem realizar esta operação',
         }
@@ -150,92 +138,74 @@ const ERROR_CATALOG = {
     // ═══════════════════════════════════════════════════════════════
     NOT_FOUND: {
         GENERIC: {
-            status: 404,
             code: 'NOT_FOUND',
             message: 'Recurso não encontrado',
         },
         RESOURCE: (resourceKey) => ({
-            status: 404,
             code: 'NOT_FOUND',
             message: notFoundMessage(resourceKey),
         }),
         USER: {
-            status: 404,
             code: 'NOT_FOUND',
             message: notFoundMessage('USER'),
         },
         WORKSPACE: {
-            status: 404,
             code: 'NOT_FOUND',
             message: notFoundMessage('WORKSPACE'),
         },
         BOARD: {
-            status: 404,
             code: 'NOT_FOUND',
             message: notFoundMessage('BOARD'),
         },
         SECTION: {
-            status: 404,
             code: 'NOT_FOUND',
             message: notFoundMessage('SECTION'),
         },
         COLUMN: {
-            status: 404,
             code: 'NOT_FOUND',
             message: notFoundMessage('COLUMN'),
         },
         ITEM: {
-            status: 404,
             code: 'NOT_FOUND',
             message: notFoundMessage('ITEM'),
         },
         ITEM_VALUE: {
-            status: 404,
             code: 'NOT_FOUND',
             message: 'Valor do item não encontrado',
         },
         ITEM_UPDATE: {
-            status: 404,
             code: 'NOT_FOUND',
             message: 'Atualização do item não encontrada',
         },
         COMMENT: {
-            status: 404,
             code: 'NOT_FOUND',
             message: notFoundMessage('COMMENT'),
         },
         MEMBER: {
-            status: 404,
             code: 'NOT_FOUND',
             message: 'Membro não encontrado',
         },
         WORKSPACE_MEMBER: {
-            status: 404,
             code: 'NOT_FOUND',
             message: 'Membro da área de trabalho não encontrado',
         },
         BOARD_MEMBER: {
-            status: 404,
             code: 'NOT_FOUND',
             message: 'Membro do quadro não encontrado',
         },
         ITEM_ASSIGNEE: {
-            status: 404,
             code: 'NOT_FOUND',
             message: 'Atribuição do item não encontrada',
         },
         COLUMN_RESTRICTION: {
-            status: 404,
             code: 'NOT_FOUND',
             message: 'Restrição de coluna não encontrada',
         },
         NOTIFICATION: {
-            status: 404,
             code: 'NOT_FOUND',
             message: 'Notificação não encontrada',
         },
         NOTIFICATION_SETTING: {
-            status: 404,
             code: 'NOT_FOUND',
             message: 'Configuração de notificação não encontrada',
         },
@@ -246,67 +216,54 @@ const ERROR_CATALOG = {
     // ═══════════════════════════════════════════════════════════════
     VALIDATION: {
         INVALID: {
-            status: 400,
             code: 'VALIDATION_ERROR',
             message: 'Erro na validação dos dados',
         },
         INVALID_FIELD: (field, predicate = 'é inválido') => ({
-            status: 400,
             code: 'VALIDATION_ERROR',
             message: `Campo '${field}' ${predicate}`,
         }),
         REQUIRED_FIELD: (field) => ({
-            status: 400,
             code: 'VALIDATION_ERROR',
             message: `Campo '${field}' é obrigatório`,
         }),
         INVALID_VALUE: (value, expectedType) => ({
-            status: 400,
             code: 'VALIDATION_ERROR',
             message: `O valor "${value}" não é válido para ${expectedType}`,
         }),
         INVALID_COLUMN_VALUE: (columnName, predicate) => ({
-            status: 400,
             code: 'VALIDATION_ERROR',
             message: `Coluna '${columnName}' ${predicate}`,
         }),
         INVALID_ROLE: {
-            status: 400,
             code: 'VALIDATION_ERROR',
             message: 'Role inválida',
         },
         INVALID_ENTITY_TYPE: {
-            status: 400,
             code: 'VALIDATION_ERROR',
             message: 'Tipo de entidade inválido',
         },
         INVALID_ACTION: (reason) => ({
-            status: 400,
             code: 'VALIDATION_ERROR',
             message: reason || 'Ação inválida',
         }),
         INVALID_DATA_TYPE: {
-            status: 400,
             code: 'VALIDATION_ERROR',
             message: 'Tipo de dados inválido para coluna',
         },
         MISSING_FORMULA_EXPRESSION: {
-            status: 400,
             code: 'VALIDATION_ERROR',
             message: 'Coluna tipo FORMULA requer uma expressão',
         },
         MISSING_SELECT_OPTIONS: {
-            status: 400,
             code: 'VALIDATION_ERROR',
             message: 'Coluna tipo SELECT requer opções',
         },
         INVALID_COLOR: {
-            status: 400,
             code: 'VALIDATION_ERROR',
             message: 'Cor deve ser um valor hexadecimal válido (ex: #3b82f6)',
         },
         USER_NOT_WORKSPACE_MEMBER: {
-            status: 400,
             code: 'USER_NOT_WORKSPACE_MEMBER',
             message: 'O usuário precisa ser membro da área de trabalho para ser adicionado ao quadro',
         },
@@ -317,52 +274,42 @@ const ERROR_CATALOG = {
     // ═══════════════════════════════════════════════════════════════
     CONFLICT: {
         ALREADY_EXISTS: (field) => ({
-            status: 409,
             code: 'CONFLICT',
             message: `${field} já existe`,
         }),
         ALREADY_IN_STATE: (resourceName, state) => ({
-            status: 409,
             code: 'CONFLICT',
             message: `${resourceName} já está ${state}`,
         }),
         DUPLICATE_EMAIL: {
-            status: 409,
             code: 'CONFLICT',
             message: 'E-mail já cadastrado',
         },
         DUPLICATE_USER_BOARD: {
-            status: 409,
             code: 'CONFLICT',
             message: 'Usuário já é membro deste quadro',
         },
         DUPLICATE_USER_WORKSPACE: {
-            status: 409,
             code: 'CONFLICT',
             message: 'Usuário já é membro desta área de trabalho',
         },
         DUPLICATE_ITEM_ASSIGNEE: {
-            status: 409,
             code: 'CONFLICT',
             message: 'Usuário já está atribuído a este item nesta coluna',
         },
         DUPLICATE_NOTIFICATION_SETTING: {
-            status: 409,
             code: 'CONFLICT',
             message: 'Configuração de notificação já existe',
         },
         RESOURCE_HAS_CONTENT: (resourceName, details) => ({
-            status: 409,
             code: 'CONFLICT',
             message: `Não é possível excluir ${resourceName}: possui conteúdo vinculado${details ? ` (${details})` : ''}`,
         }),
         LAST_SYSTEM_ADMIN: {
-            status: 409,
             code: 'LAST_SYSTEM_ADMIN',
             message: 'Não é possível remover o último administrador ativo do sistema',
         },
         SOLE_RESPONSIBLE: (dependentType, dependentNames) => ({
-            status: 409,
             code: 'CONFLICT',
             message: `Operação negada: usuário é o único responsável por ${dependentType}: ${dependentNames}`,
         }),
@@ -373,17 +320,14 @@ const ERROR_CATALOG = {
     // ═══════════════════════════════════════════════════════════════
     INTERNAL: {
         SERVER_ERROR: {
-            status: 500,
             code: 'INTERNAL_ERROR',
             message: 'Ocorreu um erro interno no servidor',
         },
         NOT_IMPLEMENTED: {
-            status: 500,
             code: 'NOT_IMPLEMENTED',
             message: 'Funcionalidade não implementada',
         },
         UNSUPPORTED_RESOURCE: (resourceKey) => ({
-            status: 500,
             code: 'UNSUPPORTED_RESOURCE',
             message: `${resourceKey} não é suportado nesta operação`,
         }),
