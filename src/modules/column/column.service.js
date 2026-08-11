@@ -247,6 +247,9 @@ const ColumnService = {
 
         const restrictionData = ColumnRestrictionMapper.toPersistence(restrictions, columnId)
 
+        const hasChanged = JSON.stringify(ColumnRestrictionMapper.toPersistence(column.restrictions)) !== JSON.stringify(restrictionData)
+        if (!hasChanged) return column.restrictions
+
         const result = await TransactionManager.run(async (tx) => {
             await ColumnRepository.deleteRestrictions(columnId, tx)
 
