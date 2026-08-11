@@ -1,4 +1,5 @@
 const { diffUserIds } = require('./notification.utils')
+const { getResourceMetadata } = require('../../shared/constants/resource-metadata')
 
 const NotificationDictionary = {
 
@@ -108,41 +109,59 @@ const NotificationDictionary = {
     // ─── MEMBERS ───────────────────────────────────────────────────────────────
 
     MEMBER_CREATED: (actorName, meta, recipientId) => {
-        const { board, member } = meta.resource
+        const { member } = meta.resource
         const { after: role } = meta.changes || {}
+        const { name, label, to } = _resolveContainer(meta.resource)
 
         if (recipientId === member.id) {
-            return `**${actorName}** adicionou **você** ao quadro **${board.name}** como **${role}**`
+            return `**${actorName}** adicionou **você** ${to} ${label} **${name}** como **${role}**`
         }
-        return `**${actorName}** adicionou **${member.name}** ao quadro **${board.name}**`
+        return `**${actorName}** adicionou **${member.name}** ${to} ${label} **${name}**`
     },
 
     MEMBER_UPDATED: (actorName, meta, recipientId) => {
-        const { board, member } = meta.resource
+        const { member } = meta.resource
         const { after: role } = meta.changes || {}
+        const { name, label, in: inPrep } = _resolveContainer(meta.resource)
 
         if (recipientId === member.id) {
-            return `**${actorName}** alterou seu cargo no quadro **${board.name}** para **${role}**`
+            return `**${actorName}** alterou seu cargo ${inPrep} ${label} **${name}** para **${role}**`
         }
-        return `**${actorName}** alterou o cargo de **${member.name}** para **${role}** em **${board.name}**`
+        return `**${actorName}** alterou o cargo de **${member.name}** para **${role}** ${inPrep} ${label} **${name}**`
     },
 
     MEMBER_DELETED: (actorName, meta, recipientId) => {
-        const { board, member } = meta.resource
+        const { member } = meta.resource
+        const { name, label, from } = _resolveContainer(meta.resource)
 
         if (member.selfInitiated) {
-            return `**${member.name}** saiu do quadro **${board.name}**`
+            return `**${member.name}** saiu ${from} ${label} **${name}**`
         }
         if (recipientId === member.id) {
-            return `**${actorName}** removeu **você** do quadro **${board.name}**`
+            return `**${actorName}** removeu **você** ${from} ${label} **${name}**`
         }
-        return `**${actorName}** removeu **${member.name}** do quadro **${board.name}**`
+        return `**${actorName}** removeu **${member.name}** ${from} ${label} **${name}**`
     },
 
     // ─── FALLBACK ──────────────────────────────────────────────────────────────
 
     DEFAULT: (actorName) =>
         `**${actorName}** realizou uma nova ação`,
+}
+
+const _resolveContainer = (resource) => {
+    const isBoard = Boolean(resource.board)
+    const { singular, gender } = getResourceMetadata(isBoard ? 'BOARD' : 'WORKSPACE')
+    const container = isBoard ? resource.board : resource.workspace
+    const isFeminine = gender === 'feminine'
+
+    return {
+        name: container.name,
+        label: singular.toLowerCase(),
+        to: isFeminine ? 'à' : 'ao',
+        in: isFeminine ? 'na' : 'no',
+        from: isFeminine ? 'da' : 'do',
+    }
 }
 
 module.exports = NotificationDictionary
