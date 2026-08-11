@@ -58,8 +58,10 @@ const ItemAssigneeRepository = {
      * @param {number} columnId
      * @returns {Promise<object>} { count }
      */
-    async deleteItemAssignees(columnId) {
-        return prisma.itemAssignee.deleteMany({
+    async deleteItemAssignees(columnId, tx = null) {
+        const client = tx || prisma
+
+        return client.itemAssignee.deleteMany({
             where: { column_id: columnId }
         })
     },

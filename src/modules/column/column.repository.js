@@ -78,8 +78,10 @@ const ColumnRepository = {
         })
     },
 
-    async decrementOrderAfter(boardId, fromOrder) {
-        return prisma.column.updateMany({
+    async decrementOrderAfter(boardId, fromOrder, tx = null) {
+        const client = tx || prisma
+
+        return client.column.updateMany({
             where: {
                 board_id: boardId,
                 deleted_at: null,
@@ -130,20 +132,26 @@ const ColumnRepository = {
         })
     },
 
-    async createRestrictions(restrictions) {
-        return prisma.columnRestriction.createMany({
+    async createRestrictions(restrictions, tx = null) {
+        const client = tx || prisma
+
+        return client.columnRestriction.createMany({
             data: restrictions
         })
     },
 
-    async findRestrictions(columnId) {
-        return prisma.columnRestriction.findMany({
+    async findRestrictions(columnId, tx = null) {
+        const client = tx || prisma
+
+        return client.columnRestriction.findMany({
             where: { column_id: columnId }
         })
     },
 
-    async deleteRestrictions(columnId) {
-        return prisma.columnRestriction.deleteMany({
+    async deleteRestrictions(columnId, tx = null) {
+        const client = tx || prisma
+
+        return client.columnRestriction.deleteMany({
             where: { column_id: columnId }
         })
     },

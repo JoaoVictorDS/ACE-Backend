@@ -24,7 +24,7 @@ const ItemUpdateRespository = {
         return prisma.itemUpdate.findUnique({
             where: { id: itemUpdateId, deleted_at: null },
             include: {
-                item: { select: { title: true } },
+                item: { select: { id: true, title: true } },
                 user: { select: { id: true, name: true } }
             }
         })
@@ -34,7 +34,10 @@ const ItemUpdateRespository = {
         return prisma.itemUpdate.update({
             where: { id: itemUpdateId, deleted_at: null },
             data: { content },
-            include: { user: { select: { id: true, name: true } } }
+            include: {
+                item: { select: { id: true, title: true } },
+                user: { select: { id: true, name: true } }
+            }
         })
     },
 

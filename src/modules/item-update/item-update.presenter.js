@@ -1,6 +1,6 @@
 class ItemUpdatePresenter {
 
-    static update(ItemUpdate) {
+    static format(ItemUpdate) {
         return {
             id: ItemUpdate.id,
             item_id: ItemUpdate.item_id,

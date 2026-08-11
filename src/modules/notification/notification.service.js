@@ -1,4 +1,4 @@
-const { appEventEmitter, getIO, logger } = require('../../config')
+const { getIO, logger } = require('../../config')
 const ItemAssigneeRepository = require('../item/item-assignee.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const NotificationRepository = require('./notification.repository')
@@ -8,56 +8,11 @@ const NotificationPresenter = require('./notification.presenter')
 const { NotFoundError, AuthorizationError } = require('../../shared/errors')
 const { PaginationService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
-const { DOMAIN_EVENT } = require('../../shared/events/domain-event')
 const { diffUserIds } = require('./notification.utils')
-
-const ACTION_SUFFIX = { CREATE: 'CREATED', UPDATE: 'UPDATED', DELETE: 'DELETED', MOVE: 'MOVED', RESTORE: 'RESTORED' }
-
-const NOTIFICATIONS_USING_CHANGES = ['ITEM_UPDATED', 'ITEM_VALUE_CREATED', 'ITEM_VALUE_UPDATED', 'ITEM_VALUE_DELETED']
 
 const NotificationService = {
 
-    init() {
-        appEventEmitter.on(DOMAIN_EVENT, (event) => this.handleEvent(event))
-        logger.info('Notifications: Listener ativo')
-    },
-
-    async handleEvent(event) {
-        const canResolveRecipients = event.itemId || event.specificRecipients?.length > 0
-        if (!canResolveRecipients) return
-
-        const action = this._resolveAction(event)
-        if (!action) return
-
-        await this._persist({
-            actor: event.actor,
-            boardId: event.boardId,
-            itemId: event.itemId,
-            entityType: event.entityType,
-            entityId: event.entityId,
-            action,
-            specificRecipients: event.specificRecipients,
-            payload: this._buildPayload(event, action),
-        })
-    },
-
-    _resolveAction(event) {
-        if (event.action === 'USER_MENTIONED') return 'USER_MENTIONED'
-        const suffix = ACTION_SUFFIX[event.action]
-        return suffix ? `${event.entityType}_${suffix}` : null
-    },
-
-    _buildPayload(event, action) {
-        const includesChanges = NOTIFICATIONS_USING_CHANGES.includes(action)
-        const isLongText = event.resource.column?.dataType === 'LONG_TEXT'
-
-        return {
-            resource: event.resource,
-            ...(event.changes && includesChanges && !isLongText && { changes: event.changes }),
-        }
-    },
-
-    async _persist({ actor, boardId, itemId, entityType, entityId, action, specificRecipients, payload }) {
+    async create({ actor, boardId, itemId, entityType, entityId, action, specificRecipients, payload }) {
         try {
             const assignedUsersIdsSet = new Set()
 

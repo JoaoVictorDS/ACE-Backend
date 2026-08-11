@@ -9,7 +9,7 @@ const SectionRepository = {
     */
     async findPermissionContext(sectionId) {
         return prisma.section.findUnique({
-            where: { id: sectionId },
+            where: { id: sectionId, deleted_at: null },
             select: {
                 board_id: true,
                 board: { select: { workspace_id: true, creator_id: true } }
@@ -71,7 +71,7 @@ const SectionRepository = {
         return prisma.section.findUnique({
             where: { id: sectionId },
             select: {
-                order: true, name: true,
+                id: true, board_id: true, name: true, order: true,
                 _count: { select: { items: true } }
             }
         })

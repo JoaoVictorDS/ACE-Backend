@@ -7,6 +7,8 @@
  */
 module.exports = (value) => {
     if (!value) return []
+
     const raw = Array.isArray(value) ? value : String(value).split(',')
+
     return raw.map(token => String(token).trim())
 }

@@ -1,50 +1,40 @@
-const { appEventEmitter, emitToRoom } = require('../../config')
-const LogService = require('../log/log.service')
-const MentionService = require('../notification/mention.service')
-const ItemRepository = require('../item/item.repository')
+const { emitToRoom } = require('../../config')
 const CommentRepository = require('./comment.repository')
 const CommentPresenter = require('./comment.presenter')
 const { NotFoundError, AuthorizationError } = require('../../shared/errors')
-const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { PermissionService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
+const { EventPublisher } = require('../../shared/events')
 
 const CommentService = {
 
     async create({ user, itemId, content }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.VIEW)
-        const userId = user.id
-        const { title: itemTitle } = await ItemRepository.findItemTitle(itemId)
-        const newComment = await CommentRepository.create(itemId, userId, content)
 
-        LogService.register({
-            actorId: userId,
+        const newComment = await CommentRepository.create(itemId, user.id, content)
+
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
             boardId,
+            itemId,
+            entityType: ENTITY_TYPES.COMMENT,
+            entityId: newComment.id,
             action: 'CREATE',
-            entityType: 'COMMENT',
-            entityId: newComment.id,
-            newValue: { content }
-        })
-
-        MentionService.process({
-            actor: user,
-            boardId,
-            itemId,
-            itemTitle,
-            entityId: newComment.id,
-            entityType: 'COMMENT',
-            text: content,
-        })
-
-        appEventEmitter.emit('item.action', {
-            actor: user,
-            boardId,
-            itemId,
-            entityId: newComment.id,
-            entityType: 'COMMENT',
-            action: NOTIFICATION_TYPES.COMMENT_CREATED,
-            content: { text: content }
+            resource: { workspaceId, boardId, item: { id: newComment.item_id, title: newComment.item.title }, commentId: newComment.id },
+            changes: { before: null, after: newComment.content },
+            snapshot: {
+                before: null,
+                after: {
+                    id: newComment.id,
+                    item_id: newComment.item_id,
+                    user_id: newComment.user_id,
+                    parent_id: newComment.parent_id,
+                    content: newComment.content,
+                    deleted_at: null
+                }
+            }
         })
 
         emitToRoom(`board:${boardId}`, 'comment:created', newComment)
@@ -59,47 +49,27 @@ const CommentService = {
     },
 
     async update({ user, commentId, content }) {
-        const userId = user.id
         const current = await CommentRepository.findById(commentId)
-        if (!current)
-            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COMMENT)
-        const isOwner = current.user_id === userId
-        if (!isOwner)
-            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('editar', 'COMMENT'))
+        if (!current) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COMMENT)
+
+        const isOwner = current.user_id === user.id
+        if (!isOwner) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('editar', 'COMMENT'))
+
         const { boardId, workspaceId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.ITEM, current.item_id)
-        if (current.content === content) return CommentPresenter.update(current)
+        if (current.content === content) return CommentPresenter.format(current)
+
         const updatedComment = await CommentRepository.update(commentId, content)
 
-        LogService.register({
-            actorId: userId,
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
             boardId,
+            itemId: updatedComment.item_id,
+            entityType: ENTITY_TYPES.COMMENT,
+            entityId: updatedComment.id,
             action: 'UPDATE',
-            entityType: 'COMMENT',
-            entityId: commentId,
-            oldValue: { content: current.content },
-            newValue: { content }
-        })
-
-        MentionService.process({
-            actor: user,
-            boardId,
-            itemId: current.item_id,
-            itemTitle: current.item.title,
-            entityId: commentId,
-            entityType: 'COMMENT',
-            text: content,
-            oldText: current.content,
-        })
-
-        appEventEmitter.emit('item.action', {
-            actor: user,
-            boardId,
-            itemId: current.item_id,
-            entityId: commentId,
-            entityType: 'COMMENT',
-            action: NOTIFICATION_TYPES.COMMENT_UPDATED,
-            content: null
+            resource: { workspaceId, boardId, item: { id: updatedComment.item_id, title: updatedComment.item.title }, commentId },
+            changes: { before: current.content, after: updatedComment.content }
         })
 
         emitToRoom(`board:${boardId}`, 'comment:updated', updatedComment)
@@ -117,29 +87,31 @@ const CommentService = {
         const isBoardOwner = creatorId === userId
         const isSystemAdmin = user.role === 'ADMIN'
 
-        if (!isOwner && !isBoardOwner && !isSystemAdmin)
-            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('excluir', 'COMMENT'))
+        if (!isOwner && !isBoardOwner && !isSystemAdmin) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('excluir', 'COMMENT'))
 
         const deletedComment = await CommentRepository.delete(commentId)
 
-        LogService.register({
-            actorId: userId,
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
             boardId,
-            action: 'DELETE',
-            entityType: 'COMMENT',
-            entityId: commentId,
-            oldValue: { content: comment.content }
-        })
-
-        appEventEmitter.emit('item.action', {
-            actor: user,
-            boardId,
             itemId: comment.item_id,
-            entityType: 'COMMENT',
-            entityId: commentId,
-            action: NOTIFICATION_TYPES.COMMENT_DELETED,
-            content: null
+            entityType: ENTITY_TYPES.COMMENT,
+            entityId: comment.id,
+            action: 'CREATE',
+            resource: { workspaceId, boardId, item: { id: comment.id, title: comment.item.title }, commentId },
+            changes: { before: comment.content, after: null },
+            snapshot: {
+                before: {
+                    id: comment.id,
+                    item_id: comment.item_id,
+                    user_id: comment.user_id,
+                    parent_id: comment.parent_id,
+                    content: comment.content,
+                    deleted_at: null
+                },
+                after: null
+            }
         })
 
         emitToRoom(`board:${boardId}`, 'comment:deleted', { commentId })

@@ -1,12 +1,12 @@
-const LogService = require('../log/log.service')
 const WorkspaceRepository = require('./workspace.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
 const ItemRepository = require('../item/item.repository')
 const { TransactionManager } = require('../../shared/database')
 const { NotFoundError, ConflictError } = require('../../shared/errors')
 const { PermissionService } = require('../../shared/services')
-const { PERMISSION_LEVELS } = require('../../shared/constants')
+const { PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
+const { EventPublisher } = require('../../shared/events')
 
 const WorkspaceService = {
 
@@ -15,13 +15,25 @@ const WorkspaceService = {
         const nextOrder = await WorkspaceMemberRepository.findMaxOrder(userId)
         const newWorkspace = await WorkspaceRepository.create(userId, name, nextOrder)
 
-        LogService.register({
-            actorId: userId,
+        EventPublisher.publish({
+            actor: user,
             workspaceId: newWorkspace.id,
-            action: 'CREATE',
-            entityType: 'WORKSPACE',
+            entityType: ENTITY_TYPES.WORKSPACE,
             entityId: newWorkspace.id,
-            newValue: { name }
+            action: 'CREATE',
+            resource: { workspaceId: newWorkspace.id, workspace: { id: newWorkspace.id, name: newWorkspace.name } },
+            changes: { before: null, after: newWorkspace.name },
+            snapshot: {
+                before: null,
+                after: {
+                    id: newWorkspace.id,
+                    creator_id: newWorkspace.creator_id,
+                    name: newWorkspace.name,
+                    description: newWorkspace.description,
+                    icon: newWorkspace.icon,
+                    deleted_at: null
+                }
+            }
         })
 
         return newWorkspace
@@ -46,44 +58,28 @@ const WorkspaceService = {
         const hasChanges = Object.keys(data).some(
             (key) => data[key] !== undefined && data[key] !== currentWorkspace[key]
         )
+        if (!hasChanges) return currentWorkspace
 
-        if (!hasChanges) {
-            return currentWorkspace
+        const FIELD_LABELS = {
+            name: 'nome',
+            description: 'descrição',
+            icon: 'ícone'
         }
 
-        const changes = []
-        if (data.name && data.name !== currentWorkspace.name) {
-            changes.push({
-                field: 'name',
-                old: currentWorkspace.name,
-                new: data.name
-            })
-        }
-        if (data.description && data.description !== currentWorkspace.description) {
-            changes.push({
-                field: 'description',
-                old: currentWorkspace.description,
-                new: data.description
-            })
-        }
-        if (data.icon && data.icon !== currentWorkspace.icon) {
-            changes.push({
-                field: 'icon',
-                old: currentWorkspace.icon,
-                new: data.icon
-            })
-        }
+        const fields = Object.keys(FIELD_LABELS)
+            .filter(key => data[key] !== undefined && data[key] !== currentWorkspace[key])
+            .map(field => ({ field, label: FIELD_LABELS[field], before: currentWorkspace[field], after: data[field] }))
 
         const updatedWorkspace = await WorkspaceRepository.update(workspaceId, data)
 
-        LogService.register({
-            actorId: user.id,
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
+            entityType: ENTITY_TYPES.WORKSPACE,
+            entityId: updatedWorkspace.id,
             action: 'UPDATE',
-            entityType: 'WORKSPACE',
-            entityId: workspaceId,
-            oldValue: Object.fromEntries(changes.map(c => [c.field, c.old])),
-            newValue: Object.fromEntries(changes.map(c => [c.field, c.new]))
+            resource: { workspaceId, workspace: { id: updatedWorkspace.id, name: updatedWorkspace.name } },
+            changes: { fields }
         })
 
         return updatedWorkspace
@@ -103,17 +99,27 @@ const WorkspaceService = {
         const result = await TransactionManager.run(async (tx) => {
             await WorkspaceMemberRepository.decrementOrderAfterWorkspaceDeletion(workspaceId, tx)
 
-            await LogService.register({
-                userId: user.id,
-                workspaceId: workspaceId,
-                action: 'DELETE',
-                entityType: 'WORKSPACE',
-                entityId: workspaceId,
-                oldValue: { name: workspace.name },
-                tx
-            })
-
             return await WorkspaceRepository.delete(workspaceId, tx)
+        })
+
+        EventPublisher.publish({
+            actor: user,
+            workspaceId,
+            entityType: ENTITY_TYPES.WORKSPACE,
+            entityId: workspace.id,
+            action: 'DELETE',
+            resource: { workspaceId, workspace: { id: workspace.id, name: workspace.name } },
+            changes: {
+                before: {
+                    id: workspace.id,
+                    creator_id: workspace.creator_id,
+                    name: workspace.name,
+                    description: workspace.description,
+                    icon: workspace.icon,
+                    deleted_at: null
+                },
+                after: null
+            }
         })
 
         return result

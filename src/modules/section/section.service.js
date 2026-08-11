@@ -1,11 +1,11 @@
 const { emitToRoom } = require('../../config')
-const LogService = require('../log/log.service')
 const SectionRepository = require('./section.repository')
-const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { NotFoundError, ConflictError } = require('../../shared/errors')
 const { PermissionService } = require('../../shared/services')
 const { TransactionManager } = require('../../shared/database')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
+const { EventPublisher } = require('../../shared/events')
 
 const SectionService = {
 
@@ -18,14 +18,25 @@ const SectionService = {
             return await SectionRepository.create(boardId, name, order, tx)
         })
 
-        LogService.register({
-            actorId: user.id,
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
             boardId,
-            action: 'CREATE',
-            entityType: 'SECTION',
+            entityType: ENTITY_TYPES.SECTION,
             entityId: result.id,
-            newValue: { name }
+            action: 'CREATE',
+            resource: { workspaceId, boardId, section: { id: result.id, name: result.name } },
+            changes: { before: null, after: result.name },
+            snapshot: {
+                before: null,
+                after: {
+                    id: result.id,
+                    board_id: result.board_id,
+                    name: result.name,
+                    order: result.order,
+                    deleted_at: null
+                }
+            }
         })
 
         emitToRoom(`board:${boardId}`, 'section:created', result)
@@ -50,15 +61,15 @@ const SectionService = {
 
         const updatedSection = await SectionRepository.update(sectionId, name)
 
-        LogService.register({
-            actorId: user.id,
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
             boardId,
+            entityType: ENTITY_TYPES.SECTION,
+            entityId: updatedSection.id,
             action: 'UPDATE',
-            entityType: 'SECTION',
-            entityId: sectionId,
-            oldValue: { name: section.name },
-            newValue: { name }
+            resource: { workspaceId, boardId, section: { id: updatedSection.id, name: updatedSection.name } },
+            changes: { before: section.name, after: updatedSection.name }
         })
 
         emitToRoom(`board:${boardId}`, 'section:updated', updatedSection)
@@ -82,14 +93,25 @@ const SectionService = {
             return await SectionRepository.decrementOrderAfter(boardId, sectionToDelete.order, tx)
         })
 
-        LogService.register({
-            actorId: user.id,
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
             boardId,
+            entityType: ENTITY_TYPES.SECTION,
+            entityId: sectionToDelete.id,
             action: 'DELETE',
-            entityType: 'SECTION',
-            entityId: sectionId,
-            oldValue: { name: sectionToDelete.name }
+            resource: { workspaceId, boardId, section: { id: sectionToDelete.id, name: sectionToDelete.name } },
+            changes: { before: sectionToDelete.name, after: null },
+            snapshot: {
+                before: {
+                    id: sectionToDelete.id,
+                    board_id: sectionToDelete.board_id,
+                    name: sectionToDelete.name,
+                    order: sectionToDelete.order,
+                    deleted_at: null
+                },
+                after: null
+            }
         })
 
         emitToRoom(`board:${boardId}`, 'section:deleted', { sectionId })
@@ -119,15 +141,15 @@ const SectionService = {
             return await SectionRepository.updateOrder(sectionId, finalOrder, tx)
         })
 
-        LogService.register({
-            actorId: user.id,
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
             boardId,
+            entityType: ENTITY_TYPES.SECTION,
+            entityId: result.id,
             action: 'MOVE',
-            entityType: 'SECTION',
-            entityId: sectionId,
-            oldValue: { order: currentOrder },
-            newValue: { order: newOrder }
+            resource: { workspaceId, boardId, section: { id: result.id, name: result.name } },
+            changes: { before: currentSection.order, after: result.order }
         })
 
         emitToRoom(`board:${boardId}`, 'section:moved', result)

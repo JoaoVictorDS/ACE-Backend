@@ -6,23 +6,9 @@ const NotificationDictionary = {
         `**${actorName}** criou a tarefa **${meta.resource.item.title}**`,
 
     ITEM_UPDATED: (actorName, meta) => {
-        const { item } = meta.resource
-        const { fields } = meta.changes || {}
+        const { before, after } = meta.changes || {}
 
-        if (!fields?.length) {
-            return `**${actorName}** atualizou a tarefa **${item.title}**`
-        }
-
-        if (fields.length === 1) {
-            const [change] = fields
-            if (change.field === 'title') {
-                return `**${actorName}** renomeou **${change.before}** para **${change.after}**`
-            }
-            return `**${actorName}** alterou **${change.label}** em **${item.title}**`
-        }
-
-        const labels = fields.map(f => `**${f.label}**`).join(' e ')
-        return `**${actorName}** atualizou ${labels} em **${item.title}**`
+        return `**${actorName}** renomeou **${before}** para **${after}**`
     },
 
     ITEM_DELETED: (actorName, meta) =>
@@ -111,9 +97,8 @@ const NotificationDictionary = {
         const { item, mentionSource } = meta.resource
 
         const locationMap = {
-            comment: `em um comentário em **${item.title}**`,
-            item_update: `em uma atualização de **${item.title}**`,
-            description: `na descrição de **${item.title}**`,
+            COMMENT: `em um comentário em **${item.title}**`,
+            ITEM_UPDATE: `em uma atualização de **${item.title}**`
         }
 
         const location = locationMap[mentionSource] ?? `em **${item.title}**`
@@ -126,32 +111,32 @@ const NotificationDictionary = {
         const { board, member } = meta.resource
         const { after: role } = meta.changes || {}
 
-        if (recipientId === member.userId) {
+        if (recipientId === member.id) {
             return `**${actorName}** adicionou **você** ao quadro **${board.name}** como **${role}**`
         }
-        return `**${actorName}** adicionou **${member.userName}** ao quadro **${board.name}**`
+        return `**${actorName}** adicionou **${member.name}** ao quadro **${board.name}**`
     },
 
     MEMBER_UPDATED: (actorName, meta, recipientId) => {
         const { board, member } = meta.resource
         const { after: role } = meta.changes || {}
 
-        if (recipientId === member.userId) {
+        if (recipientId === member.id) {
             return `**${actorName}** alterou seu cargo no quadro **${board.name}** para **${role}**`
         }
-        return `**${actorName}** alterou o cargo de **${member.userName}** para **${role}** em **${board.name}**`
+        return `**${actorName}** alterou o cargo de **${member.name}** para **${role}** em **${board.name}**`
     },
 
     MEMBER_DELETED: (actorName, meta, recipientId) => {
         const { board, member } = meta.resource
 
         if (member.selfInitiated) {
-            return `**${member.userName}** saiu do quadro **${board.name}**`
+            return `**${member.name}** saiu do quadro **${board.name}**`
         }
-        if (recipientId === member.userId) {
+        if (recipientId === member.id) {
             return `**${actorName}** removeu **você** do quadro **${board.name}**`
         }
-        return `**${actorName}** removeu **${member.userName}** do quadro **${board.name}**`
+        return `**${actorName}** removeu **${member.name}** do quadro **${board.name}**`
     },
 
     // ─── FALLBACK ──────────────────────────────────────────────────────────────

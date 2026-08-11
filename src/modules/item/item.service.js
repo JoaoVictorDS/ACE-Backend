@@ -2,10 +2,11 @@ const { appEventEmitter, emitToRoom } = require('../../config')
 const LogService = require('../log/log.service')
 const ItemRepository = require('./item.repository')
 const { NotFoundError, ValidationError } = require('../../shared/errors')
-const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
+const { NOTIFICATION_TYPES, RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { PermissionService } = require('../../shared/services')
 const { TransactionManager } = require('../../shared/database')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
+const { EventPublisher } = require('../../shared/events')
 
 const ItemService = {
 
@@ -18,24 +19,26 @@ const ItemService = {
             return await ItemRepository.create(sectionId, title, order, tx)
         })
 
-        LogService.register({
-            actorId: user.id,
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
             boardId,
-            action: 'CREATE',
-            entityType: 'ITEM',
-            entityId: result.id,
-            newValue: { title }
-        })
-
-        appEventEmitter.emit('item.action', {
-            actor: user,
             itemId: result.id,
-            entityType: 'ITEM',
+            entityType: ENTITY_TYPES.ITEM,
             entityId: result.id,
-            boardId,
-            action: NOTIFICATION_TYPES.ITEM_CREATED,
-            content: null
+            action: 'CREATE',
+            resource: { workspaceId, boardId, sectionId: result.section_id, item: { id: result.id, title: result.title } },
+            changes: { before: null, after: result.title },
+            snapshot: {
+                before: null,
+                after: {
+                    id: result.id,
+                    section_id: result.section_id,
+                    title: result.title,
+                    order: result.order,
+                    deleted_at: null
+                }
+            }
         })
 
         emitToRoom(`board:${boardId}`, 'item:created', result)
@@ -63,32 +66,19 @@ const ItemService = {
 
         const updatedItem = await ItemRepository.update(itemId, title)
 
-        LogService.register({
-            actorId: user.id,
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
             boardId,
+            itemId: updatedItem.id,
+            entityType: ENTITY_TYPES.ITEM,
+            entityId: updatedItem.id,
             action: 'UPDATE',
-            entityType: 'ITEM',
-            entityId: itemId,
-            oldValue: { title: currentItem.title },
-            newValue: { title }
-        })
-
-        appEventEmitter.emit('item.action', {
-            actor: user,
-            itemId,
-            entityType: 'ITEM',
-            entityId: itemId,
-            boardId,
-            action: NOTIFICATION_TYPES.ITEM_UPDATED,
-            content: {
-                changes: {
-                    field: 'system_title',
-                    label: 'Título',
-                    oldValue: currentItem.title,
-                    newValue: title
-                }
-            }
+            resource: { workspaceId, boardId, sectionId: updatedItem.section_id, item: { id: updatedItem.id, title: updatedItem.title } },
+            changes: {
+                before: currentItem.title,
+                after: updatedItem.title
+            },
         })
 
         emitToRoom(`board:${boardId}`, 'item:updated', updatedItem)
@@ -108,27 +98,29 @@ const ItemService = {
             return ItemRepository.delete(itemId, tx)
         })
 
-        LogService.register({
-            actorId: user.id,
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
             boardId,
+            itemId: item.id,
+            entityType: ENTITY_TYPES.ITEM,
+            entityId: item.id,
             action: 'DELETE',
-            entityType: 'ITEM',
-            entityId: itemId,
-            oldValue: { title: item.title }
+            resource: { workspaceId, boardId, sectionId: item.section_id, item: { id: item.id, title: item.title } },
+            changes: { before: item.title, after: null },
+            snapshot: {
+                before: {
+                    id: item.id,
+                    section_id: item.section_id,
+                    title: item.title,
+                    order: item.order,
+                    deleted_at: null
+                },
+                after: null
+            }
         })
 
-        appEventEmitter.emit('item.action', {
-            actor: user,
-            itemId,
-            entityType: 'ITEM',
-            entityId: itemId,
-            boardId,
-            action: NOTIFICATION_TYPES.ITEM_DELETED,
-            content: null
-        })
-
-        emitToRoom(`board:${boardId}`, 'item:deleted', { itemId })
+        emitToRoom(`board: ${boardId}`, 'item:deleted', { itemId })
 
         return result
     },
@@ -177,35 +169,28 @@ const ItemService = {
             return {
                 updated,
                 isSameSection,
-                oldState: { sectionId: oldSectionId, order: oldOrder },
-                newState: { sectionId: finalSectionId, order: finalOrder }
+                changes: {
+                    before: { section_id: oldSectionId, order: oldOrder },
+                    after: { section_id: finalSectionId, order: finalOrder }
+                }
             }
         })
 
-        LogService.register({
-            actorId: user.id,
-            workspaceId,
-            boardId,
-            action: 'MOVE',
-            entityType: 'ITEM',
-            entityId: itemId,
-            oldValue: { section: result.oldState.sectionId, order: result.oldState.order },
-            newValue: { section: result.newState.sectionId, order: result.newState.order }
-        })
-
         if (!result.isSameSection) {
-            appEventEmitter.emit('item.action', {
+            EventPublisher.publish({
                 actor: user,
-                itemId,
-                entityType: 'ITEM',
-                entityId: itemId,
+                workspaceId,
                 boardId,
-                action: NOTIFICATION_TYPES.ITEM_MOVED,
-                content: null
+                itemId: result.updated.id,
+                entityType: ENTITY_TYPES.ITEM,
+                entityId: result.updated.id,
+                action: 'MOVE',
+                resource: { workspaceId, boardId, sectionId: result.updated.section_id, item: { id: result.updated.id, title: result.updated.title } },
+                changes: result.changes
             })
         }
 
-        emitToRoom(`board: ${boardId}`, 'item:moved', result.updated)
+        emitToRoom(`board: ${boardId} `, 'item:moved', result.updated)
 
         return result.updated
     },

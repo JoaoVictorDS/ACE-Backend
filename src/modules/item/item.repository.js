@@ -9,7 +9,7 @@ const ItemRepository = {
     */
     async findPermissionContext(itemId) {
         return prisma.item.findUnique({
-            where: { id: itemId },
+            where: { id: itemId, deleted_at: null },
             select: {
                 section: { select: { board_id: true, board: { select: { workspace_id: true, creator_id: true } } } }
             }

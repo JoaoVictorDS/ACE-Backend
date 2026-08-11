@@ -70,7 +70,7 @@ const UserRepository = {
 
     async findByEmail(email) {
         return prisma.user.findUnique({
-            where: { email: email.toLowerCase() },
+            where: { email: email.toLowerCase(), is_active: true },
             select: { id: true, name: true, role: true }
         })
     },

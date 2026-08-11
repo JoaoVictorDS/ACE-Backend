@@ -1,5 +1,6 @@
-const { emitToRoom, appEventEmitter } = require('../../config')
+const { emitToRoom } = require('../../config')
 const BoardMemberRepository = require('./board-member.repository')
+const BoardRepository = require('../board/board.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
 const UserRepository = require('../user/user.repository')
 const { PermissionService } = require('../../shared/services')
@@ -7,8 +8,8 @@ const { TransactionManager } = require('../../shared/database')
 const { AuthorizationError, NotFoundError, ConflictError, ValidationError } = require('../../shared/errors')
 const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
-const { DOMAIN_EVENT } = require('../../shared/events/domain-event')
-const BoardRepository = require('../board/board.repository')
+const { EventPublisher } = require('../../shared/events')
+const BoardMemberPresenter = require('./board-member.presenter')
 
 const BoardMemberService = {
 
@@ -20,7 +21,7 @@ const BoardMemberService = {
             const privilegedMembersCount = await BoardMemberRepository.countPrivilegedMembers(board_id, tx)
             if (privilegedMembersCount <= 1)
                 throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT(
-                    'o quadro',
+                    'o membro do quadro',
                     'é necessário manter pelo menos um membro com permissões administrativas'
                 ))
         }
@@ -30,65 +31,65 @@ const BoardMemberService = {
     },
 
     async upsert({ user, boardId, memberEmail, role }) {
-        const { workspaceId, creatorId } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.ADMIN)
-        const userId = user.id
+        const { workspaceId } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.ADMIN)
 
         const targetUser = await UserRepository.findByEmail(memberEmail)
         if (!targetUser) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.USER)
 
         const { id: targetUserId, name: targetUserName } = targetUser
-        const isWorkspaceMember = await WorkspaceMemberRepository.isWorkspaceMember(targetUserId, workspaceId)
+        const isSelf = targetUserId === user.id
+        if (isSelf) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('alterar sua própria permissão'))
 
+        const isWorkspaceMember = await WorkspaceMemberRepository.isWorkspaceMember(targetUserId, workspaceId)
         if (!isWorkspaceMember) throw new ValidationError(ERROR_CATALOG.VALIDATION.USER_NOT_WORKSPACE_MEMBER)
-        if (targetUserId === userId) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('alterar sua própria permissão'))
-        if (targetUserId === creatorId) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('alterar o cargo do proprietário'))
 
         const existingMember = await BoardMemberRepository.findMembership(targetUserId, boardId)
-        const isDowngradingAdmin = existingMember?.role === 'ADMIN' && role !== 'ADMIN'
 
+        const isTargetOwner = existingMember?.role === 'OWNER'
+        if (isTargetOwner) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('alterar o cargo do proprietário'))
+
+        const isSameRole = existingMember?.role === role
+        if (isSameRole) return BoardMemberPresenter.format(existingMember)
+
+        const isDowngradingAdmin = existingMember?.role === 'ADMIN' && role !== 'ADMIN'
         if (isDowngradingAdmin) {
             const privilegedMembersCount = await BoardMemberRepository.countPrivilegedMembers(boardId)
             if (privilegedMembersCount <= 1)
                 throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT(
-                    'o quadro',
+                    'o membro do quadro',
                     'é necessário manter pelo menos um administrador'
                 ))
         }
 
-        const isNewMember = !existingMember
-        const isNoOp = existingMember && existingMember.role === role
-
         let nextOrder = 0
-        if (isNewMember) {
-            nextOrder = await BoardMemberRepository.findMaxOrderByWorkspace(userId, workspaceId)
-        }
+
+        const isNewMember = !existingMember
+        if (isNewMember) nextOrder = await BoardMemberRepository.findMaxOrderByWorkspace(targetUserId, workspaceId)
 
         const member = await BoardMemberRepository.upsertMember(targetUserId, boardId, role, nextOrder)
 
-        if (!isNoOp) {
-            const { name: boardName } = await BoardRepository.findBoardName(boardId)
+        const { name: boardName } = await BoardRepository.findBoardName(boardId)
 
-            appEventEmitter.emit(DOMAIN_EVENT, {
-                actor: user,
+        EventPublisher.publish({
+            actor: user,
+            workspaceId,
+            boardId,
+            entityType: ENTITY_TYPES.MEMBER,
+            entityId: member.id,
+            action: isNewMember ? 'CREATE' : 'UPDATE',
+            resource: {
                 workspaceId,
                 boardId,
-                entityType: ENTITY_TYPES.MEMBER,
-                entityId: member.id,
-                action: isNewMember ? 'CREATE' : 'UPDATE',
-                resource: {
-                    workspaceId,
-                    boardId,
-                    board: { id: boardId, name: boardName },
-                    member: { userId: targetUserId, userName: targetUserName }
-                },
-                changes: { before: existingMember?.role ?? null, after: role },
-                specificRecipients: [targetUserId],
-            })
-        }
+                board: { id: boardId, name: boardName },
+                member: { id: targetUserId, name: targetUserName }
+            },
+            changes: { before: existingMember?.role ?? null, after: role },
+            specificRecipients: [targetUserId],
+        })
 
         emitToRoom(`board:${boardId}`, 'board_member:changed', member)
 
-        return member
+        return BoardMemberPresenter.format(member)
     },
 
     async getByBoard({ user, boardId }) {
@@ -99,25 +100,20 @@ const BoardMemberService = {
     async remove({ user, boardId, memberIdToRemove }) {
         await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.ADMIN)
 
-        const userId = user.id
-        const isSelf = memberIdToRemove === userId
-        if (isSelf)
-            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('remover a si mesmo'))
+        const isSelf = memberIdToRemove === user.id
+        if (isSelf) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('remover a si mesmo'))
 
         const membership = await BoardMemberRepository.findMembershipWithBoardAndUser(boardId, memberIdToRemove)
-        if (!membership)
-            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.BOARD_MEMBER)
+        if (!membership) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.BOARD_MEMBER)
 
-        if (membership.role === 'OWNER')
-            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('remover o proprietário do quadro'))
+        const isTargetOwner = membership.role === 'OWNER'
+        if (isTargetOwner) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('remover o proprietário do quadro'))
 
         const result = await TransactionManager.run(async (tx) => {
             return await this._performRemoval(tx, { membership })
         })
 
-        const { name: boardName } = await BoardRepository.findBoardName(boardId)
-
-        appEventEmitter.emit(DOMAIN_EVENT, {
+        EventPublisher.publish({
             actor: user,
             workspaceId: membership.board.workspace_id,
             boardId,
@@ -127,12 +123,18 @@ const BoardMemberService = {
             resource: {
                 workspaceId: membership.board.workspace_id,
                 boardId,
-                board: { id: boardId, name: boardName },
-                member: { userId: memberIdToRemove, userName: membership.user.name, selfInitiated: false }
+                board: { id: membership.board.id, name: membership.board.name },
+                member: { id: membership.user_id, name: membership.user.name, selfInitiated: false }
             },
             changes: { before: membership.role, after: null },
             snapshot: {
-                before: { id: membership.id, user_id: memberIdToRemove, board_id: boardId, role: membership.role, order: membership.order },
+                before: {
+                    id: membership.id,
+                    user_id: membership.user_id,
+                    board_id: membership.board.id,
+                    role: membership.role,
+                    order: membership.order
+                },
                 after: null
             },
             specificRecipients: [memberIdToRemove]
@@ -145,13 +147,15 @@ const BoardMemberService = {
 
     async move({ user, boardId, newOrder }) {
         const userId = user.id
-        const currentMembership = await BoardMemberRepository.findMembershipWithBoard(userId, boardId)
-        if (!currentMembership) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.BOARD_MEMBER)
 
-        const { board: { workspace_id: workspaceId }, order: oldOrder } = currentMembership
+        const membership = await BoardMemberRepository.findMembershipWithBoard(userId, boardId)
+        if (!membership) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.BOARD_MEMBER)
+
+        const { board: { workspace_id: workspaceId }, order: oldOrder } = membership
         const totalBoards = await BoardMemberRepository.countBoardsByUserInWorkspace(userId, workspaceId)
         const finalOrder = Math.max(0, Math.min(newOrder, totalBoards - 1))
-        if (oldOrder === finalOrder) return currentMembership
+        const isSamePosition = oldOrder === newOrder || oldOrder === finalOrder
+        if (isSamePosition) return BoardMemberPresenter.format(membership)
 
         return await TransactionManager.run(async (tx) => {
             const direction = finalOrder > oldOrder ? 'decrement' : 'increment'
@@ -165,17 +169,15 @@ const BoardMemberService = {
     },
 
     async leave({ user, boardId }) {
-        const userId = user.id
-        const membership = await BoardMemberRepository.findMembershipWithBoardAndUser(boardId, userId)
+        const membership = await BoardMemberRepository.findMembershipWithBoardAndUser(boardId, user.id)
         if (!membership) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.BOARD_MEMBER)
 
-        const [result, admins, { name: boardName }] = await Promise.all([
+        const [result, admins] = await Promise.all([
             TransactionManager.run(async (tx) => this._performRemoval(tx, { membership })),
-            BoardMemberRepository.findByBoardAndRoles(boardId, ['ADMIN', 'OWNER']),
-            BoardRepository.findBoardName(boardId),
+            BoardMemberRepository.findByBoardAndRoles(boardId, ['ADMIN', 'OWNER'])
         ])
 
-        appEventEmitter.emit(DOMAIN_EVENT, {
+        EventPublisher.publish({
             actor: user,
             workspaceId: membership.board.workspace_id,
             boardId,
@@ -185,18 +187,24 @@ const BoardMemberService = {
             resource: {
                 workspaceId: membership.board.workspace_id,
                 boardId,
-                board: { id: boardId, name: boardName },
-                member: { userId, userName: membership.user.name, selfInitiated: true },
+                board: { id: membership.board_id, name: membership.board.name },
+                member: { id: membership.user_id, name: membership.user.name, selfInitiated: true },
             },
             changes: { before: membership.role, after: null },
             snapshot: {
-                before: { id: membership.id, user_id: userId, board_id: boardId, role: membership.role, order: membership.order },
+                before: {
+                    id: membership.id,
+                    user_id: membership.user_id,
+                    board_id: membership.board_id,
+                    role: membership.role,
+                    order: membership.order
+                },
                 after: null
             },
             specificRecipients: admins.map(a => a.user_id),
         })
 
-        emitToRoom(`board:${boardId}`, 'board_member:leaved', { memberId: userId })
+        emitToRoom(`board:${boardId}`, 'board_member:leaved', { memberId: membership.user_id })
 
         return result
     },

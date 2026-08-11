@@ -38,7 +38,7 @@ const UserService = {
             const user = await UserRepository.create(name, email, password_hash, role, tx)
             await this.setupDefaults(user.id, tx)
 
-            return UserPresenter.created(user)
+            return UserPresenter.format(user)
         })
 
         return result

@@ -1,6 +1,6 @@
 class UserPresenter {
 
-    static created(user) {
+    static format(user) {
         return {
             id: user.id,
             name: user.name,

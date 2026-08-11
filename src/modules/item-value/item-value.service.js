@@ -1,15 +1,14 @@
-const { appEventEmitter, emitToRoom } = require('../../config')
+const { emitToRoom } = require('../../config')
 const ColumnService = require('../column/column.service')
 const ItemAssigneeService = require('../item/item-assignee.service')
 const ItemValueRepository = require('./item-value.repository')
 const ColumnRepository = require('../column/column.repository')
-const UserRepository = require('../user/user.repository')
 const ItemRepository = require('../item/item.repository')
 const ItemValuePresenter = require('./item-value.presenter.js')
 const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { PermissionService } = require('../../shared/services')
 const { TransactionManager } = require('../../shared/database')
-const { DOMAIN_EVENT } = require('../../shared/events/domain-event.js')
+const { EventPublisher } = require('../../shared/events')
 
 const ItemValueService = {
 
@@ -27,7 +26,7 @@ const ItemValueService = {
         const isSameValue = oldValue === sanitizedValue
         if (isSameValue) return {
             action: 'UNCHANGED',
-            data: ItemValuePresenter.upsert({
+            data: ItemValuePresenter.format({
                 id: currentItemValue?.id,
                 item_id: itemId,
                 column_id: columnId,
@@ -64,7 +63,7 @@ const ItemValueService = {
         const { title } = await ItemRepository.findItemTitle(itemId)
         const entityId = result?.id ?? currentItemValue?.id
 
-        appEventEmitter.emit(DOMAIN_EVENT, {
+        EventPublisher.publish({
             actor: user,
             workspaceId,
             boardId,
@@ -83,7 +82,7 @@ const ItemValueService = {
 
         const response = {
             action,
-            data: ItemValuePresenter.upsert({
+            data: ItemValuePresenter.format({
                 id: entityId,
                 item_id: itemId,
                 column_id: columnId,

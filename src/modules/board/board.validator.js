@@ -38,7 +38,7 @@ const deleteBoardSchema = {
 const moveBoardSchema = {
     params: z.object({ board_id }),
 
-    body: z.object({})
+    body: z.object({ new_order })
 }
 
 const getHistorySchema = {

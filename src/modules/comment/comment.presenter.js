@@ -1,6 +1,6 @@
 class CommentPresenter {
 
-    static update(comment) {
+    static format(comment) {
         return {
             id: comment.id,
             item_id: comment.item_id,

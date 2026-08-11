@@ -1,5 +1,4 @@
-const { emitToRoom, appEventEmitter } = require('../../config')
-const LogService = require('../log/log.service')
+const { emitToRoom } = require('../../config')
 const ColumnRepository = require('./column.repository')
 const ItemAssigneeRepository = require('../item/item-assignee.repository')
 const ItemValueRepository = require('../item-value/item-value.repository')
@@ -9,7 +8,9 @@ const { NotFoundError, AuthorizationError, ConflictError } = require('../../shar
 const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { PermissionService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
-const { DOMAIN_EVENT } = require('../../shared/events/domain-event')
+const { EventPublisher } = require('../../shared/events')
+const { TransactionManager } = require('../../shared/database')
+const ColumnRestrictionMapper = require('./column-restriction.mapper')
 
 const ColumnService = {
 
@@ -58,7 +59,7 @@ const ColumnService = {
             order: nextOrder,
         })
 
-        appEventEmitter.emit(DOMAIN_EVENT, {
+        EventPublisher.publish({
             actor: user,
             workspaceId,
             boardId,
@@ -146,7 +147,7 @@ const ColumnService = {
 
         const updatedColumn = await ColumnRepository.update(columnId, data)
 
-        appEventEmitter.emit(DOMAIN_EVENT, {
+        EventPublisher.publish({
             actor: user,
             workspaceId,
             boardId,
@@ -169,8 +170,8 @@ const ColumnService = {
     async delete({ user, columnId, force = false }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
-        const columnToDelete = await ColumnRepository.findByIdBasic(columnId)
-        if (!columnToDelete) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
+        const column = await ColumnRepository.findByIdBasic(columnId)
+        if (!column) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
 
         const affectedValuesCount = await ItemValueRepository.countItemValuesByColumn(columnId)
 
@@ -178,31 +179,38 @@ const ColumnService = {
             throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT('a coluna', `${affectedValuesCount} itens`))
         }
 
-        // provavelmente isso vai ser removido, pois com o soft delete não queremos que esses dados sejam apagados 
-        await Promise.all([
-            ItemValueRepository.deleteItemValuesByColumn(columnId),
-            ItemAssigneeRepository.deleteItemAssignees(columnId)
-        ])
+        const deletedColumn = await ColumnRepository.softDelete(columnId)
 
-        await ColumnRepository.delete(columnId)
-        await ColumnRepository.decrementOrderAfter(boardId, columnToDelete.order)
-
-        LogService.register({
-            actorId: user.id,
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
             boardId,
             action: 'DELETE',
-            entityType: 'COLUMN',
+            entityType: ENTITY_TYPES.COLUMN,
             entityId: columnId,
-            oldValue: {
-                name: columnToDelete.name,
-                deleted_count: affectedValuesCount
+            resource: { workspaceId, boardId, column: { id: column.id, name: column.name } },
+            changes: {
+                before: column.name,
+                after: null
+            },
+            snapshot: {
+                before: {
+                    id: column.id,
+                    board_id: column.board_id,
+                    name: column.name,
+                    data_type: column.data_type,
+                    options: column.options,
+                    formula_expression: column.formula_expression,
+                    order: column.order,
+                    deleted_at: null
+                },
+                after: null
             }
         })
 
         emitToRoom(`board:${boardId}`, 'column:deleted', { columnId })
 
-        return { deleted_count: affectedValuesCount }
+        return deletedColumn
     },
 
     async move({ user, columnId, newOrder }) {
@@ -234,34 +242,35 @@ const ColumnService = {
     async updateRestrictions({ user, columnId, restrictions }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
-        const currentColumn = await ColumnRepository.findByIdBasic(columnId)
-        if (!currentColumn) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
+        const column = await ColumnRepository.findById(columnId)
+        if (!column) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
 
-        const currentRestrictions = await ColumnRepository.findRestrictions(columnId)
+        const restrictionData = ColumnRestrictionMapper.toPersistence(restrictions, columnId)
 
-        await ColumnRepository.deleteRestrictions(columnId)
+        const result = await TransactionManager.run(async (tx) => {
+            await ColumnRepository.deleteRestrictions(columnId, tx)
 
-        const restrictionData = restrictions.map(r => ({
-            column_id: columnId,
-            user_id: r.user_id || null,
-            board_role: r.board_role || null,
-            can_view: r.can_view ?? true,
-            can_edit: r.can_edit ?? false
-        }))
+            await ColumnRepository.createRestrictions(restrictionData, tx)
 
-        await ColumnRepository.createRestrictions(restrictionData)
+            return await ColumnRepository.findRestrictions(columnId, tx)
+        })
 
-        const result = await ColumnRepository.findRestrictions(columnId)
-
-        LogService.register({
-            actorId: user.id,
+        EventPublisher.publish({
+            actor: user,
             workspaceId,
             boardId,
             action: 'UPDATE',
-            entityType: 'COLUMN_RESTRICTION',
+            entityType: ENTITY_TYPES.COLUMN_RESTRICTION,
             entityId: columnId,
-            oldValue: currentRestrictions.map(({ user_id, board_role, can_view, can_edit }) => ({ user_id, board_role, can_view, can_edit })),
-            newValue: result.map(({ user_id, board_role, can_view, can_edit }) => ({ user_id, board_role, can_view, can_edit }))
+            resource: {
+                workspaceId,
+                boardId,
+                column: { id: column.id, name: column.name }
+            },
+            changes: {
+                before: ColumnRestrictionMapper.toPersistence(column.restrictions),
+                after: ColumnRestrictionMapper.toPersistence(result)
+            }
         })
 
         emitToRoom(`board:${boardId}`, 'column:restrictions_updated', { columnId, restrictions: result })

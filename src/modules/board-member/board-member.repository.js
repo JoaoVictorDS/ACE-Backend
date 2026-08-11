@@ -22,7 +22,11 @@ const BoardMemberRepository = {
      */
     async isBoardMember(userId, boardId) {
         const member = await prisma.boardMember.findUnique({
-            where: { user_id_board_id: { board_id: boardId, user_id: userId } }
+            where: {
+                user_id_board_id: { board_id: boardId, user_id: userId },
+                board: { deleted_at: null },
+                user: { is_active: true }
+            }
         })
         return !!member
     },
@@ -67,6 +71,28 @@ const BoardMemberRepository = {
     },
 
     /**
+     * Decrementa ordem dos boards_members após exclusão de um board
+     * Mantém a sequência contínua após remoção
+     * @param {number} boardId - board sendo removido
+     * @param {number} workspaceId
+     * @param {object} tx
+     */
+    async decrementOrderAfterBoardDeletion(boardId, workspaceId, tx = null) {
+        const client = tx || prisma
+
+        return client.$executeRaw`
+        UPDATE "board_members" AS bm
+        SET "order" = bm."order" - 1
+        FROM "board_members" AS deleted_bm, "boards" AS b
+        WHERE bm.user_id = deleted_bm.user_id
+        AND deleted_bm.board_id = ${boardId}
+        AND bm.board_id = b.id
+        AND b.workspace_id = ${workspaceId}
+        AND bm."order" > deleted_bm."order"
+    `
+    },
+
+    /**
      * Remove um vínculo board-membro pelo ID do vínculo
      * @param {number} id - ID do boardMember
      * @param {object} tx - cliente de transação (opcional)
@@ -105,7 +131,10 @@ const BoardMemberRepository = {
      */
     async findMembership(userId, boardId) {
         return prisma.boardMember.findUnique({
-            where: { user_id_board_id: { user_id: userId, board_id: boardId } }
+            where: {
+                user_id_board_id: { user_id: userId, board_id: boardId }
+            },
+            include: { user: { select: { id: true, name: true, email: true } } }
         })
     },
 
@@ -141,7 +170,7 @@ const BoardMemberRepository = {
         const result = await prisma.boardMember.findFirst({
             where: {
                 user_id: userId,
-                board: { workspace_id: workspaceId }
+                board: { workspace_id: workspaceId, deleted_at: null }
             },
             orderBy: { order: 'desc' },
             select: { order: true }
@@ -174,48 +203,37 @@ const BoardMemberRepository = {
      */
     async upsertMember(userId, boardId, role, order) {
         return prisma.boardMember.upsert({
-            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
+            where: {
+                user_id_board_id: { user_id: userId, board_id: boardId }
+            },
             update: { role },
             create: { user_id: userId, board_id: boardId, role, order },
             include: { user: { select: { id: true, name: true, email: true } } }
         })
     },
 
-    /**
-     * Busca o vínculo com dados do board e do usuário
-     * Usado em remove e leave onde o nome do usuário e workspace são necessários
-     * @param {number} boardId
-     * @param {number} userId
-     * @returns {Promise<object|null>}
-     */
     async findMembershipWithBoardAndUser(boardId, userId) {
         return prisma.boardMember.findUnique({
             where: { user_id_board_id: { user_id: userId, board_id: boardId } },
             select: {
                 id: true,
+                board_id: true,
                 user_id: true,
                 role: true,
                 order: true,
-                board: { select: { workspace_id: true, id: true, creator_id: true } },
-                user: { select: { name: true } }
+                board: { select: { id: true, name: true, workspace_id: true, creator_id: true } },
+                user: { select: { id: true, name: true } }
             }
         })
     },
 
-    /**
-     * Busca o vínculo com dados do board
-     * Usado em move onde apenas o workspace_id é necessário
-     * @param {number} userId
-     * @param {number} boardId
-     * @returns {Promise<object|null>}
-     */
     async findMembershipWithBoard(userId, boardId) {
         return prisma.boardMember.findUnique({
-            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
-            select: {
-                order: true,
-                board: { select: { workspace_id: true } }
-            }
+            where: {
+                user_id_board_id: { user_id: userId, board_id: boardId },
+                board: { deleted_at: null }
+            },
+            include: { board: { select: { workspace_id: true } } }
         })
     },
 
@@ -230,7 +248,7 @@ const BoardMemberRepository = {
         return prisma.boardMember.count({
             where: {
                 user_id: userId,
-                board: { workspace_id: workspaceId }
+                board: { workspace_id: workspaceId, deleted_at: null }
             }
         })
     },
@@ -274,11 +292,6 @@ const BoardMemberRepository = {
         })
     },
 
-    /**
-     * Busca membros de um board por Roles
-     * @param {number} boardId
-     * @param {array} roles
-     */
     async findByBoardAndRoles(boardId, roles = []) {
         return prisma.boardMember.findMany({
             where: {

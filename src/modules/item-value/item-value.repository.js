@@ -42,8 +42,10 @@ const ItemValueRepository = {
      * @param {number} columnId
      * @returns {Promise<object>} { count }
      */
-    async deleteItemValuesByColumn(columnId) {
-        return prisma.itemValue.deleteMany({
+    async deleteItemValuesByColumn(columnId, tx = null) {
+        const client = tx || prisma
+
+        return client.itemValue.deleteMany({
             where: { column_id: columnId }
         })
     },

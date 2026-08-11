@@ -4,7 +4,10 @@ const WorkspaceMemberRepository = {
 
     async upsertMember(userId, workspaceId, role, order) {
         return prisma.workspaceMember.upsert({
-            where: { user_id_workspace_id: { user_id: userId, workspace_id: workspaceId } },
+            where: {
+                user_id_workspace_id: { user_id: userId, workspace_id: workspaceId },
+                workspace: { deleted_at: null }
+            },
             update: { role },
             create: {
                 user_id: userId,
@@ -47,23 +50,25 @@ const WorkspaceMemberRepository = {
         })
     },
 
-    async findMembershipWithUserName(userId, workspaceId) {
+    async findMembershipWithUserAndWorkspace(userId, workspaceId) {
         return prisma.workspaceMember.findUnique({
             where: { user_id_workspace_id: { user_id: userId, workspace_id: workspaceId } },
             select: {
                 id: true,
+                workspace_id: true,
                 user_id: true,
                 role: true,
                 order: true,
-                workspace_id: true,
-                user: { select: { name: true } }
+                workspace: { select: { id: true, name: true } },
+                user: { select: { id: true, name: true } }
             }
         })
     },
 
     async findMembership(userId, workspaceId) {
         return prisma.workspaceMember.findUnique({
-            where: { user_id_workspace_id: { user_id: userId, workspace_id: workspaceId } }
+            where: { user_id_workspace_id: { user_id: userId, workspace_id: workspaceId } },
+            include: { user: { select: { id: true, name: true, email: true } } }
         })
     },
 
@@ -85,12 +90,24 @@ const WorkspaceMemberRepository = {
 
     async findMaxOrder(userId) {
         const result = await prisma.workspaceMember.findFirst({
-            where: { user_id: userId },
+            where: {
+                user_id: userId,
+                workspace: { deleted_at: null }
+            },
             orderBy: { 'order': 'desc' },
             select: { order: true }
         })
 
         return result ? result.order + 1 : 0
+    },
+
+    async findByWorkspaceAndRoles(workspaceId, roles = []) {
+        return prisma.workspaceMember.findMany({
+            where: {
+                workspace_id: workspaceId,
+                role: { in: roles }
+            }
+        })
     },
 
     async decrementOrderAfterWorkspaceDeletion(workspaceId, tx = null) {
@@ -131,7 +148,10 @@ const WorkspaceMemberRepository = {
 
     async countWorkspaceByUser(userId) {
         return prisma.workspaceMember.count({
-            where: { user_id: userId }
+            where: {
+                user_id: userId,
+                workspace: { deleted_at: null }
+            }
         })
     },
 

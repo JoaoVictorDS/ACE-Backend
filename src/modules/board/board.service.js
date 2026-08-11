@@ -1,23 +1,25 @@
-const { emitToRoom, appEventEmitter } = require('../../config')
+const { emitToRoom } = require('../../config')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const BoardRepository = require('./board.repository')
 const ItemRepository = require('../item/item.repository')
 const { NotFoundError, AuthorizationError, ConflictError } = require('../../shared/errors')
-const { TransactionManager } = require('../../shared/database')
 const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { PermissionService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
-const { DOMAIN_EVENT } = require('../../shared/events/domain-event')
+const { EventPublisher } = require('../../shared/events')
+const { TransactionManager } = require('../../shared/database')
 
 const BoardService = {
 
     async create({ user, workspaceId, name }) {
         await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.ADMIN)
+
         const userId = user.id
         const nextOrder = await BoardMemberRepository.findMaxOrderByWorkspace(userId, workspaceId)
+
         const newBoard = await BoardRepository.create(name, workspaceId, userId, nextOrder)
 
-        appEventEmitter.emit(DOMAIN_EVENT, {
+        EventPublisher.publish({
             actor: user,
             workspaceId,
             boardId: newBoard.id,
@@ -124,7 +126,7 @@ const BoardService = {
 
         const updatedBoard = await BoardRepository.update(boardId, data)
 
-        appEventEmitter.emit(DOMAIN_EVENT, {
+        EventPublisher.publish({
             actor: user,
             workspaceId,
             boardId,
@@ -163,9 +165,13 @@ const BoardService = {
             )
         }
 
-        const deletedBoard = await BoardRepository.softDelete(boardId)
+        const result = await TransactionManager.run(async (tx) => {
+            await BoardMemberRepository.decrementOrderAfterBoardDeletion(boardId, workspaceId, tx)
 
-        appEventEmitter.emit(DOMAIN_EVENT, {
+            return await BoardRepository.softDelete(boardId, tx)
+        })
+
+        EventPublisher.publish({
             actor: user,
             workspaceId,
             boardId,
@@ -195,7 +201,7 @@ const BoardService = {
 
         emitToRoom(`board:${boardId}`, 'board:deleted', { boardId })
 
-        return deletedBoard
+        return result
     },
 
 }

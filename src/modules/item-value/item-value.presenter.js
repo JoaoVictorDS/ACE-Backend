@@ -1,16 +1,15 @@
 class ItemValuePresenter {
 
-    static upsert({ id = null, item_id, column_id, value, created_at = null, updated_at = null }) {
+    static format(itemValue) {
         return {
-            id,
-            item_id,
-            column_id,
-            value,
-            created_at,
-            updated_at
+            id: itemValue.id || null,
+            item_id: itemValue.item_id,
+            column_id: itemValue.column_id,
+            value: itemValue.value,
+            created_at: itemValue.created_at || null,
+            updated_at: itemValue.updated_at || null
         }
     }
-
 }
 
 module.exports = ItemValuePresenter

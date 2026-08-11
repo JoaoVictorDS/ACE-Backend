@@ -83,7 +83,7 @@ model User {
   notifications_received Notification[]            @relation("Recipient")
   notifications_sent     Notification[]            @relation("Actor")
   notification_settings  UserNotificationSetting[]
-  undoActions            UndoAction[]
+  undo_actions           UndoAction[]
 
   @@map("users")
 }
@@ -118,6 +118,7 @@ model Workspace {
   boards            Board[]
   workspace_members WorkspaceMember[]
   activities        ActivityLog[]
+  undo_actions      UndoAction[]
 
   @@map("workspaces")
 }
@@ -144,7 +145,7 @@ model Board {
   board_members         BoardMember[]
   activities            ActivityLog[]
   notification_settings UserNotificationSetting[]
-  undoActions           UndoAction[]
+  undo_actions          UndoAction[]
 
   @@map("boards")
 }
@@ -377,21 +378,24 @@ model ActivityLog {
 }
 
 model UndoAction {
-  id          Int            @id @default(autoincrement())
-  actor_id    Int            @map("actor_id")
-  actor       User           @relation(fields: [actor_id], references: [id])
-  board_id    Int            @map("board_id")
-  board       Board          @relation(fields: [board_id], references: [id], onDelete: Cascade)
-  action      ActivityAction
-  entity_type EntityType     @map("entity_type")
-  entity_id   Int            @map("entity_id")
-  snapshot    Json?          @map("snapshot")
-  expires_at  DateTime       @map("expires_at")
-  consumed_at DateTime?      @map("consumed_at")
+  id           Int            @id @default(autoincrement())
+  actor_id     Int            @map("actor_id")
+  actor        User           @relation(fields: [actor_id], references: [id])
+  workspace_id Int?           @map("workspace_id")
+  workspace    Workspace?     @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  board_id     Int?           @map("board_id")
+  board        Board?         @relation(fields: [board_id], references: [id], onDelete: Cascade)
+  action       ActivityAction
+  entity_type  EntityType     @map("entity_type")
+  entity_id    Int            @map("entity_id")
+  snapshot     Json?          @map("snapshot")
+  expires_at   DateTime       @map("expires_at")
+  consumed_at  DateTime?      @map("consumed_at")
 
   created_at DateTime @default(now()) @map("created_at")
 
   @@index([actor_id, expires_at])
+  @@index([workspace_id])
   @@index([board_id])
   @@index([entity_type, entity_id])
   @@map("undo_actions")

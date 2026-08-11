@@ -9,7 +9,10 @@ const CommentRepository = {
                 user_id: userId,
                 content,
             },
-            include: { user: { select: { id: true, name: true } } }
+            include: {
+                user: { select: { id: true, name: true } },
+                item: { select: { id: true, title: true } }
+            }
         })
     },
 
@@ -25,7 +28,7 @@ const CommentRepository = {
         return prisma.comment.findUnique({
             where: { id: commentId },
             include: {
-                item: { select: { title: true } },
+                item: { select: { id: true, title: true } },
                 user: { select: { id: true, name: true } }
             }
         })
@@ -35,7 +38,10 @@ const CommentRepository = {
         return prisma.comment.update({
             where: { id: commentId },
             data: { content },
-            include: { user: { select: { id: true, name: true } } }
+            include: {
+                user: { select: { id: true, name: true } },
+                item: { select: { id: true, title: true } }
+            }
         })
     },
 
