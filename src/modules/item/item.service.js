@@ -120,7 +120,7 @@ const ItemService = {
             }
         })
 
-        emitToRoom(`board: ${boardId}`, 'item:deleted', { itemId })
+        emitToRoom(`board:${boardId}`, 'item:deleted', { itemId })
 
         return result
     },
@@ -190,7 +190,7 @@ const ItemService = {
             })
         }
 
-        emitToRoom(`board: ${boardId} `, 'item:moved', result.updated)
+        emitToRoom(`board:${boardId}`, 'item:moved', result.updated)
 
         return result.updated
     },
