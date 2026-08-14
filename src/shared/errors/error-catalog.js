@@ -313,6 +313,10 @@ const ERROR_CATALOG = {
             code: 'CONFLICT',
             message: `Operação negada: usuário é o único responsável por ${dependentType}: ${dependentNames}`,
         }),
+        DUPLICATE_RESTRICTION: {
+            conde: 'CONFLICT',
+            message: 'Não é possível adicionar restrições conflitantes para o mesmo usuário ou função'
+        },
     },
 
     // ═══════════════════════════════════════════════════════════════

@@ -245,6 +245,8 @@ const ColumnService = {
         const column = await ColumnRepository.findById(columnId)
         if (!column) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
 
+        _checkForDuplicateRestriction(restrictions)
+
         const restrictionData = ColumnRestrictionMapper.toPersistence(restrictions, columnId)
 
         const hasChanged = JSON.stringify(ColumnRestrictionMapper.toPersistence(column.restrictions)) !== JSON.stringify(restrictionData)
@@ -281,6 +283,12 @@ const ColumnService = {
         return result
     }
 
+}
+
+const _checkForDuplicateRestriction = (restrictions) => {
+    const identifiers = restrictions.map(r => r.user_id ?? r.board_role)
+
+    if (new Set(identifiers).size !== identifiers.length) throw new ConflictError(ERROR_CATALOG.CONFLICT.DUPLICATE_RESTRICTION)
 }
 
 module.exports = ColumnService
