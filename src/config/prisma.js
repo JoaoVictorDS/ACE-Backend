@@ -28,7 +28,9 @@ basePrisma.$on('warn', _logWarning)
 basePrisma.$on('error', _logError)
 basePrisma.$on('query', _logQuery)
 
-/** @type {import('@prisma/client').PrismaClient} */
+/** @type {import('@prisma/client').PrismaClient & {raw: import('@prisma/client').PrismaClient}} */
 const prisma = basePrisma.$extends(softDeleteExtension)
+
+prisma.raw = basePrisma
 
 module.exports = prisma
