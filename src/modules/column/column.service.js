@@ -253,15 +253,13 @@ const ColumnService = {
 
         await _validateUser(column.board_id, userIds)
 
-        const restrictionData = ColumnRestrictionMapper.toPersistence(restrictions, columnId)
-
-        const hasChanged = JSON.stringify(ColumnRestrictionMapper.toPersistence(column.restrictions)) !== JSON.stringify(restrictionData)
+        const hasChanged = _hasRestrictionsChanged(column.restrictions, restrictions)
         if (!hasChanged) return column.restrictions
 
         const result = await TransactionManager.run(async (tx) => {
             await ColumnRepository.deleteRestrictions(columnId, tx)
 
-            await ColumnRepository.createRestrictions(restrictionData, tx)
+            await ColumnRepository.createRestrictions(ColumnRestrictionMapper.toPersistence(restrictions, columnId), tx)
 
             return await ColumnRepository.findRestrictions(columnId, tx)
         })
@@ -305,6 +303,21 @@ const _validateUser = async (boardId, userIds) => {
 
     const hasAdmin = users.some(({ role, user }) => role === 'OWNER' || role === 'ADMIN' || user.role === 'ADMIN')
     if (hasAdmin) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.ADMIN_RESTRICTION_FORBIDDEN)
+}
+
+const _hasRestrictionsChanged = (currentRestrictions, newRestrictions) => {
+    if (currentRestrictions.length !== newRestrictions.length) return true
+
+    const normalize = (r) => JSON.stringify({
+        user_id: r.user_id ?? null,
+        board_role: r.board_role ?? null,
+        can_view: Boolean(r.can_view),
+        can_edit: Boolean(r.can_edit)
+    })
+
+    const currentSet = new Set(currentRestrictions.map(normalize))
+
+    return newRestrictions.some(r => !currentSet.has(normalize(r)))
 }
 
 module.exports = ColumnService
