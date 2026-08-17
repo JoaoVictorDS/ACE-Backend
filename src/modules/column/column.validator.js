@@ -74,11 +74,15 @@ const restrictionItemSchema = z.object({
     can_view: z.boolean().default(true),
 
     can_edit: z.boolean().default(false),
-}).refine(data => {
-    const hasUser = data.user_id !== undefined && data.user_id !== null
-    const hasRole = data.board_role !== undefined && data.board_role !== null
-    return (hasUser && !hasRole) || (!hasUser && hasRole)
-}, { message: 'A restrição deve ser aplicada a um usuário ou a um cargo, nunca a ambos ou a nenhum.' })
+})
+    .refine(data => {
+        const hasUser = data.user_id !== undefined && data.user_id !== null
+        const hasRole = data.board_role !== undefined && data.board_role !== null
+        return (hasUser && !hasRole) || (!hasUser && hasRole)
+    }, { message: 'A restrição deve ser aplicada a um usuário ou a um cargo, nunca a ambos ou a nenhum.' })
+    .refine(data => {
+        return !data.can_edit || data.can_view
+    }, { message: 'Não é possível permitir edição sem permitir visualização.' })
 
 const updateColumnRestrictionsSchema = {
     params: z.object({ column_id }),
