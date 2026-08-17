@@ -309,7 +309,7 @@ const BoardMemberRepository = {
                 board_id: boardId,
                 user_id: { in: userIds }
             },
-            select: { user_id: true }
+            select: { user_id: true, role: true, user: { select: { id: true, role: true } } }
         })
     },
 

@@ -130,6 +130,10 @@ const ERROR_CATALOG = {
         INSUFFICIENT_PERMISSIONS_FOR_SYSTEM_ADMIN: {
             code: 'INSUFFICIENT_PERMISSIONS',
             message: 'Apenas administradores do sistema podem realizar esta operação',
+        },
+        ADMIN_RESTRICTION_FORBIDDEN: {
+            code: 'ADMIN_RESTRICTION_FORBIDDEN',
+            message: 'Não é permitido aplicar restrições de coluna em usuários com privilégios de administrador'
         }
     },
 
@@ -266,6 +270,10 @@ const ERROR_CATALOG = {
         USER_NOT_WORKSPACE_MEMBER: {
             code: 'USER_NOT_WORKSPACE_MEMBER',
             message: 'O usuário precisa ser membro da área de trabalho para ser adicionado ao quadro',
+        },
+        INVALID_BOARD_USERS: {
+            code: 'INVALID_BOARD_USERS',
+            message: 'Alguns dos usuários informados não foram encontrados ou não fazem parte deste board',
         },
     },
 

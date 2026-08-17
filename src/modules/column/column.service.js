@@ -4,7 +4,7 @@ const ItemAssigneeRepository = require('../item/item-assignee.repository')
 const ItemValueRepository = require('../item-value/item-value.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const ColumnValueValidator = require('./column.value-validator')
-const { NotFoundError, AuthorizationError, ConflictError } = require('../../shared/errors')
+const { NotFoundError, AuthorizationError, ConflictError, ValidationError } = require('../../shared/errors')
 const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { PermissionService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
@@ -247,6 +247,12 @@ const ColumnService = {
 
         _checkForDuplicateRestriction(restrictions)
 
+        const userIds = restrictions
+            .filter(({ user_id }) => user_id !== null && user_id !== undefined)
+            .map(({ user_id }) => user_id)
+
+        await _validateUser(column.board_id, userIds)
+
         const restrictionData = ColumnRestrictionMapper.toPersistence(restrictions, columnId)
 
         const hasChanged = JSON.stringify(ColumnRestrictionMapper.toPersistence(column.restrictions)) !== JSON.stringify(restrictionData)
@@ -289,6 +295,16 @@ const _checkForDuplicateRestriction = (restrictions) => {
     const identifiers = restrictions.map(r => r.user_id ?? r.board_role)
 
     if (new Set(identifiers).size !== identifiers.length) throw new ConflictError(ERROR_CATALOG.CONFLICT.DUPLICATE_RESTRICTION)
+}
+
+const _validateUser = async (boardId, userIds) => {
+    if (!userIds.length) return
+
+    const users = await BoardMemberRepository.findValidMemberIds(boardId, userIds)
+    if (userIds.length !== users.length) throw new ValidationError(ERROR_CATALOG.VALIDATION.INVALID_BOARD_USERS)
+
+    const hasAdmin = users.some(({ role, user }) => role === 'OWNER' || role === 'ADMIN' || user.role === 'ADMIN')
+    if (hasAdmin) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.ADMIN_RESTRICTION_FORBIDDEN)
 }
 
 module.exports = ColumnService
