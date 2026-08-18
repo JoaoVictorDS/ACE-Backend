@@ -319,7 +319,7 @@ const ERROR_CATALOG = {
         },
         SOLE_RESPONSIBLE: (dependentType, dependentNames) => ({
             code: 'CONFLICT',
-            message: `Operação negada: usuário é o único responsável por ${dependentType}: ${dependentNames}`,
+            message: `Operação negada: usuário é o único responsável por ${dependentType}: ${dependentNames} `,
         }),
         DUPLICATE_RESTRICTION: {
             conde: 'CONFLICT',
@@ -343,6 +343,22 @@ const ERROR_CATALOG = {
             code: 'UNSUPPORTED_RESOURCE',
             message: `${resourceKey} não é suportado nesta operação`,
         }),
+        SOCKET_NOT_INITIALIZED: {
+            code: 'SOCKET_NOT_INITIALIZED',
+            message: 'Socket.io não foi inicializado'
+        },
+        MISSING_JWT_SECRET: {
+            code: 'MISSING_JWT_SECRET',
+            message: 'Configuração de segurança incompleta (JWT secret ausente)'
+        },
+        INVALID_PERMISSION_LEVEL: {
+            code: 'INVALID_PERMISSION_LEVEL',
+            message: 'Nível de permissão inválido (desconhecido)'
+        },
+        MISSING_PERMISSION_PARAMS: (params) => ({
+            code: 'MISSING_PERMISSION_PARAMS',
+            message: `Parâmetros obrigatórios ausentes: ${params} são obrigatórios`
+        })
     },
 }
 

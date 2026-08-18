@@ -31,7 +31,6 @@ const PermissionService = {
     async _resolveResourceContext(resourceType, entityId) {
         const type = resourceType.toUpperCase()
 
-        // 1. Busca dados do recurso via repository
         let data
         switch (type) {
             case 'BOARD':
@@ -49,7 +48,7 @@ const PermissionService = {
             default:
                 throw new AppError(
                     ERROR_CATALOG.INTERNAL.UNSUPPORTED_RESOURCE(type).message,
-                    ERROR_CATALOG.INTERNAL.UNSUPPORTED_RESOURCE(type).status,
+                    500,
                     {
                         code: ERROR_CATALOG.INTERNAL.UNSUPPORTED_RESOURCE(type).code,
                         isOperational: false
@@ -57,9 +56,7 @@ const PermissionService = {
                 )
         }
 
-        if (!data) {
-            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.RESOURCE(type))
-        }
+        if (!data) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.RESOURCE(type))
 
         return this._normalizeResourceContext(type, data)
     },
@@ -119,26 +116,22 @@ const PermissionService = {
      * @throws {AuthorizationError} Se role não tem permissão
      */
     _validatePermission(role, permissionLevel) {
-        if (!role) {
-            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN)
-        }
+        if (!role) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN)
 
         const allowedRoles = ROLES[permissionLevel.toUpperCase()]
 
         if (!allowedRoles) {
             throw new AppError(
-                `Nível de permissão "${permissionLevel}" não encontrado em ROLES`,
+                ERROR_CATALOG.INTERNAL.INVALID_PERMISSION_LEVEL.message,
                 500,
                 {
-                    code: 'INTERNAL_ERROR',
+                    code: ERROR_CATALOG.INTERNAL.INVALID_PERMISSION_LEVEL.code,
                     isOperational: false
                 }
             )
         }
 
-        if (!allowedRoles.includes(role)) {
-            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN)
-        }
+        if (!allowedRoles.includes(role)) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN)
     },
 
     /**
@@ -154,10 +147,10 @@ const PermissionService = {
     async check(resourceType, entityId, user, permissionLevel = 'EDIT') {
         if (!resourceType || !entityId || !user) {
             throw new AppError(
-                'Parâmetros inválidos: resourceType, entityId e user são obrigatórios',
+                ERROR_CATALOG.INTERNAL.MISSING_PERMISSION_PARAMS('resourceType, entityId e user').message,
                 500,
                 {
-                    code: 'INTERNAL_ERROR',
+                    code: ERROR_CATALOG.INTERNAL.MISSING_PERMISSION_PARAMS('resourceType, entityId e user').code,
                     isOperational: false
                 }
             )
@@ -194,10 +187,10 @@ const PermissionService = {
     async checkWorkspace(workspaceId, user, permissionLevel = 'VIEW') {
         if (!workspaceId || !user) {
             throw new AppError(
-                'Parâmetros inválidos: workspaceId e user são obrigatórios',
+                ERROR_CATALOG.INTERNAL.MISSING_PERMISSION_PARAMS('workspaceId e user').message,
                 500,
                 {
-                    code: 'INTERNAL_ERROR',
+                    code: ERROR_CATALOG.INTERNAL.MISSING_PERMISSION_PARAMS('workspaceId e user').code,
                     isOperational: false
                 }
             )
@@ -208,9 +201,7 @@ const PermissionService = {
 
         const workspace = await WorkspaceRepository.findPermissionContext(workspaceId, userId)
 
-        if (!workspace) {
-            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.WORKSPACE)
-        }
+        if (!workspace) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.WORKSPACE)
 
         if (isSystemAdmin) {
             return {

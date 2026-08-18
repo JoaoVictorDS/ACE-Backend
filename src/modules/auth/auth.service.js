@@ -77,10 +77,10 @@ const AuthService = {
 
         if (!secret || !refreshSecret) {
             throw new AppError(
-                'Erro interno: Chave de segurança não configurada',
+                ERROR_CATALOG.INTERNAL.MISSING_JWT_SECRET.message,
                 500,
                 {
-                    code: 'INTERNAL_ERROR',
+                    code: ERROR_CATALOG.INTERNAL.MISSING_JWT_SECRET.code,
                     isOperational: false
                 }
             )

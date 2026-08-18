@@ -2,6 +2,7 @@ const { Server } = require('socket.io')
 const AuthService = require('../modules/auth/auth.service')
 const { AppError } = require('../shared/errors')
 const logger = require('./logger')
+const ERROR_CATALOG = require('../shared/errors/error-catalog')
 
 let io
 
@@ -52,10 +53,10 @@ const initSocket = (httpServer) => {
 const getIO = () => {
     if (!io) {
         throw new AppError(
-            'Socket.io não foi inicializado',
+            ERROR_CATALOG.INTERNAL.SOCKET_NOT_INITIALIZED.message,
             500,
             {
-                code: 'INTERNAL_ERROR',
+                code: ERROR_CATALOG.INTERNAL.SOCKET_NOT_INITIALIZED.code,
                 isOperational: false
             }
         )
@@ -67,10 +68,10 @@ const emitToRoom = (room, event, payload) => {
     try {
         if (!io) {
             throw new AppError(
-                'Socket.io não foi inicializado',
+                ERROR_CATALOG.INTERNAL.SOCKET_NOT_INITIALIZED.message,
                 500,
                 {
-                    code: 'INTERNAL_ERROR',
+                    code: ERROR_CATALOG.INTERNAL.SOCKET_NOT_INITIALIZED.code,
                     isOperational: false
                 }
             )
