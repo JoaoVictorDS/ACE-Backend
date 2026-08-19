@@ -2,14 +2,9 @@ const prisma = require('../../config/prisma')
 
 const SectionRepository = {
 
-    /**
-    * Busca section por ID para verificar permissão
-    * @param {number} sectionId - ID da section
-    * @returns {Promise<object>} Section ou null
-    */
     async findPermissionContext(sectionId) {
         return prisma.section.findUnique({
-            where: { id: sectionId, deleted_at: null },
+            where: { id: sectionId },
             select: {
                 board_id: true,
                 board: { select: { workspace_id: true, creator_id: true } }
@@ -47,7 +42,7 @@ const SectionRepository = {
             orderBy: { order: 'asc' },
             include: {
                 _count: {
-                    select: { items: true }
+                    select: { items: { where: { deleted_at: null } } }
                 }
             }
         })
@@ -72,16 +67,8 @@ const SectionRepository = {
             where: { id: sectionId },
             select: {
                 id: true, board_id: true, name: true, order: true,
-                _count: { select: { items: true } }
+                _count: { select: { items: { where: { deleted_at: null } } } }
             }
-        })
-    },
-
-    async delete(sectionId, tx = null) {
-        const client = tx || prisma
-
-        return client.section.delete({
-            where: { id: sectionId }
         })
     },
 
@@ -147,6 +134,23 @@ const SectionRepository = {
             data: { order: newOrder }
         })
     },
+
+    async delete(sectionId, tx = null) {
+        const client = tx || prisma
+
+        return client.section.delete({
+            where: { id: sectionId }
+        })
+    },
+
+    async softDelete(sectionId, tx = null) {
+        const client = tx || prisma
+
+        return client.section.update({
+            where: { id: sectionId },
+            data: { deleted_at: new Date() }
+        })
+    }
 
 }
 

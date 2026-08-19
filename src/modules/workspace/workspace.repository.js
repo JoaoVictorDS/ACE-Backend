@@ -2,20 +2,6 @@ const prisma = require('../../config/prisma')
 
 const WorkspaceRepository = {
 
-    async findPermissionContext(workspaceId, userId) {
-        return prisma.workspace.findUnique({
-            where: { id: workspaceId },
-            select: {
-                id: true,
-                creator_id: true,
-                workspace_members: {
-                    where: { user_id: userId },
-                    select: { role: true }
-                }
-            }
-        })
-    },
-
     async create(userId, name, order) {
         return prisma.workspace.create({
             data: {
@@ -38,10 +24,24 @@ const WorkspaceRepository = {
         })
     },
 
-    async update(workspaceId, data) {
-        return prisma.workspace.update({
+    async findWorkspaceName(workspaceId) {
+        return prisma.workspace.findUnique({
             where: { id: workspaceId },
-            data
+            select: { id: true, name: true }
+        })
+    },
+
+    async findPermissionContext(workspaceId, userId) {
+        return prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            select: {
+                id: true,
+                creator_id: true,
+                workspace_members: {
+                    where: { user_id: userId },
+                    select: { role: true }
+                }
+            }
         })
     },
 
@@ -54,15 +54,29 @@ const WorkspaceRepository = {
                 name: true,
                 description: true,
                 icon: true,
-                _count: { select: { boards: true, workspace_members: true } }
+                _count: {
+                    select: {
+                        boards: { where: { deleted_at: null } },
+                        workspace_members: true
+                    }
+                }
             }
         })
     },
 
-    async findWorkspaceName(workspaceId) {
-        return prisma.workspace.findUnique({
-            where: { id: workspaceId, deleted_at: null },
-            select: { id: true, name: true }
+    async update(workspaceId, data) {
+        return prisma.workspace.update({
+            where: { id: workspaceId },
+            data
+        })
+    },
+
+    async softDelete(workspaceId, tx = null) {
+        const client = tx || prisma
+
+        return client.workspace.update({
+            where: { id: workspaceId },
+            data: { deleted_at: new Date() }
         })
     },
 

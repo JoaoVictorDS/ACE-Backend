@@ -4,7 +4,7 @@ const ColumnRepository = {
 
     async findPermissionContext(columnId) {
         return prisma.column.findUnique({
-            where: { id: columnId, deleted_at: null },
+            where: { id: columnId },
             select: {
                 board_id: true,
                 board: { select: { workspace_id: true, creator_id: true } }
@@ -14,20 +14,20 @@ const ColumnRepository = {
 
     async findById(columnId) {
         return prisma.column.findUnique({
-            where: { id: columnId, deleted_at: null },
+            where: { id: columnId },
             include: { restrictions: true }
         })
     },
 
     async findByIdBasic(columnId) {
         return prisma.column.findUnique({
-            where: { id: columnId, deleted_at: null }
+            where: { id: columnId }
         })
     },
 
     async findByBoard(boardId) {
         return prisma.column.findMany({
-            where: { board_id: boardId, deleted_at: null },
+            where: { board_id: boardId },
             orderBy: [{ order: 'asc' }, { id: 'asc' }],
             include: { restrictions: true }
         })
@@ -35,7 +35,7 @@ const ColumnRepository = {
 
     async findByIdForValueValidation(columnId) {
         return prisma.column.findUnique({
-            where: { id: columnId, deleted_at: null },
+            where: { id: columnId },
             select: {
                 id: true,
                 name: true,
@@ -47,7 +47,7 @@ const ColumnRepository = {
 
     async findMaxOrder(boardId) {
         const result = await prisma.column.findFirst({
-            where: { board_id: boardId, deleted_at: null },
+            where: { board_id: boardId },
             orderBy: { order: 'desc' },
             select: { order: true }
         })
@@ -60,7 +60,7 @@ const ColumnRepository = {
 
     async update(columnId, data) {
         return prisma.column.update({
-            where: { id: columnId, deleted_at: null },
+            where: { id: columnId },
             data
         })
     },
@@ -84,7 +84,6 @@ const ColumnRepository = {
         return client.column.updateMany({
             where: {
                 board_id: boardId,
-                deleted_at: null,
                 order: { gt: fromOrder }
             },
             data: { order: { decrement: 1 } }
@@ -95,7 +94,6 @@ const ColumnRepository = {
         return prisma.column.updateMany({
             where: {
                 board_id: boardId,
-                deleted_at: null,
                 order: {
                     gte: toOrder,
                     lt: fromOrder
@@ -109,7 +107,6 @@ const ColumnRepository = {
         return prisma.column.updateMany({
             where: {
                 board_id: boardId,
-                deleted_at: null,
                 order: {
                     gt: fromOrder,
                     lte: toOrder
@@ -121,14 +118,14 @@ const ColumnRepository = {
 
     async updateOrder(columnId, newOrder) {
         return prisma.column.update({
-            where: { id: columnId, deleted_at: null },
+            where: { id: columnId },
             data: { order: newOrder }
         })
     },
 
     async countByBoard(boardId) {
         return prisma.column.count({
-            where: { board_id: boardId, deleted_at: null }
+            where: { board_id: boardId }
         })
     },
 

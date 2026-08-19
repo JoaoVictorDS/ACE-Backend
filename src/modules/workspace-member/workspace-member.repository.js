@@ -4,10 +4,7 @@ const WorkspaceMemberRepository = {
 
     async upsertMember(userId, workspaceId, role, order) {
         return prisma.workspaceMember.upsert({
-            where: {
-                user_id_workspace_id: { user_id: userId, workspace_id: workspaceId },
-                workspace: { deleted_at: null }
-            },
+            where: { user_id_workspace_id: { user_id: userId, workspace_id: workspaceId } },
             update: { role },
             create: {
                 user_id: userId,
@@ -20,8 +17,13 @@ const WorkspaceMemberRepository = {
     },
 
     async isWorkspaceMember(userId, workspaceId) {
-        const member = await prisma.workspaceMember.findUnique({
-            where: { user_id_workspace_id: { user_id: userId, workspace_id: workspaceId } }
+        const member = await prisma.workspaceMember.findFirst({
+            where: {
+                user_id: userId,
+                workspace_id: workspaceId,
+                user: { is_active: true },
+                workspace: { deleted_at: null }
+            }
         })
         return !!member
     },
@@ -67,14 +69,20 @@ const WorkspaceMemberRepository = {
 
     async findMembership(userId, workspaceId) {
         return prisma.workspaceMember.findUnique({
-            where: { user_id_workspace_id: { user_id: userId, workspace_id: workspaceId } },
+            where: {
+                user_id_workspace_id: { user_id: userId, workspace_id: workspaceId },
+                workspace: { deleted_at: null }
+            },
             include: { user: { select: { id: true, name: true, email: true } } }
         })
     },
 
     async findMemberships(userId) {
         return prisma.workspaceMember.findMany({
-            where: { user_id: userId },
+            where: {
+                user_id: userId,
+                workspace: { deleted_at: null }
+            },
             include: {
                 workspace: {
                     select: {

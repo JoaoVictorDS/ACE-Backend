@@ -45,6 +45,13 @@ const CommentRepository = {
         })
     },
 
+    async softDelete(commentId) {
+        return prisma.comment.update({
+            where: { id: commentId },
+            data: { deleted_at: new Date() }
+        })
+    },
+
     async delete(commentId) {
         return prisma.comment.delete({
             where: { id: commentId }

@@ -21,7 +21,7 @@ const BoardRepository = {
 
     async findByIdWithStructure(boardId, userId) {
         return prisma.board.findUnique({
-            where: { id: boardId, deleted_at: null },
+            where: { id: boardId },
             include: {
                 board_members: {
                     where: { user_id: userId }
@@ -36,6 +36,7 @@ const BoardRepository = {
                     orderBy: [{ order: 'asc' }, { id: 'asc' }],
                     include: {
                         items: {
+                            where: { deleted_at: null },
                             orderBy: [{ order: 'asc' }, { id: 'asc' }],
                             include: { item_values: true }
                         }
@@ -47,34 +48,34 @@ const BoardRepository = {
 
     async findPermissionContext(boardId) {
         return prisma.board.findUnique({
-            where: { id: boardId, deleted_at: null },
+            where: { id: boardId },
             select: { id: true, workspace_id: true, creator_id: true }
         })
     },
 
     async findById(boardId) {
         return prisma.board.findUnique({
-            where: { id: boardId, deleted_at: null }
+            where: { id: boardId }
         })
     },
 
     async findBoardName(boardId) {
         return prisma.board.findUnique({
-            where: { id: boardId, deleted_at: null },
+            where: { id: boardId },
             select: { name: true }
         })
     },
 
     async update(boardId, data) {
         return prisma.board.update({
-            where: { id: boardId, deleted_at: null },
+            where: { id: boardId },
             data
         })
     },
 
     async findBoardDeletionContext(boardId) {
         return prisma.board.findUnique({
-            where: { id: boardId, deleted_at: null },
+            where: { id: boardId },
             select: {
                 name: true,
                 color: true,
@@ -82,7 +83,12 @@ const BoardRepository = {
                 workspace_id: true,
                 item_label_singular: true,
                 item_label_plural: true,
-                _count: { select: { columns: true, sections: true } }
+                _count: {
+                    select: {
+                        columns: { where: { deleted_at: null } },
+                        sections: { where: { deleted_at: null } }
+                    }
+                }
             }
         })
     },

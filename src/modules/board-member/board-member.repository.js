@@ -2,81 +2,48 @@ const prisma = require('../../config/prisma')
 
 const BoardMemberRepository = {
 
-    /**
-     * Busca todos os membros de um board com dados básicos do usuário
-     * @param {number} boardId
-     * @returns {Promise<array>}
-     */
     async findByBoard(boardId) {
         return prisma.boardMember.findMany({
-            where: { board_id: boardId },
-            include: { user: { select: { id: true, name: true, email: true } } }
-        })
-    },
-
-    /**
-     * Verifica se um usuário é membro de um board
-     * @param {number} userId
-     * @param {number} boardId
-     * @returns {Promise<boolean>}
-     */
-    async isBoardMember(userId, boardId) {
-        const member = await prisma.boardMember.findUnique({
             where: {
-                user_id_board_id: { board_id: boardId, user_id: userId },
-                board: { deleted_at: null },
-                user: { is_active: true }
-            }
+                board_id: boardId,
+                board: { deleted_at: null }
+            },
+            include: {
+                user: {
+                    select: { id: true, name: true, email: true }
+                }
+            },
+            orderBy: { order: 'desc' }
         })
-        return !!member
     },
 
-    /**
-     * Conta membros privilegiados (OWNER e ADMIN) de um board
-     * Usado para impedir remoção/rebaixamento do último privilegiado
-     * @param {number} boardId
-     * @param {object} tx - cliente de transação (opcional)
-     * @returns {Promise<number>}
-     */
     async countPrivilegedMembers(boardId, tx = null) {
         const client = tx || prisma
 
         return client.boardMember.count({
             where: {
                 board_id: boardId,
+                board: { deleted_at: null },
                 role: { in: ['OWNER', 'ADMIN'] }
             }
         })
     },
 
-    /**
-     * Decrementa a ordem dos boards após uma posição específica
-     * Chamado após remoção de membro para manter a ordem contínua
-     * @param {number} userId
-     * @param {number} workspaceId
-     * @param {number} order - posição de referência
-     * @param {object} tx - cliente de transação (opcional)
-     */
     async decrementOrderAfter(userId, workspaceId, order, tx = null) {
         const client = tx || prisma
 
         return client.boardMember.updateMany({
             where: {
                 user_id: userId,
-                board: { workspace_id: workspaceId },
+                board: {
+                    workspace_id: workspaceId
+                },
                 order: { gt: order }
             },
             data: { order: { decrement: 1 } }
         })
     },
 
-    /**
-     * Decrementa ordem dos boards_members após exclusão de um board
-     * Mantém a sequência contínua após remoção
-     * @param {number} boardId - board sendo removido
-     * @param {number} workspaceId
-     * @param {object} tx
-     */
     async decrementOrderAfterBoardDeletion(boardId, workspaceId, tx = null) {
         const client = tx || prisma
 
@@ -89,18 +56,15 @@ const BoardMemberRepository = {
         AND bm.board_id = b.id
         AND b.workspace_id = ${workspaceId}
         AND bm."order" > deleted_bm."order"
-    `
+        `
     },
 
-    /**
-     * Remove um vínculo board-membro pelo ID do vínculo
-     * @param {number} id - ID do boardMember
-     * @param {object} tx - cliente de transação (opcional)
-     */
     async removeById(id, tx = null) {
         const client = tx || prisma
 
-        return client.boardMember.delete({ where: { id } })
+        return client.boardMember.delete({
+            where: { id }
+        })
     },
 
     async removeByUser(userId, tx = null) {
@@ -114,7 +78,7 @@ const BoardMemberRepository = {
     async removeByUserAndWorkspace(userId, workspaceId, tx = null) {
         const client = tx || prisma
 
-        client.boardMember.deleteMany({
+        return client.boardMember.deleteMany({
             where: {
                 user_id: userId,
                 board: { workspace_id: workspaceId }
@@ -122,19 +86,17 @@ const BoardMemberRepository = {
         })
     },
 
-    /**
-     * Busca o vínculo básico entre usuário e board sem includes
-     * Usado para verificações de existência e leitura de role
-     * @param {number} userId
-     * @param {number} boardId
-     * @returns {Promise<object|null>}
-     */
     async findMembership(userId, boardId) {
         return prisma.boardMember.findUnique({
             where: {
-                user_id_board_id: { user_id: userId, board_id: boardId }
+                user_id_board_id: { user_id: userId, board_id: boardId },
+                board: { deleted_at: null }
             },
-            include: { user: { select: { id: true, name: true, email: true } } }
+            include: {
+                user: {
+                    select: { id: true, name: true, email: true }
+                }
+            }
         })
     },
 
@@ -142,7 +104,10 @@ const BoardMemberRepository = {
         return prisma.boardMember.findMany({
             where: {
                 user_id: userId,
-                board: { workspace_id: workspaceId, deleted_at: null }
+                board: {
+                    workspace_id: workspaceId,
+                    deleted_at: null
+                },
             },
             include: {
                 board: {
@@ -159,18 +124,14 @@ const BoardMemberRepository = {
         })
     },
 
-    /**
-     * Busca o último board do usuário no workspace por ordem
-     * Usado para calcular o nextOrder ao adicionar um novo membro
-     * @param {number} userId
-     * @param {number} workspaceId
-     * @returns {Promise<{ order: number }|null>}
-     */
     async findMaxOrderByWorkspace(userId, workspaceId) {
         const result = await prisma.boardMember.findFirst({
             where: {
                 user_id: userId,
-                board: { workspace_id: workspaceId, deleted_at: null }
+                board: {
+                    workspace_id: workspaceId,
+                    deleted_at: null
+                }
             },
             orderBy: { order: 'desc' },
             select: { order: true }
@@ -186,35 +147,40 @@ const BoardMemberRepository = {
             where: {
                 user_id: userId,
                 role: { in: ['ADMIN', 'OWNER'] },
-                board: { workspace_id: workspaceId }
+                board: {
+                    workspace_id: workspaceId,
+                    deleted_at: null
+                }
             },
-            include: { board: { include: { board_members: { where: { role: { in: ['ADMIN', 'OWNER'] } } } } } }
+            include: {
+                board: {
+                    include: {
+                        board_members: {
+                            where: { role: { in: ['ADMIN', 'OWNER'] } }
+                        }
+                    }
+                }
+            }
         })
     },
 
-    /**
-     * Cria ou atualiza o vínculo de um usuário com um board
-     * Retorna o membro com dados do usuário para emissão via socket
-     * @param {number} userId
-     * @param {number} boardId
-     * @param {string} role
-     * @param {number} order
-     * @returns {Promise<object>}
-     */
     async upsertMember(userId, boardId, role, order) {
         return prisma.boardMember.upsert({
-            where: {
-                user_id_board_id: { user_id: userId, board_id: boardId }
-            },
+            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
             update: { role },
             create: { user_id: userId, board_id: boardId, role, order },
-            include: { user: { select: { id: true, name: true, email: true } } }
+            include: {
+                user: { select: { id: true, name: true, email: true } }
+            }
         })
     },
 
     async findMembershipWithBoardAndUser(boardId, userId) {
         return prisma.boardMember.findUnique({
-            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
+            where: {
+                user_id_board_id: { user_id: userId, board_id: boardId },
+                board: { deleted_at: null }
+            },
             select: {
                 id: true,
                 board_id: true,
@@ -222,7 +188,7 @@ const BoardMemberRepository = {
                 role: true,
                 order: true,
                 board: { select: { id: true, name: true, workspace_id: true, creator_id: true } },
-                user: { select: { id: true, name: true } }
+                user: { select: { id: true, name: true, email: true } }
             }
         })
     },
@@ -237,57 +203,40 @@ const BoardMemberRepository = {
         })
     },
 
-    /**
-     * Conta quantos boards um usuário possui em um workspace
-     * Usado para calcular o maxOrder no move
-     * @param {number} userId
-     * @param {number} workspaceId
-     * @returns {Promise<number>}
-     */
     async countBoardsByUserInWorkspace(userId, workspaceId) {
         return prisma.boardMember.count({
             where: {
                 user_id: userId,
-                board: { workspace_id: workspaceId, deleted_at: null }
+                board: {
+                    workspace_id: workspaceId,
+                    deleted_at: null
+                }
             }
         })
     },
 
-    /**
-     * Atualiza a ordem de membros em um intervalo de posições
-     * Usado em move para deslocar os boards afetados pela reordenação
-     * @param {number} userId
-     * @param {number} workspaceId
-     * @param {object} orderCondition - ex: { gt: 2, lte: 5 }
-     * @param {'increment'|'decrement'} direction
-     * @param {object} tx - cliente de transação (opcional)
-     */
     async updateOrderInRange(userId, workspaceId, orderCondition, direction = 'increment', tx = null) {
         const client = tx || prisma
 
         return client.boardMember.updateMany({
             where: {
                 user_id: userId,
-                board: { workspace_id: workspaceId },
+                board: {
+                    workspace_id: workspaceId
+                },
                 order: orderCondition
             },
             data: { order: { [direction]: 1 } }
         })
     },
 
-    /**
-     * Atualiza a posição final do board do usuário após reordenação
-     * Sempre chamado como última operação dentro da transação de move
-     * @param {number} userId
-     * @param {number} boardId
-     * @param {number} newOrder
-     * @param {object} tx - cliente de transação (opcional)
-     */
     async updateMemberOrder(userId, boardId, newOrder, tx = null) {
         const client = tx || prisma
 
         return client.boardMember.update({
-            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
+            where: {
+                user_id_board_id: { user_id: userId, board_id: boardId }
+            },
             data: { order: newOrder }
         })
     },
@@ -296,6 +245,7 @@ const BoardMemberRepository = {
         return prisma.boardMember.findMany({
             where: {
                 board_id: boardId,
+                board: { deleted_at: null },
                 role: { in: roles }
             }
         })
@@ -307,27 +257,30 @@ const BoardMemberRepository = {
         return client.boardMember.findMany({
             where: {
                 board_id: boardId,
-                user_id: { in: userIds }
+                board: { deleted_at: null },
+                user_id: { in: userIds },
+                user: { is_active: true }
             },
             select: { user_id: true, role: true, user: { select: { id: true, role: true } } }
         })
     },
 
-    /**
-     * Busca usuários membros do quadro com IDs específicos
-     * @param {number} boardId
-     * @param {array} userIds
-     * @returns {Promise<number>} Contagem de membros válidos
-     */
     async countValidMembers(boardId, userIds) {
         return prisma.boardMember.count({
-            where: { board_id: boardId, user_id: { in: userIds } }
+            where: {
+                board_id: boardId,
+                board: { deleted_at: null },
+                user_id: { in: userIds },
+                user: { is_active: true }
+            }
         })
     },
 
     async findUserRoleInBoard(boardId, userId) {
         return prisma.boardMember.findUnique({
-            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
+            where: {
+                user_id_board_id: { user_id: userId, board_id: boardId }
+            },
             select: { role: true },
         })
     },

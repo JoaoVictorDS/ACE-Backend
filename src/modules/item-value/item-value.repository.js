@@ -26,22 +26,15 @@ const ItemValueRepository = {
         })
     },
 
-    /**
-     * Conta valores vinculados à coluna
-     * @param {number} columnId
-     * @returns {Promise<number>}
-     */
     async countItemValuesByColumn(columnId) {
         return prisma.itemValue.count({
-            where: { column_id: columnId }
+            where: {
+                column_id: columnId,
+                item: { deleted_at: null }
+            }
         })
     },
 
-    /**
-     * Deleta todos os valores da coluna
-     * @param {number} columnId
-     * @returns {Promise<object>} { count }
-     */
     async deleteItemValuesByColumn(columnId, tx = null) {
         const client = tx || prisma
 

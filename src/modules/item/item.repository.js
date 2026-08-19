@@ -2,14 +2,9 @@ const prisma = require('../../config/prisma')
 
 const ItemRepository = {
 
-    /**
-    * Busca item por ID para verificar permissão
-    * @param {number} itemId - ID do item
-    * @returns {Promise<object>} Item ou null
-    */
     async findPermissionContext(itemId) {
         return prisma.item.findUnique({
-            where: { id: itemId, deleted_at: null },
+            where: { id: itemId },
             select: {
                 section: { select: { board_id: true, board: { select: { workspace_id: true, creator_id: true } } } }
             }
@@ -43,8 +38,7 @@ const ItemRepository = {
                 section_id: sectionId,
                 title,
                 order,
-            },
-            include: { item_values: true, comments: true }
+            }
         })
     },
 
@@ -54,8 +48,14 @@ const ItemRepository = {
         return client.item.findUnique({
             where: { id: itemId },
             include: {
-                item_updates: { orderBy: { created_at: 'asc' } },
-                comments: { orderBy: { created_at: 'asc' } }
+                item_updates: {
+                    where: { deleted_at: null },
+                    orderBy: { created_at: 'asc' }
+                },
+                comments: {
+                    where: { deleted_at: null },
+                    orderBy: { created_at: 'asc' }
+                }
             }
         })
     },
@@ -96,6 +96,15 @@ const ItemRepository = {
                 order: { gte: order }
             },
             data: { order: { increment: 1 } }
+        })
+    },
+
+    async softDelete(itemId, tx = null) {
+        const client = tx || prisma
+
+        return client.item.update({
+            where: { id: itemId },
+            data: { deleted_at: new Date() }
         })
     },
 

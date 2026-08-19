@@ -14,7 +14,7 @@ const ItemUpdateRespository = {
 
     async findByItem(itemId) {
         return prisma.itemUpdate.findMany({
-            where: { item_id: itemId, deleted_at: null },
+            where: { item_id: itemId },
             orderBy: { created_at: 'asc' },
             include: { user: { select: { id: true, name: true } } }
         })
@@ -22,7 +22,7 @@ const ItemUpdateRespository = {
 
     async findById(itemUpdateId) {
         return prisma.itemUpdate.findUnique({
-            where: { id: itemUpdateId, deleted_at: null },
+            where: { id: itemUpdateId },
             include: {
                 item: { select: { id: true, title: true } },
                 user: { select: { id: true, name: true } }
@@ -32,7 +32,7 @@ const ItemUpdateRespository = {
 
     async update(itemUpdateId, content) {
         return prisma.itemUpdate.update({
-            where: { id: itemUpdateId, deleted_at: null },
+            where: { id: itemUpdateId },
             data: { content },
             include: {
                 item: { select: { id: true, title: true } },

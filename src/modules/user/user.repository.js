@@ -122,11 +122,11 @@ const UserRepository = {
             where: { id: userId },
             include: {
                 workspace_members: {
-                    where: { role: { in: ['ADMIN', 'OWNER'] } },
+                    where: { role: { in: ['ADMIN', 'OWNER'] }, workspace: { deleted_at: null } },
                     include: { workspace: { include: { _count: { select: { workspace_members: { where: { role: { in: ['ADMIN', 'OWNER'] } } } } } } } }
                 },
                 board_members: {
-                    where: { role: { in: ['ADMIN', 'OWNER'] } },
+                    where: { role: { in: ['ADMIN', 'OWNER'] }, board: { deleted_at: null } },
                     include: { board: { include: { _count: { select: { board_members: { where: { role: { in: ['ADMIN', 'OWNER'] } } } } } } } }
                 }
             }
