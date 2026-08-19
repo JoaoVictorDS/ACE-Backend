@@ -94,7 +94,7 @@ const ItemService = {
         const result = await TransactionManager.run(async (tx) => {
             await ItemRepository.decrementOrderAfter(item.section_id, item.order, tx)
 
-            return ItemRepository.delete(itemId, tx)
+            return ItemRepository.softDelete(itemId, tx)
         })
 
         EventPublisher.publish({

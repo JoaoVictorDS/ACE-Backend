@@ -99,7 +99,7 @@ const WorkspaceService = {
         const result = await TransactionManager.run(async (tx) => {
             await WorkspaceMemberRepository.decrementOrderAfterWorkspaceDeletion(workspaceId, tx)
 
-            return await WorkspaceRepository.delete(workspaceId, tx)
+            return await WorkspaceRepository.softDelete(workspaceId, tx)
         })
 
         EventPublisher.publish({

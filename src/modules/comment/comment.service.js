@@ -89,7 +89,7 @@ const CommentService = {
 
         if (!isOwner && !isBoardOwner && !isSystemAdmin) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('excluir', 'COMMENT'))
 
-        const deletedComment = await CommentRepository.delete(commentId)
+        const deletedComment = await CommentRepository.softDelete(commentId)
 
         EventPublisher.publish({
             actor: user,

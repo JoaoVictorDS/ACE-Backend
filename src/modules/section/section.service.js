@@ -88,7 +88,7 @@ const SectionService = {
         if (!force && hasContent) throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT('a seção', `${itemsCount} itens`))
 
         const result = await TransactionManager.run(async (tx) => {
-            await SectionRepository.delete(sectionId, tx)
+            await SectionRepository.softDelete(sectionId, tx)
 
             return await SectionRepository.decrementOrderAfter(boardId, sectionToDelete.order, tx)
         })
