@@ -41,6 +41,15 @@ const ItemUpdateRespository = {
         })
     },
 
+    async findItemUpdateIdsForSoftDeleteByBoards(boardIds, tx = null) {
+        const client = tx || prisma
+
+        return client.itemUpdate.findMany({
+            where: { item: { section: { board_id: { in: boardIds } } } },
+            select: { id: true }
+        })
+    },
+
     async softDelete(itemUpdateId) {
         return prisma.itemUpdate.update({
             where: { id: itemUpdateId },
@@ -48,6 +57,19 @@ const ItemUpdateRespository = {
         })
 
     },
+
+    async softDeleteByBoards(boardIds, timestamp, tx = null) {
+        const client = tx || prisma
+
+        return client.itemUpdate.updateMany({
+            where: {
+                item: { section: { board_id: { in: boardIds } } },
+                deleted_at: null
+            },
+            data: { deleted_at: timestamp }
+        })
+    },
+
 
     async delete(itemUpdateId) {
         return prisma.itemUpdate.delete({

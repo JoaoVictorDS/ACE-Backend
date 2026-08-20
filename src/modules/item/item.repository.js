@@ -99,12 +99,33 @@ const ItemRepository = {
         })
     },
 
+    async findItemIdsForSoftDeleteByBoards(boardIds, tx = null) {
+        const client = tx || prisma
+
+        return client.item.findMany({
+            where: { section: { board_id: { in: boardIds } } },
+            select: { id: true }
+        })
+    },
+
     async softDelete(itemId, tx = null) {
         const client = tx || prisma
 
         return client.item.update({
             where: { id: itemId },
             data: { deleted_at: new Date() }
+        })
+    },
+
+    async softDeleteByBoards(boardIds, timestamp, tx = null) {
+        const client = tx || prisma
+
+        return client.item.updateMany({
+            where: {
+                section: { board_id: { in: boardIds } },
+                deleted_at: null
+            },
+            data: { deleted_at: timestamp }
         })
     },
 

@@ -135,11 +135,12 @@ const SectionRepository = {
         })
     },
 
-    async delete(sectionId, tx = null) {
+    async findSectionIdsForSoftDeleteByBoards(boardIds, tx = null) {
         const client = tx || prisma
 
-        return client.section.delete({
-            where: { id: sectionId }
+        return client.section.findMany({
+            where: { board_id: { in: boardIds } },
+            select: { id: true }
         })
     },
 
@@ -150,7 +151,27 @@ const SectionRepository = {
             where: { id: sectionId },
             data: { deleted_at: new Date() }
         })
-    }
+    },
+
+    async softDeleteByBoards(boardIds, timestamp, tx = null) {
+        const client = tx || prisma
+
+        return client.section.updateMany({
+            where: {
+                board_id: { in: boardIds },
+                deleted_at: null
+            },
+            data: { deleted_at: timestamp }
+        })
+    },
+
+    async delete(sectionId, tx = null) {
+        const client = tx || prisma
+
+        return client.section.delete({
+            where: { id: sectionId }
+        })
+    },
 
 }
 

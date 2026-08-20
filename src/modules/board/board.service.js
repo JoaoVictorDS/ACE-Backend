@@ -8,6 +8,7 @@ const { PermissionService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 const { EventPublisher } = require('../../shared/events')
 const { TransactionManager } = require('../../shared/database')
+const BoardCascadeService = require('./board-cascade.service')
 
 const BoardService = {
 
@@ -165,10 +166,16 @@ const BoardService = {
             )
         }
 
-        const result = await TransactionManager.run(async (tx) => {
+        const { cascaded, deletedBoard } = await TransactionManager.run(async (tx) => {
+            const timestamp = new Date()
+
+            const cascaded = await BoardCascadeService.cascadeDelete(boardId, timestamp, tx)
+
+            const deletedBoard = await BoardRepository.softDelete(boardId, tx)
+
             await BoardMemberRepository.decrementOrderAfterBoardDeletion(boardId, workspaceId, tx)
 
-            return await BoardRepository.softDelete(boardId, tx)
+            return { cascaded, deletedBoard }
         })
 
         EventPublisher.publish({
@@ -195,13 +202,14 @@ const BoardService = {
                     item_label_plural: board.item_label_plural,
                     deleted_at: null,
                 },
-                after: null
+                after: null,
+                cascaded
             }
         })
 
         emitToRoom(`board:${boardId}`, 'board:deleted', { boardId })
 
-        return result
+        return deletedBoard
     },
 
 }
