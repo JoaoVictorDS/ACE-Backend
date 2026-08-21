@@ -65,7 +65,7 @@ const ColumnRepository = {
         })
     },
 
-    async findColumnIdsForSoftDeleteByBoards(boardIds, tx = null) {
+    async findColumnIdsByBoards(boardIds, tx = null) {
         const client = tx || prisma
 
         return client.column.findMany({

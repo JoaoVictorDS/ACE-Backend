@@ -135,7 +135,7 @@ const SectionRepository = {
         })
     },
 
-    async findSectionIdsForSoftDeleteByBoards(boardIds, tx = null) {
+    async findSectionIdsByBoards(boardIds, tx = null) {
         const client = tx || prisma
 
         return client.section.findMany({

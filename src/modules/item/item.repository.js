@@ -99,7 +99,7 @@ const ItemRepository = {
         })
     },
 
-    async findItemIdsForSoftDeleteByBoards(boardIds, tx = null) {
+    async findItemIdsByBoards(boardIds, tx = null) {
         const client = tx || prisma
 
         return client.item.findMany({

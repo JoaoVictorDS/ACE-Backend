@@ -45,15 +45,6 @@ const CommentRepository = {
         })
     },
 
-    async findCommentIdsForSoftDeleteByBoards(boardIds, tx = null) {
-        const client = tx || prisma
-
-        return client.comment.findMany({
-            where: { item: { section: { board_id: { in: boardIds } } } },
-            select: { id: true }
-        })
-    },
-
     async findCommentIdsByItems(itemIds, tx = null) {
         const client = tx || prisma
 
@@ -67,18 +58,6 @@ const CommentRepository = {
         return prisma.comment.update({
             where: { id: commentId },
             data: { deleted_at: new Date() }
-        })
-    },
-
-    async softDeleteByBoards(boardIds, timestamp, tx = null) {
-        const client = tx || prisma
-
-        return client.comment.updateMany({
-            where: {
-                item: { section: { board_id: { in: boardIds } } },
-                deleted_at: null,
-            },
-            data: { deleted_at: timestamp }
         })
     },
 
