@@ -54,6 +54,15 @@ const CommentRepository = {
         })
     },
 
+    async findCommentIdsByItems(itemIds, tx = null) {
+        const client = tx || prisma
+
+        return client.comment.findMany({
+            where: { item_id: { in: itemIds } },
+            select: { id: true }
+        })
+    },
+
     async softDelete(commentId) {
         return prisma.comment.update({
             where: { id: commentId },
@@ -68,6 +77,18 @@ const CommentRepository = {
             where: {
                 item: { section: { board_id: { in: boardIds } } },
                 deleted_at: null,
+            },
+            data: { deleted_at: timestamp }
+        })
+    },
+
+    async softDeleteByItems(itemIds, timestamp, tx = null) {
+        const client = tx || prisma
+
+        return client.comment.updateMany({
+            where: {
+                item_id: { in: itemIds },
+                deleted_at: null
             },
             data: { deleted_at: timestamp }
         })

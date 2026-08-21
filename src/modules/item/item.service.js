@@ -6,6 +6,7 @@ const { PermissionService } = require('../../shared/services')
 const { TransactionManager } = require('../../shared/database')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 const { EventPublisher } = require('../../shared/events')
+const ItemCascadeService = require('./item-cascade.service')
 
 const ItemService = {
 
@@ -91,10 +92,16 @@ const ItemService = {
         const item = await ItemRepository.findByIdBasic(itemId)
         if (!item) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.ITEM)
 
-        const result = await TransactionManager.run(async (tx) => {
+        const { cascaded, deletedItem } = await TransactionManager.run(async (tx) => {
+            const timestamp = new Date()
+
+            const cascaded = await ItemCascadeService.cascadeDelete(itemId, timestamp, tx)
+
+            const deletedItem = await ItemRepository.softDelete(itemId, tx)
+
             await ItemRepository.decrementOrderAfter(item.section_id, item.order, tx)
 
-            return ItemRepository.softDelete(itemId, tx)
+            return { cascaded, deletedItem }
         })
 
         EventPublisher.publish({
@@ -115,13 +122,14 @@ const ItemService = {
                     order: item.order,
                     deleted_at: null
                 },
-                after: null
+                after: null,
+                cascaded
             }
         })
 
         emitToRoom(`board:${boardId}`, 'item:deleted', { itemId })
 
-        return result
+        return deletedItem
     },
 
     async move({ user, itemId, newSectionId, newOrder }) {

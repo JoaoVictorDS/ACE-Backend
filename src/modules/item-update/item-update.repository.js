@@ -50,6 +50,15 @@ const ItemUpdateRespository = {
         })
     },
 
+    async findItemUpdateIdsByItems(itemIds, tx = null) {
+        const client = tx || prisma
+
+        return client.itemUpdate.findMany({
+            where: { item_id: { in: itemIds } },
+            select: { id: true }
+        })
+    },
+
     async softDelete(itemUpdateId) {
         return prisma.itemUpdate.update({
             where: { id: itemUpdateId },
@@ -70,6 +79,17 @@ const ItemUpdateRespository = {
         })
     },
 
+    async softDeleteByItems(itemIds, timestamp, tx = null) {
+        const client = tx || prisma
+
+        return client.itemUpdate.updateMany({
+            where: {
+                item_id: { in: itemIds },
+                deleted_at: null
+            },
+            data: { deleted_at: timestamp }
+        })
+    },
 
     async delete(itemUpdateId) {
         return prisma.itemUpdate.delete({
