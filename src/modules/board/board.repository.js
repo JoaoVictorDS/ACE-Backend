@@ -93,12 +93,33 @@ const BoardRepository = {
         })
     },
 
+    async findBoardIdsByWorkspaces(workspaceIds, tx = null) {
+        const client = tx || prisma
+
+        return client.board.findMany({
+            where: { workspace_id: { in: workspaceIds } },
+            select: { id: true }
+        })
+    },
+
     async softDelete(boardId, tx = null) {
         const client = tx || prisma
 
         return client.board.update({
             where: { id: boardId },
             data: { deleted_at: new Date() }
+        })
+    },
+
+    async softDeleteByWorkspaces(workspaceIds, timestamp, tx = null) {
+        const client = tx || prisma
+
+        return client.board.updateMany({
+            where: {
+                workspace_id: { in: workspaceIds },
+                deleted_at: null
+            },
+            data: { deleted_at: timestamp }
         })
     },
 

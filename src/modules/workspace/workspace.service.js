@@ -7,6 +7,7 @@ const { PermissionService } = require('../../shared/services')
 const { PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 const { EventPublisher } = require('../../shared/events')
+const WorkspaceCascadeService = require('./workspace-cascade.service')
 
 const WorkspaceService = {
 
@@ -96,10 +97,16 @@ const WorkspaceService = {
         const hasContent = boardsCount > 0 || itemsCount > 0
         if (!force && hasContent) throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT('a área de trabalho', `${boardsCount} quadros, ${workspaceMembersCount} membros e ${itemsCount} itens.`))
 
-        const result = await TransactionManager.run(async (tx) => {
+        const { cascaded, deletedWorkspace } = await TransactionManager.run(async (tx) => {
+            const timestamp = new Date()
+
+            const cascaded = await WorkspaceCascadeService.cascadeDelete(workspaceId, timestamp, tx)
+
+            const deletedWorkspace = await WorkspaceRepository.softDelete(workspaceId, tx)
+
             await WorkspaceMemberRepository.decrementOrderAfterWorkspaceDeletion(workspaceId, tx)
 
-            return await WorkspaceRepository.softDelete(workspaceId, tx)
+            return { cascaded, deletedWorkspace }
         })
 
         EventPublisher.publish({
@@ -118,11 +125,12 @@ const WorkspaceService = {
                     icon: workspace.icon,
                     deleted_at: null
                 },
-                after: null
+                after: null,
+                cascaded
             }
         })
 
-        return result
+        return deletedWorkspace
     }
 
 }
