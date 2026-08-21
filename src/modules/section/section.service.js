@@ -6,6 +6,7 @@ const { PermissionService } = require('../../shared/services')
 const { TransactionManager } = require('../../shared/database')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 const { EventPublisher } = require('../../shared/events')
+const SectionCascadeService = require('./section-cascade.service')
 
 const SectionService = {
 
@@ -87,10 +88,16 @@ const SectionService = {
         const hasContent = itemsCount > 0
         if (!force && hasContent) throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT('a seção', `${itemsCount} itens`))
 
-        const result = await TransactionManager.run(async (tx) => {
-            await SectionRepository.softDelete(sectionId, tx)
+        const { cascaded, deletedSection } = await TransactionManager.run(async (tx) => {
+            const timestamp = new Date()
 
-            return await SectionRepository.decrementOrderAfter(boardId, sectionToDelete.order, tx)
+            const cascaded = await SectionCascadeService.cascadeDelete(sectionId, timestamp, tx)
+
+            const deletedSection = await SectionRepository.softDelete(sectionId, tx)
+
+            await SectionRepository.decrementOrderAfter(boardId, sectionToDelete.order, tx)
+
+            return { cascaded, deletedSection }
         })
 
         EventPublisher.publish({
@@ -110,13 +117,14 @@ const SectionService = {
                     order: sectionToDelete.order,
                     deleted_at: null
                 },
-                after: null
+                after: null,
+                cascaded
             }
         })
 
         emitToRoom(`board:${boardId}`, 'section:deleted', { sectionId })
 
-        return result
+        return deletedSection
     },
 
     async move({ user, sectionId, newOrder }) {

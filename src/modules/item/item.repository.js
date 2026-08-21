@@ -108,6 +108,15 @@ const ItemRepository = {
         })
     },
 
+    async findItemIdsBySections(sectionIds, tx = null) {
+        const client = tx || prisma
+
+        return client.item.findMany({
+            where: { section_id: { in: sectionIds } },
+            select: { id: true }
+        })
+    },
+
     async softDelete(itemId, tx = null) {
         const client = tx || prisma
 
@@ -123,6 +132,18 @@ const ItemRepository = {
         return client.item.updateMany({
             where: {
                 section: { board_id: { in: boardIds } },
+                deleted_at: null
+            },
+            data: { deleted_at: timestamp }
+        })
+    },
+
+    async softDeleteBySections(sectionIds, timestamp, tx = null) {
+        const client = tx || prisma
+
+        return client.item.updateMany({
+            where: {
+                section_id: { in: sectionIds },
                 deleted_at: null
             },
             data: { deleted_at: timestamp }
