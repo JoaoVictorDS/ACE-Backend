@@ -70,6 +70,13 @@ const ItemUpdateRespository = {
         })
     },
 
+    async restore(itemUpdateId) {
+        return prisma.itemUpdate.update({
+            where: { id: itemUpdateId },
+            data: { deleted_at: null }
+        })
+    },
+
     async delete(itemUpdateId) {
         return prisma.itemUpdate.delete({
             where: { id: itemUpdateId }

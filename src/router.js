@@ -21,6 +21,7 @@ v1.use('/comments', require('./modules/comment/comment.routes'))
 v1.use('/notifications', require('./modules/notification/notification.routes'))
 v1.use('/sections', require('./modules/section/section.routes'))
 v1.use('/items', require('./modules/item/item.routes'))
+v1.use('/undo-actions', require('./modules/undo/undo.routes'))
 
 router.use('/v1', v1)
 

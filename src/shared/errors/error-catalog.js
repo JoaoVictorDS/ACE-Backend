@@ -213,6 +213,10 @@ const ERROR_CATALOG = {
             code: 'NOT_FOUND',
             message: 'Configuração de notificação não encontrada',
         },
+        UNDO_ACTION: {
+            code: 'NOT_FOUND',
+            message: 'Ação não encontrada ou já expirada',
+        },
     },
 
     // ═══════════════════════════════════════════════════════════════

@@ -43,6 +43,7 @@ exports.comment_id = makeIdField('comment_id', 'do comentário')
 exports.user_id = makeIdField('user_id', 'do usuário')
 exports.notification_id = makeIdField('notification_id', 'da notificação')
 exports.member_id = makeIdField('member_id', 'do membro')
+exports.undo_action_id = makeIdField('undo_action_id', 'da ação')
 
 // ─── Emails ───────────────────────────────────────────────────────
 
