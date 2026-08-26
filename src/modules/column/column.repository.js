@@ -45,8 +45,10 @@ const ColumnRepository = {
         })
     },
 
-    async findMaxOrder(boardId) {
-        const result = await prisma.column.findFirst({
+    async findMaxOrder(boardId, tx = null) {
+        const client = tx || prisma
+
+        const result = await client.column.findFirst({
             where: { board_id: boardId },
             orderBy: { order: 'desc' },
             select: { order: true }
@@ -95,6 +97,13 @@ const ColumnRepository = {
         })
     },
 
+    async restore(columnId) {
+        return prisma.column.update({
+            where: { id: columnId },
+            data: { deleted_at: null }
+        })
+    },
+
     async delete(columnId) {
         return prisma.column.delete({
             where: { id: columnId }
@@ -139,8 +148,10 @@ const ColumnRepository = {
         })
     },
 
-    async updateOrder(columnId, newOrder) {
-        return prisma.column.update({
+    async updateOrder(columnId, newOrder, tx = null) {
+        const client = tx || prisma
+
+        return client.column.update({
             where: { id: columnId },
             data: { order: newOrder }
         })
