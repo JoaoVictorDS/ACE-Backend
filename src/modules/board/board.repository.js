@@ -38,7 +38,11 @@ const BoardRepository = {
                         items: {
                             where: { deleted_at: null },
                             orderBy: [{ order: 'asc' }, { id: 'asc' }],
-                            include: { item_values: true }
+                            include: {
+                                item_values: {
+                                    where: { column: { deleted_at: null } }
+                                }
+                            }
                         }
                     }
                 },
