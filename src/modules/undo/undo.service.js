@@ -4,7 +4,7 @@ const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 const BoardRepository = require('../board/board.repository')
 const UndoRepository = require('./undo.repository')
 const { EventPublisher } = require('../../shared/events')
-const { RESTORE_EXECUTORS } = require('./restore-executors')
+const RESTORE_EXECUTORS = require('./restore-executors')
 const { PaginationService, PermissionService } = require('../../shared/services')
 const { RESOURCE_TYPES, PERMISSION_LEVELS } = require('../../shared/constants')
 
