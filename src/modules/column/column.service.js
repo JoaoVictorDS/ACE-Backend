@@ -174,12 +174,18 @@ const ColumnService = {
         if (!column) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
 
         const affectedValuesCount = await ItemValueRepository.countItemValuesByColumn(columnId)
-
         if (!force && affectedValuesCount > 0) {
             throw new ConflictError(ERROR_CATALOG.CONFLICT.RESOURCE_HAS_CONTENT('a coluna', `${affectedValuesCount} itens`))
         }
 
-        const deletedColumn = await ColumnRepository.softDelete(columnId)
+        const result = await TransactionManager.run(async (tx) => {
+            const deletedColumn = await ColumnRepository.softDelete(columnId, tx)
+
+            await ColumnRepository.decrementOrderAfter(boardId, column.order, tx)
+
+            return deletedColumn
+        })
+
 
         EventPublisher.publish({
             actor: user,
@@ -210,7 +216,7 @@ const ColumnService = {
 
         emitToRoom(`board:${boardId}`, 'column:deleted', { columnId })
 
-        return deletedColumn
+        return result
     },
 
     async move({ user, columnId, newOrder }) {

@@ -74,8 +74,10 @@ const ColumnRepository = {
         })
     },
 
-    async softDelete(columnId) {
-        return prisma.column.update({
+    async softDelete(columnId, tx = null) {
+        const client = tx || prisma
+
+        return client.column.update({
             where: { id: columnId },
             data: { deleted_at: new Date() }
         })
