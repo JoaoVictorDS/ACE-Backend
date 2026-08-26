@@ -97,8 +97,10 @@ const ColumnRepository = {
         })
     },
 
-    async restore(columnId) {
-        return prisma.column.update({
+    async restore(columnId, tx = null) {
+        const client = tx || prisma
+
+        return client.column.update({
             where: { id: columnId },
             data: { deleted_at: null }
         })

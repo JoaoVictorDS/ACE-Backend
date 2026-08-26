@@ -165,6 +165,15 @@ const SectionRepository = {
         })
     },
 
+    async restore(sectionId, tx = null) {
+        const client = tx || prisma
+
+        return client.section.update({
+            where: { id: sectionId },
+            data: { deleted_at: null }
+        })
+    },
+
     async delete(sectionId, tx = null) {
         const client = tx || prisma
 

@@ -73,9 +73,20 @@ const CommentRepository = {
         })
     },
 
-    async restore(commentId) {
-        return prisma.comment.update({
+    async restore(commentId, tx = null) {
+        const client = tx || prisma
+
+        return client.comment.update({
             where: { id: commentId },
+            data: { deleted_at: null }
+        })
+    },
+
+    async restoreMany(ids, tx = null) {
+        const client = tx || prisma
+
+        return client.comment.updateMany({
+            where: { id: { in: ids } },
             data: { deleted_at: null }
         })
     },

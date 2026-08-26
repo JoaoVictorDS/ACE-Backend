@@ -16,6 +16,13 @@ const SectionCascadeService = {
         return { itemIds, commentIds, itemUpdateIds }
     },
 
+    async restoreCascade(snapshot, tx) {
+        const { itemIds = [], commentIds = [], itemUpdateIds = [] } = snapshot.cascaded ?? {}
+
+        if (itemIds.length) await ItemRepository.restoreMany(itemIds, tx)
+        await ItemCascadeService.restoreFromSnapshot({ commentIds, itemUpdateIds }, tx)
+    },
+
 }
 
 module.exports = SectionCascadeService

@@ -22,6 +22,13 @@ const ItemCascadeService = {
         }
     },
 
+    async restoreFromSnapshot({ commentIds = [], itemUpdateIds = [] }, tx) {
+        await Promise.all([
+            commentIds.length ? CommentRepository.restoreMany(commentIds, tx) : null,
+            itemUpdateIds.length ? ItemUpdateRepository.restoreMany(itemUpdateIds, tx) : null,
+        ])
+    },
+
 }
 
 module.exports = ItemCascadeService

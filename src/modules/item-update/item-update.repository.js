@@ -70,9 +70,20 @@ const ItemUpdateRespository = {
         })
     },
 
-    async restore(itemUpdateId) {
-        return prisma.itemUpdate.update({
+    async restore(itemUpdateId, tx = null) {
+        const client = tx || prisma
+
+        return client.itemUpdate.update({
             where: { id: itemUpdateId },
+            data: { deleted_at: null }
+        })
+    },
+
+    async restoreMany(ids, tx = null) {
+        const client = tx || prisma
+
+        return client.itemUpdate.updateMany({
+            where: { id: { in: ids } },
             data: { deleted_at: null }
         })
     },
