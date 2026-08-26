@@ -150,6 +150,15 @@ const ItemRepository = {
         })
     },
 
+    async restore(itemId, tx = null) {
+        const client = tx || prisma
+
+        return client.item.update({
+            where: { id: itemId },
+            data: { deleted_at: null }
+        })
+    },
+
     async restoreMany(ids, tx = null) {
         const client = tx || prisma
 

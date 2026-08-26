@@ -5,8 +5,10 @@ const CommentRepository = require('../../comment/comment.repository')
 const ItemUpdateRepository = require('../../item-update/item-update.repository')
 const ColumnRepository = require('../../column/column.repository')
 const SectionRepository = require('../../section/section.repository')
+const ItemRepository = require('../../item/item.repository')
 
 const SectionCascadeService = require('../../section/section-cascade.service')
+const ItemCascadeService = require('../../item/item-cascade.service')
 
 const RESTORE_EXECUTORS = {
     [ENTITY_TYPES.COMMENT]: new LeafRestoreExecutor({
@@ -47,6 +49,24 @@ const RESTORE_EXECUTORS = {
         },
         compactOrderOnDelete: async (deletedSection, tx) => {
             await SectionRepository.decrementOrderAfter(deletedSection.board_id, deletedSection.order, tx)
+        }
+    }),
+    [ENTITY_TYPES.ITEM]: new LeafRestoreExecutor({
+        repository: ItemRepository,
+        entityLabel: 'Item',
+        buildResource: async (record) => ({
+            itemId: record.id,
+            resource: { item: { id: record.id, title: record.title } },
+        }),
+        restoreCascade: async (snapshot, tx) => {
+            await ItemCascadeService.restoreFromSnapshot(snapshot.cascaded ?? {}, tx)
+        },
+        reassignOrder: async (itemId, snapshot, tx) => {
+            const newOrder = await ItemRepository.findMaxOrder(snapshot.before.section_id, tx)
+            return ItemRepository.updateSectionAndOrder(itemId, snapshot.before.section_id, newOrder, tx)
+        },
+        compactOrderOnDelete: async (deletedItem, tx) => {
+            await ItemRepository.decrementOrderAfter(deletedItem.section_id, deletedItem.order, tx)
         }
     })
 }
