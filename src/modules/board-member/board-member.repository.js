@@ -2,8 +2,10 @@ const prisma = require('../../config/prisma')
 
 const BoardMemberRepository = {
 
-    async findByBoard(boardId) {
-        return prisma.boardMember.findMany({
+    async findByBoard(boardId, tx = null) {
+        const client = tx || prisma
+
+        return client.boardMember.findMany({
             where: {
                 board_id: boardId,
                 board: { deleted_at: null }
@@ -25,6 +27,18 @@ const BoardMemberRepository = {
                 board_id: boardId,
                 board: { deleted_at: null },
                 role: { in: ['OWNER', 'ADMIN'] }
+            }
+        })
+    },
+
+    async countActivePrivilegedMembers(boardId, tx = null) {
+        const client = tx || prisma
+
+        return client.boardMember.count({
+            where: {
+                board_id: boardId,
+                role: { in: ['ADMIN', 'OWNER'] },
+                user: { is_active: true }
             }
         })
     },
@@ -124,8 +138,10 @@ const BoardMemberRepository = {
         })
     },
 
-    async findMaxOrderByWorkspace(userId, workspaceId) {
-        const result = await prisma.boardMember.findFirst({
+    async findMaxOrderByWorkspace(userId, workspaceId, tx = null) {
+        const client = tx || prisma
+
+        const result = await client.boardMember.findFirst({
             where: {
                 user_id: userId,
                 board: {
@@ -164,8 +180,10 @@ const BoardMemberRepository = {
         })
     },
 
-    async upsertMember(userId, boardId, role, order) {
-        return prisma.boardMember.upsert({
+    async upsertMember(userId, boardId, role, order, tx = null) {
+        const client = tx || prisma
+
+        return client.boardMember.upsert({
             where: { user_id_board_id: { user_id: userId, board_id: boardId } },
             update: { role },
             create: { user_id: userId, board_id: boardId, role, order },

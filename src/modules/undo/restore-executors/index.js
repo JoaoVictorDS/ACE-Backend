@@ -6,9 +6,12 @@ const ItemUpdateRepository = require('../../item-update/item-update.repository')
 const ColumnRepository = require('../../column/column.repository')
 const SectionRepository = require('../../section/section.repository')
 const ItemRepository = require('../../item/item.repository')
+const BoardRepository = require('../../board/board.repository')
+const BoardMemberRepository = require('../../board-member/board-member.repository')
 
 const SectionCascadeService = require('../../section/section-cascade.service')
 const ItemCascadeService = require('../../item/item-cascade.service')
+const BoardCascadeService = require('../../board/board-cascade.service')
 
 const RESTORE_EXECUTORS = {
     [ENTITY_TYPES.COMMENT]: new LeafRestoreExecutor({
@@ -68,7 +71,29 @@ const RESTORE_EXECUTORS = {
         compactOrderOnDelete: async (deletedItem, tx) => {
             await ItemRepository.decrementOrderAfter(deletedItem.section_id, deletedItem.order, tx)
         }
-    })
+    }),
+    [ENTITY_TYPES.BOARD]: new LeafRestoreExecutor({
+        repository: BoardRepository,
+        entityLabel: 'Quadro',
+        buildResource: async (record) => ({
+            itemId: null,
+            resource: { board: { id: record.id, name: record.name } },
+        }),
+        restoreCascade: async (boardId, snapshot, tx) => {
+            const { promotedCount } = await BoardCascadeService.restoreCascade(boardId, snapshot, tx)
+            return promotedCount
+        },
+        compactOrderOnDelete: async (deletedBoard, tx) => {
+            await BoardMemberRepository.decrementOrderAfterBoardDeletion(deletedBoard.board_id, deletedBoard.workspace_id, tx)
+        },
+        cascadeOnUndoCreate: async (deletedBoard, timestamp, tx) => {
+            await BoardCascadeService.cascadeDelete(deletedBoard.id, timestamp, tx)
+        },
+        buildDeleteSummary: (cascadeResult, entityLabel) =>
+            cascadeResult > 0
+                ? `${entityLabel} restaurado(a) — ${cascadeResult} administrador(es) adicionado(s)`
+                : `${entityLabel} restaurado(a)`,
+    }),
 }
 
 module.exports = RESTORE_EXECUTORS

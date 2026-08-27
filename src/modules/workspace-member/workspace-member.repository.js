@@ -154,6 +154,18 @@ const WorkspaceMemberRepository = {
         })
     },
 
+    async findActiveByWorkspaceAndRoles(workspaceId, roles, tx = null) {
+        const client = tx || prisma
+
+        return client.workspaceMember.findMany({
+            where: {
+                workspace_id: workspaceId,
+                role: { in: roles },
+                user: { is_active: true }
+            }
+        })
+    },
+
     async countWorkspaceByUser(userId) {
         return prisma.workspaceMember.count({
             where: {

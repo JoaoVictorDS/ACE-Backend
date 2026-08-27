@@ -1,5 +1,7 @@
 const SectionRepository = require('../section/section.repository')
 const ColumnRepository = require('../column/column.repository')
+const BoardMemberRepository = require('../board-member/board-member.repository')
+const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
 const ItemRepository = require('../item/item.repository')
 const ItemCascadeService = require('../item/item-cascade.service')
 
@@ -31,7 +33,47 @@ const BoardCascadeService = {
             commentIds,
             itemUpdateIds,
         }
-    }
+    },
+
+    async restoreCascade(boardId, snapshot, tx) {
+        const { sectionIds = [], columnIds = [], itemIds = [], commentIds = [], itemUpdateIds = [] } = snapshot.cascaded ?? {}
+
+        await Promise.all([
+            sectionIds.length ? SectionRepository.restoreMany(sectionIds, tx) : null,
+            columnIds.length ? ColumnRepository.restoreMany(columnIds, tx) : null,
+            itemIds.length ? ItemRepository.restoreMany(itemIds, tx) : null,
+        ])
+
+        await ItemCascadeService.restoreFromSnapshot({ commentIds, itemUpdateIds }, tx)
+
+        await this._reassignMemberOrders(snapshot.before.workspace_id, boardId, tx)
+        const promotedCount = await this._ensureBoardHasAdmin(snapshot.before.workspace_id, boardId, tx)
+
+        return { promotedCount }
+    },
+
+    async _reassignMemberOrders(workspaceId, boardId, tx) {
+        const members = await BoardMemberRepository.findByBoard(boardId, tx)
+
+        for (const member of members) {
+            const newOrder = await BoardMemberRepository.findMaxOrderByWorkspace(member.user_id, workspaceId, tx)
+            await BoardMemberRepository.updateMemberOrder(member.user_id, boardId, newOrder, tx)
+        }
+    },
+
+    async _ensureBoardHasAdmin(workspaceId, boardId, tx) {
+        const activeAdminsCount = await BoardMemberRepository.countActivePrivilegedMembers(boardId, tx)
+        if (activeAdminsCount > 0) return 0
+
+        const workspaceAdmins = await WorkspaceMemberRepository.findActiveByWorkspaceAndRoles(workspaceId, ['ADMIN', 'OWNER'], tx)
+
+        for (const workspaceAdmin of workspaceAdmins) {
+            const newOrder = await BoardMemberRepository.findMaxOrderByWorkspace(workspaceAdmin.user_id, workspaceId, tx)
+            await BoardMemberRepository.upsertMember(workspaceAdmin.user_id, boardId, 'ADMIN', newOrder, tx)
+        }
+
+        return workspaceAdmins.length
+    },
 }
 
 module.exports = BoardCascadeService
