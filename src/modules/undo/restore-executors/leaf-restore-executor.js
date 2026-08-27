@@ -13,7 +13,8 @@ class LeafRestoreExecutor {
         buildDeleteSummary = (cascadeResult, entityLabel) => `${entityLabel} restaurado(a)`,
         restoreCascade = null,
         reassignOrder = null,
-        compactOrderOnDelete = null
+        compactOrderOnDelete = null,
+        cascadeOnUndoCreate = null,
     }) {
         this.repository = repository
         this.entityLabel = entityLabel
@@ -23,6 +24,7 @@ class LeafRestoreExecutor {
         this.restoreCascade = restoreCascade
         this.reassignOrder = reassignOrder
         this.compactOrderOnDelete = compactOrderOnDelete
+        this.cascadeOnUndoCreate = cascadeOnUndoCreate
     }
 
     async restore(undoAction) {
@@ -37,10 +39,15 @@ class LeafRestoreExecutor {
     }
 
     async _undoCreate(entityId) {
-        const record = this.compactOrderOnDelete
+        const needsTransaction = Boolean(this.compactOrderOnDelete || this.cascadeOnUndoCreate)
+
+        const record = needsTransaction
             ? await TransactionManager.run(async (tx) => {
                 const deleted = await this.repository.softDelete(entityId, tx)
-                await this.compactOrderOnDelete(deleted, tx)
+
+                if (this.compactOrderOnDelete) this.compactOrderOnDelete(deleted, tx)
+                if (this.cascadeOnUndoCreate) this.cascadeOnUndoCreate(deleted, new Date(), tx)
+
                 return deleted
             })
             : await this.repository.softDelete(entityId)
