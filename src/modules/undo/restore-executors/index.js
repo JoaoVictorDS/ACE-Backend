@@ -52,6 +52,9 @@ const RESTORE_EXECUTORS = {
         },
         compactOrderOnDelete: async (deletedSection, tx) => {
             await SectionRepository.decrementOrderAfter(deletedSection.board_id, deletedSection.order, tx)
+        },
+        cascadeOnUndoCreate: async (deletedSection, timestamp, tx) => {
+            await SectionCascadeService.cascadeDelete(deletedSection.id, timestamp, tx)
         }
     }),
     [ENTITY_TYPES.ITEM]: new LeafRestoreExecutor({
