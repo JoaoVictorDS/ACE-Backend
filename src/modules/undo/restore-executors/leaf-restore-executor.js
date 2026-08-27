@@ -45,8 +45,8 @@ class LeafRestoreExecutor {
             ? await TransactionManager.run(async (tx) => {
                 const deleted = await this.repository.softDelete(entityId, tx)
 
-                if (this.compactOrderOnDelete) this.compactOrderOnDelete(deleted, tx)
-                if (this.cascadeOnUndoCreate) this.cascadeOnUndoCreate(deleted, new Date(), tx)
+                if (this.compactOrderOnDelete) await this.compactOrderOnDelete(deleted, tx)
+                if (this.cascadeOnUndoCreate) await this.cascadeOnUndoCreate(deleted, new Date(), tx)
 
                 return deleted
             })
