@@ -6,14 +6,16 @@ const ItemCascadeService = {
     async cascadeDelete(itemIds, timestamp, tx) {
         if (itemIds.length === 0) return { commentIds: [], itemUpdateIds: [] }
 
+        const ids = Array.isArray(itemIds) ? itemIds : [itemIds]
+
         const [affectedComments, affectedItemUpdates] = await Promise.all([
-            CommentRepository.findCommentIdsByItems(itemIds, tx),
-            ItemUpdateRepository.findItemUpdateIdsByItems(itemIds, tx),
+            CommentRepository.findCommentIdsByItems(ids, tx),
+            ItemUpdateRepository.findItemUpdateIdsByItems(ids, tx),
         ])
 
         await Promise.all([
-            CommentRepository.softDeleteByItems(itemIds, timestamp, tx),
-            ItemUpdateRepository.softDeleteByItems(itemIds, timestamp, tx),
+            CommentRepository.softDeleteByItems(ids, timestamp, tx),
+            ItemUpdateRepository.softDeleteByItems(ids, timestamp, tx),
         ])
 
         return {
