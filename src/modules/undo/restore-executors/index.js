@@ -8,10 +8,13 @@ const SectionRepository = require('../../section/section.repository')
 const ItemRepository = require('../../item/item.repository')
 const BoardRepository = require('../../board/board.repository')
 const BoardMemberRepository = require('../../board-member/board-member.repository')
+const WorkspaceRepository = require('../../workspace/workspace.repository')
 
 const SectionCascadeService = require('../../section/section-cascade.service')
 const ItemCascadeService = require('../../item/item-cascade.service')
 const BoardCascadeService = require('../../board/board-cascade.service')
+const WorkspaceCascadeService = require('../../workspace/workspace-cascade.service')
+const WorkspaceMemberRepository = require('../../workspace-member/workspace-member.repository')
 
 const RESTORE_EXECUTORS = {
     [ENTITY_TYPES.COMMENT]: new LeafRestoreExecutor({
@@ -62,11 +65,10 @@ const RESTORE_EXECUTORS = {
         entityLabel: 'Quadro',
         buildResource: (record) => ({ itemId: null, resource: { board: { id: record.id, name: record.name } } }),
         restoreCascade: async (boardId, snapshot, tx) => {
-            const { promotedCount } = await BoardCascadeService.restoreCascade(boardId, snapshot, tx)
-
+            const { promotedCount } = await BoardCascadeService.restoreCascade(snapshot.before.workspace_id, boardId, snapshot, tx)
             return promotedCount
         },
-        compactOrderOnDelete: (deletedBoard, tx) => BoardMemberRepository.decrementOrderAfterBoardDeletion(deletedBoard.board_id, deletedBoard.workspace_id, tx),
+        compactOrderOnDelete: (deletedBoard, tx) => BoardMemberRepository.decrementOrderAfterBoardDeletion(deletedBoard.id, deletedBoard.workspace_id, tx),
         cascadeOnUndoCreate: (deletedBoard, timestamp, tx) => BoardCascadeService.cascadeDelete(deletedBoard.id, timestamp, tx),
         buildDeleteSummary: (cascadeResult, entityLabel) => cascadeResult > 0
             ? `${entityLabel} restaurado(a) — ${cascadeResult} administrador(es) adicionado(s)`
