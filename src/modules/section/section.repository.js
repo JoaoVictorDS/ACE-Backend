@@ -174,11 +174,11 @@ const SectionRepository = {
         })
     },
 
-    async restoreMany(ids, tx = null) {
+    async restoreMany(sectionIds, tx = null) {
         const client = tx || prisma
 
         return client.section.updateMany({
-            where: { id: { in: ids } },
+            where: { id: { in: sectionIds } },
             data: { deleted_at: null }
         })
     },

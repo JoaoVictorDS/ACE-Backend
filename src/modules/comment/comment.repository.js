@@ -82,11 +82,11 @@ const CommentRepository = {
         })
     },
 
-    async restoreMany(ids, tx = null) {
+    async restoreMany(commentIds, tx = null) {
         const client = tx || prisma
 
         return client.comment.updateMany({
-            where: { id: { in: ids } },
+            where: { id: { in: commentIds } },
             data: { deleted_at: null }
         })
     },
