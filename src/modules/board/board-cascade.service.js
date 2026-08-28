@@ -35,7 +35,8 @@ const BoardCascadeService = {
         }
     },
 
-    async restoreCascade(boardId, snapshot, tx) {
+    async restoreCascade(workspaceId, boardIds, snapshot, tx) {
+        const ids = Array.isArray(boardIds) ? boardIds : [boardIds]
         const { sectionIds = [], columnIds = [], itemIds = [], commentIds = [], itemUpdateIds = [] } = snapshot.cascaded ?? {}
 
         await Promise.all([
@@ -46,10 +47,13 @@ const BoardCascadeService = {
 
         await ItemCascadeService.restoreFromSnapshot({ commentIds, itemUpdateIds }, tx)
 
-        await this._reassignMemberOrders(snapshot.before.workspace_id, boardId, tx)
-        const promotedCount = await this._ensureBoardHasAdmin(snapshot.before.workspace_id, boardId, tx)
+        let totalPromoted = 0
+        for (const boardId of ids) {
+            await this._reassignMemberOrders(workspaceId, boardId, tx)
+            totalPromoted += await this._ensureBoardHasAdmin(workspaceId, boardId, tx)
+        }
 
-        return { promotedCount }
+        return { promotedCount: totalPromoted }
     },
 
     async _reassignMemberOrders(workspaceId, boardId, tx) {

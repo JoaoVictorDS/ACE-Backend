@@ -74,6 +74,20 @@ const RESTORE_EXECUTORS = {
             ? `${entityLabel} restaurado(a) — ${cascadeResult} administrador(es) adicionado(s)`
             : `${entityLabel} restaurado(a)`,
     }),
+    [ENTITY_TYPES.WORKSPACE]: new LeafRestoreExecutor({
+        repository: WorkspaceRepository,
+        entityLabel: 'Área de trabalho',
+        buildResource: (record) => ({ itemId: null, resource: { workspace: { id: record.id, name: record.name } } }),
+        restoreCascade: async (workspaceId, snapshot, tx) => {
+            const { promotedCount } = await WorkspaceCascadeService.restoreCascade(workspaceId, snapshot, tx)
+            return promotedCount
+        },
+        compactOrderOnDelete: (deletedWorkspace, tx) => WorkspaceMemberRepository.decrementOrderAfterWorkspaceDeletion(deletedWorkspace.id, tx),
+        cascadeOnUndoCreate: (deletedWorkspace, timestamp, tx) => WorkspaceCascadeService.cascadeDelete(deletedWorkspace.id, timestamp, tx),
+        buildDeleteSummary: (cascadeResult, entityLabel) => cascadeResult > 0
+            ? `${entityLabel} restaurada — ${cascadeResult} administrador(es) de quadro adicionado(s)`
+            : `${entityLabel} restaurada`,
+    })
 }
 
 module.exports = RESTORE_EXECUTORS

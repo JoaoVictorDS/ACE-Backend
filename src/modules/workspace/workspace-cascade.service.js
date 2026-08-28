@@ -19,6 +19,14 @@ const WorkspaceCascadeService = {
         }
     },
 
+    async restoreCascade(workspaceId, snapshot, tx) {
+        const { boardIds = [] } = snapshot.cascaded ?? {}
+
+        if (boardIds.length) await BoardRepository.restoreMany(boardIds, tx)
+
+        return BoardCascadeService.restoreCascade(workspaceId, boardIds, snapshot, tx)
+    }
+
 }
 
 module.exports = WorkspaceCascadeService

@@ -136,6 +136,15 @@ const BoardRepository = {
         })
     },
 
+    async restoreMany(boardIds, tx = null) {
+        const client = tx || prisma
+
+        return client.board.updateMany({
+            where: { id: { in: boardIds } },
+            data: { deleted_at: null }
+        })
+    },
+
     async delete(boardId, tx = null) {
         const client = tx || prisma
 
