@@ -24,7 +24,7 @@ const ItemCascadeService = {
         }
     },
 
-    async restoreFromSnapshot({ commentIds = [], itemUpdateIds = [] }, tx) {
+    async restoreCascade({ commentIds = [], itemUpdateIds = [] }, tx) {
         await Promise.all([
             commentIds.length ? CommentRepository.restoreMany(commentIds, tx) : null,
             itemUpdateIds.length ? ItemUpdateRepository.restoreMany(itemUpdateIds, tx) : null,

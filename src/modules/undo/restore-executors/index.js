@@ -52,7 +52,7 @@ const RESTORE_EXECUTORS = {
         repository: ItemRepository,
         entityLabel: 'Item',
         buildResource: (record) => ({ itemId: record.id, resource: { item: { id: record.id, title: record.title } } }),
-        restoreCascade: (_, snapshot, tx) => ItemCascadeService.restoreFromSnapshot(snapshot.cascaded ?? {}, tx),
+        restoreCascade: (_, snapshot, tx) => ItemCascadeService.restoreCascade(snapshot.cascaded ?? {}, tx),
         reassignOrder: async (itemId, snapshot, tx) => {
             const newOrder = await ItemRepository.findMaxOrder(snapshot.before.section_id, tx)
             return ItemRepository.updateSectionAndOrder(itemId, snapshot.before.section_id, newOrder, tx)

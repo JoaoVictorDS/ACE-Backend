@@ -45,7 +45,7 @@ const BoardCascadeService = {
             itemIds.length ? ItemRepository.restoreMany(itemIds, tx) : null,
         ])
 
-        await ItemCascadeService.restoreFromSnapshot({ commentIds, itemUpdateIds }, tx)
+        await ItemCascadeService.restoreCascade({ commentIds, itemUpdateIds }, tx)
 
         let totalPromoted = 0
         for (const boardId of ids) {
