@@ -8,6 +8,7 @@ class LeafRestoreExecutor {
     constructor({
         repository,
         entityLabel,
+        realtimeEvent,
         buildUpdateData = (snapshot) => snapshot.before,
         buildResource = LeafRestoreExecutor._defaultBuildResource,
         buildDeleteSummary = (cascadeResult, entityLabel) => `${entityLabel} restaurado(a)`,
@@ -18,6 +19,7 @@ class LeafRestoreExecutor {
     }) {
         this.repository = repository
         this.entityLabel = entityLabel
+        this.realtimeEvent = realtimeEvent
         this.buildUpdateData = buildUpdateData
         this.buildResource = buildResource
         this.buildDeleteSummary = buildDeleteSummary

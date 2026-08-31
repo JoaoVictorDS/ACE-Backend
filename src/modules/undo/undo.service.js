@@ -1,4 +1,4 @@
-const { logger } = require('../../config')
+const { logger, emitToRoom } = require('../../config')
 const { NotFoundError, ConflictError, AppError, AuthorizationError } = require('../../shared/errors')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 const BoardRepository = require('../board/board.repository')
@@ -63,6 +63,10 @@ const UndoService = {
             resource: result.resource,
             changes: { before: null, after: result.summary }
         })
+
+        const room = undoAction.board_id ? `board:${undoAction.board_id}` : `workspace:${undoAction.workspace_id}`
+
+        emitToRoom(room, executor.realtimeEvent, result.data)
 
         return result.data
     },

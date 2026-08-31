@@ -19,15 +19,18 @@ const WorkspaceMemberRepository = require('../../workspace-member/workspace-memb
 const RESTORE_EXECUTORS = {
     [ENTITY_TYPES.COMMENT]: new LeafRestoreExecutor({
         repository: CommentRepository,
-        entityLabel: 'Comentário'
+        entityLabel: 'Comentário',
+        realtimeEvent: 'comment:restored'
     }),
     [ENTITY_TYPES.ITEM_UPDATE]: new LeafRestoreExecutor({
         repository: ItemUpdateRepository,
-        entityLabel: 'Atualização de item'
+        entityLabel: 'Atualização de item',
+        realtimeEvent: 'item_update:restored'
     }),
     [ENTITY_TYPES.COLUMN]: new LeafRestoreExecutor({
         repository: ColumnRepository,
         entityLabel: 'Coluna',
+        realtimeEvent: 'column:restored',
         buildUpdateData: (snapshot) => Object.fromEntries(snapshot.fields.map(f => [f.field, f.before])),
         buildResource: (record) => ({ itemId: null, resource: { board: { id: record.board_id } } }),
         reassignOrder: async (columnId, snapshot, tx) => {
@@ -39,6 +42,7 @@ const RESTORE_EXECUTORS = {
     [ENTITY_TYPES.SECTION]: new LeafRestoreExecutor({
         repository: SectionRepository,
         entityLabel: 'Seção',
+        realtimeEvent: 'section:restored',
         buildResource: (record) => ({ itemId: null, resource: { board: { id: record.board_id } } }),
         restoreCascade: (_, snapshot, tx) => SectionCascadeService.restoreCascade(snapshot, tx),
         reassignOrder: async (sectionId, snapshot, tx) => {
@@ -51,6 +55,7 @@ const RESTORE_EXECUTORS = {
     [ENTITY_TYPES.ITEM]: new LeafRestoreExecutor({
         repository: ItemRepository,
         entityLabel: 'Item',
+        realtimeEvent: 'item:restored',
         buildResource: (record) => ({ itemId: record.id, resource: { item: { id: record.id, title: record.title } } }),
         restoreCascade: (_, snapshot, tx) => ItemCascadeService.restoreCascade(snapshot.cascaded ?? {}, tx),
         reassignOrder: async (itemId, snapshot, tx) => {
@@ -63,6 +68,7 @@ const RESTORE_EXECUTORS = {
     [ENTITY_TYPES.BOARD]: new LeafRestoreExecutor({
         repository: BoardRepository,
         entityLabel: 'Quadro',
+        realtimeEvent: 'board:restored',
         buildResource: (record) => ({ itemId: null, resource: { board: { id: record.id, name: record.name } } }),
         restoreCascade: async (boardId, snapshot, tx) => {
             const { promotedCount } = await BoardCascadeService.restoreCascade(snapshot.before.workspace_id, boardId, snapshot, tx)
@@ -77,6 +83,7 @@ const RESTORE_EXECUTORS = {
     [ENTITY_TYPES.WORKSPACE]: new LeafRestoreExecutor({
         repository: WorkspaceRepository,
         entityLabel: 'Área de trabalho',
+        realtimeEvent: 'workspace:restored',
         buildResource: (record) => ({ itemId: null, resource: { workspace: { id: record.id, name: record.name } } }),
         restoreCascade: async (workspaceId, snapshot, tx) => {
             const { promotedCount } = await WorkspaceCascadeService.restoreCascade(workspaceId, snapshot, tx)
