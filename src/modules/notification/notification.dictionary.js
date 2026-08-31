@@ -143,6 +143,29 @@ const NotificationDictionary = {
         return `**${actorName}** removeu **${member.name}** ${from} ${label} **${name}**`
     },
 
+    // ─── RESTORES ──────────────────────────────────────────────────────────────
+
+    COMMENT_RESTORED: (actorName, meta) =>
+        `**${actorName}** restaurou um comentário em **${meta.resource.item.title}**`,
+
+    ITEM_UPDATE_RESTORED: (actorName, meta) =>
+        `**${actorName}** restaurou uma atualização em **${meta.resource.item.title}**`,
+
+    ITEM_RESTORED: (actorName, meta) =>
+        `**${actorName}** restaurou a tarefa **${meta.resource.item.title}**`,
+
+    COLUMN_RESTORED: (actorName, meta) =>
+        `**${actorName}** restaurou uma coluna do quadro`,
+
+    SECTION_RESTORED: (actorName, meta) =>
+        `**${actorName}** restaurou uma seção do quadro`,
+
+    BOARD_RESTORED: (actorName, meta) =>
+        `**${actorName}** restaurou o quadro **${meta.resource.board.name}**`,
+
+    WORKSPACE_RESTORED: (actorName, meta) =>
+        `**${actorName}** restaurou a área de trabalho **${meta.resource.workspace.name}**`,
+
     // ─── FALLBACK ──────────────────────────────────────────────────────────────
 
     DEFAULT: (actorName) =>
