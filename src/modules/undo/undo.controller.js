@@ -3,7 +3,21 @@ const UndoService = require('./undo.service')
 
 const UndoController = {
 
-    listRecent: catchAsync(async (req, res, next) => {
+    listRecentForWorkspace: catchAsync(async (req, res, next) => {
+        const { workspace_id: workspaceId } = req.validated.params
+        const { page, limit } = req.validated.query
+
+        const undoActions = await UndoService.listRecentForWorkspace({
+            user: req.user,
+            workspaceId,
+            page,
+            limit
+        })
+
+        return res.status(200).json(undoActions)
+    }),
+
+    listRecentForBoard: catchAsync(async (req, res, next) => {
         const { board_id: boardId } = req.validated.params
         const { page, limit } = req.validated.query
 

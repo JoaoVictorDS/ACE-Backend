@@ -67,6 +67,19 @@ const UndoService = {
         return result.data
     },
 
+    async listRecentForWorkspace({ user, workspaceId, page, limit }) {
+        const { creatorId } = await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.VIEW)
+        const isPrivileged = PermissionService.isPrivileged(user.role) || creatorId === user.id
+        const actorId = isPrivileged ? null : user.id
+
+        const [data, total] = await Promise.all([
+            UndoRepository.findRecentForWorkspacePaginated(workspaceId, actorId, page, limit),
+            UndoRepository.countByWorkspace(workspaceId, actorId)
+        ])
+
+        return PaginationService.createPaginatedResponse(data, total, page, limit)
+    },
+
     async listRecentForBoard({ user, boardId, page, limit }) {
         const { creatorId } = await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.VIEW)
         const isPrivileged = PermissionService.isPrivileged(user.role) || creatorId === user.id

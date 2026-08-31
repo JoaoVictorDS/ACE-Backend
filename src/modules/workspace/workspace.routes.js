@@ -15,5 +15,6 @@ router.get('/:workspace_id/logs', authMiddleware, validationMiddleware(getHistor
 
 router.use('/:workspace_id/boards', require('../board/board.workspace.routes'))
 router.use('/:workspace_id/members', require('../workspace-member/workspace-member.routes'))
+router.use('/:workspace_id/undo-actions', require('../undo/undo.workspace.routes'))
 
 module.exports = router

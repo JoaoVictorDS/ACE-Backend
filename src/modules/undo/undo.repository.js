@@ -20,6 +20,33 @@ const UndoRepository = {
         })
     },
 
+    async findRecentForWorkspacePaginated(workspaceId, actorId = null, page, limit) {
+        const skip = PaginationService.calculateSkip(page, limit)
+
+        return prisma.undoAction.findMany({
+            where: {
+                workspace_id: workspaceId,
+                consumed_at: null,
+                expires_at: { gt: new Date() },
+                ...(actorId && { actor_id: actorId })
+            },
+            orderBy: { created_at: 'desc' },
+            take: limit,
+            skip
+        })
+    },
+
+    async countByWorkspace(workspaceId, actorId = null) {
+        return prisma.undoAction.count({
+            where: {
+                workspace_id: workspaceId,
+                consumed_at: null,
+                expires_at: { gt: new Date() },
+                ...(actorId && { actor_id: actorId })
+            }
+        })
+    },
+
     async findRecentForBoardPaginated(boardId, actorId = null, page, limit) {
         const skip = PaginationService.calculateSkip(page, limit)
 
