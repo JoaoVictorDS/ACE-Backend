@@ -89,7 +89,7 @@ const AuthService = {
         const token = jwt.sign(
             { id: user.id, role: user.role },
             secret,
-            { expiresIn: '7d' }
+            { expiresIn: '15m' }
         )
 
         const refreshToken = jwt.sign(
@@ -140,7 +140,7 @@ const AuthService = {
             const newAccessToken = jwt.sign(
                 { id: user.id, role: user.role },
                 process.env.JWT_SECRET,
-                { expiresIn: '7d' }
+                { expiresIn: '15m' }
             )
 
             const newRefreshToken = jwt.sign(
