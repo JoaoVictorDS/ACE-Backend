@@ -11,7 +11,7 @@ router.get('/status', (req, res) => res.json({
 }))
 
 const v1 = express.Router()
-v1.use('/', require('./modules/auth/auth.routes'))
+v1.use('/auth', require('./modules/auth/auth.routes'))
 v1.use('/users', require('./modules/user/user.routes'))
 v1.use('/workspaces', require('./modules/workspace/workspace.routes'))
 v1.use('/boards', require('./modules/board/board.routes'))
