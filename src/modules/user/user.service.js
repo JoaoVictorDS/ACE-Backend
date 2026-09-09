@@ -104,7 +104,7 @@ const UserService = {
 
         const passwordHash = await bcrypt.hash(newPassword, 10)
 
-        return await UserRepository.updatePassword(userId, {
+        return await UserRepository.update(userId, {
             password_hash: passwordHash
         })
     },
