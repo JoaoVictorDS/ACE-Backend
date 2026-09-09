@@ -44,6 +44,17 @@ const UserRepository = {
         })
     },
 
+    async findByIdWithPassword(userId) {
+        return prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                password_hash: true,
+                is_active: true
+            }
+        })
+    },
+
     async updateRefreshToken(userId, refreshToken) {
         return prisma.user.update({
             where: { id: userId },
@@ -92,7 +103,7 @@ const UserRepository = {
         })
     },
 
-    async create(name, email, passwordHash, role = 'MEMBER', tx = null) {
+    async create(name, email, passwordHash, role = 'MEMBER', preferences, tx = null) {
         const client = tx || prisma
 
         return client.user.create({
@@ -100,7 +111,8 @@ const UserRepository = {
                 name,
                 email,
                 password_hash: passwordHash,
-                role
+                role,
+                preferences
             }
         })
     },
@@ -140,7 +152,7 @@ const UserRepository = {
         })
     },
 
-    async update(userId, data) {
+    async update(userId, data = {}) {
         return prisma.user.update({
             where: { id: userId },
             data,

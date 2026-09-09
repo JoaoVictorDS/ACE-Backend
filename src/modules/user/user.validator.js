@@ -15,14 +15,16 @@ const theme = z.preprocess(
     })
 ).optional()
 
+const preferences = z.object({
+    theme
+}).optional()
+
 const userBodyFields = {
     name,
     email,
     password,
     role,
-    preferences: z.object({
-        theme
-    }).optional()
+    preferences
 }
 
 const createUserSchema = {
@@ -45,7 +47,11 @@ const updateUserSchema = {
 }
 
 const updateMeSchema = {
-    body: z.object(userBodyFields)
+    body: z.object({
+        name,
+        email,
+        preferences
+    })
         .partial()
         .refine(
             data => Object.keys(data).length > 0,
@@ -53,8 +59,15 @@ const updateMeSchema = {
         )
 }
 
+const updatePasswordSchema = {
+    body: z.object({
+        currentPassword: password,
+        newPassword: password
+    })
+}
+
 const deleteUserSchema = {
     params: z.object({ user_id })
 }
 
-module.exports = { createUserSchema, showUserSchema, updateMeSchema, updateUserSchema, deleteUserSchema }
+module.exports = { createUserSchema, showUserSchema, updateMeSchema, updatePasswordSchema, updateUserSchema, deleteUserSchema }

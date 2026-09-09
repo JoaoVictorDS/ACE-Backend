@@ -3,7 +3,7 @@ const UserRepository = require('./user.repository')
 const UserNotificationSettingRepository = require('../user-notification-setting/user-notification-setting.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
-const { AuthorizationError, NotFoundError, ConflictError } = require('../../shared/errors')
+const { AuthorizationError, NotFoundError, ConflictError, AuthenticationError } = require('../../shared/errors')
 const { TransactionManager } = require('../../shared/database')
 const { NOTIFICATION_TYPES } = require('../../shared/constants')
 const UserPresenter = require('./user.presenter')
@@ -35,7 +35,7 @@ const UserService = {
         const password_hash = await bcrypt.hash(password, 10)
 
         const result = await TransactionManager.run(async (tx) => {
-            const user = await UserRepository.create(name, email, password_hash, role, tx)
+            const user = await UserRepository.create(name, email, password_hash, role, preferences, tx)
             await this.setupDefaults(user.id, tx)
 
             return UserPresenter.format(user)
@@ -67,18 +67,15 @@ const UserService = {
     },
 
     async update({ user, data }) {
-        const { id: userId, role: userRole } = user
-        const { name, email, password, role, preferences } = data
+        const userId = user.id
+        const { name, email, preferences } = data
 
         const current = await UserRepository.findByIdPrivate(userId)
         if (!current) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.USER)
 
-        const isAdmin = userRole === 'ADMIN'
-
         const dataToUpdate = {}
         const hasNameChanged = name && name !== current.name
         const hasEmailChanged = email && email !== current.email
-        const hasRoleChanged = role && role !== current.role
         const hasPreferencesChanged = preferences && preferences !== current.preferences
 
         if (hasNameChanged) dataToUpdate.name = name
@@ -87,20 +84,29 @@ const UserService = {
             if (emailExists) throw new ConflictError(ERROR_CATALOG.CONFLICT.DUPLICATE_EMAIL)
             dataToUpdate.email = email
         }
-        if (password) dataToUpdate.password_hash = await bcrypt.hash(password, 10)
-        if (hasRoleChanged) {
-            if (!isAdmin) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('alterar', 'ROLE'))
-            if (isAdmin && role !== 'ADMIN') {
-                const totalActiveAdmins = await UserRepository.countActiveAdmins()
-                if (totalActiveAdmins <= 1) throw new ConflictError(ERROR_CATALOG.CONFLICT.LAST_SYSTEM_ADMIN)
-            }
-            dataToUpdate.role = role
-        }
         if (hasPreferencesChanged) dataToUpdate.preferences = preferences
 
         if (Object.keys(dataToUpdate).length === 0) return current
 
         return await UserRepository.update(userId, dataToUpdate)
+    },
+
+    async updatePassword({ user, data }) {
+        const userId = user.id
+        const { currentPassword, newPassword } = data
+
+        const current = await UserRepository.findByIdWithPassword(userId)
+        if (!current) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.USER)
+
+        const passwordMatches = await bcrypt.compare(currentPassword, current.password_hash)
+
+        if (!passwordMatches) throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.INVALID_CURRENT_PASSWORD)
+
+        const passwordHash = await bcrypt.hash(newPassword, 10)
+
+        return await UserRepository.updatePassword(userId, {
+            password_hash: passwordHash
+        })
     },
 
     async updateUser({ requesterUser, targetUserId, data }) {

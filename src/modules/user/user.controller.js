@@ -49,6 +49,17 @@ const UserController = {
         return res.status(200).json(updatedUser)
     }),
 
+    updatePassword: catchAsync(async (req, res, next) => {
+        const data = req.validated.body
+
+        await UserService.updatePassword({
+            user: req.user,
+            data
+        })
+
+        return res.status(204).send()
+    }),
+
     update: catchAsync(async (req, res, next) => {
         const { user_id: targetUserId } = req.validated.params
         const data = req.validated.body

@@ -2,7 +2,7 @@ const express = require('express')
 const router = express.Router()
 
 const { authMiddleware, adminMiddleware, validationMiddleware } = require('../../shared/middlewares')
-const { createUserSchema, showUserSchema, updateMeSchema, updateUserSchema, deleteUserSchema } = require('./user.validator')
+const { createUserSchema, showUserSchema, updateMeSchema, updatePasswordSchema, updateUserSchema, deleteUserSchema } = require('./user.validator')
 const UserController = require('../../modules/user/user.controller')
 
 router.post('/', authMiddleware, adminMiddleware, validationMiddleware(createUserSchema), UserController.create)
@@ -10,6 +10,7 @@ router.get('/', authMiddleware, UserController.list)
 router.get('/me', authMiddleware, UserController.showMe)
 router.get('/:user_id', authMiddleware, validationMiddleware(showUserSchema), UserController.show)
 router.patch('/me', authMiddleware, validationMiddleware(updateMeSchema), UserController.updateMe)
+router.patch('/me/password', authMiddleware, validationMiddleware(updatePasswordSchema), UserController.updatePassword)
 router.patch('/:user_id', authMiddleware, adminMiddleware, validationMiddleware(updateUserSchema), UserController.update)
 router.delete('/:user_id', authMiddleware, adminMiddleware, validationMiddleware(deleteUserSchema), UserController.delete)
 
