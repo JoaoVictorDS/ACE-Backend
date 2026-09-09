@@ -36,9 +36,10 @@ const UserRepository = {
                 name: true,
                 email: true,
                 password_hash: true,
-                is_active: true,
+                preferences: true,
                 role: true,
                 refresh_token: true,
+                is_active: true,
             }
         })
     },
