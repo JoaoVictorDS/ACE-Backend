@@ -101,10 +101,6 @@ const ERROR_CATALOG = {
             code: 'TOKEN_EXPIRED',
             message: 'Token expirado',
         },
-        INVALID_CURRENT_PASSWORD: {
-            code: 'INVALID_CURRENT_PASSWORD',
-            message: 'A senha atual está incorreta',
-        },
     },
 
     // ═══════════════════════════════════════════════════════════════
@@ -230,6 +226,10 @@ const ERROR_CATALOG = {
         INVALID: {
             code: 'VALIDATION_ERROR',
             message: 'Erro na validação dos dados',
+        },
+        INVALID_CURRENT_PASSWORD: {
+            code: 'INVALID_CURRENT_PASSWORD',
+            message: 'A senha atual está incorreta',
         },
         INVALID_FIELD: (field, predicate = 'é inválido') => ({
             code: 'VALIDATION_ERROR',

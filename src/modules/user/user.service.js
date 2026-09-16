@@ -3,7 +3,7 @@ const UserRepository = require('./user.repository')
 const UserNotificationSettingRepository = require('../user-notification-setting/user-notification-setting.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
-const { AuthorizationError, NotFoundError, ConflictError, AuthenticationError } = require('../../shared/errors')
+const { AuthorizationError, NotFoundError, ConflictError, ValidationError } = require('../../shared/errors')
 const { TransactionManager } = require('../../shared/database')
 const { NOTIFICATION_TYPES } = require('../../shared/constants')
 const UserPresenter = require('./user.presenter')
@@ -100,7 +100,7 @@ const UserService = {
 
         const passwordMatches = await bcrypt.compare(currentPassword, current.password_hash)
 
-        if (!passwordMatches) throw new AuthenticationError(ERROR_CATALOG.AUTHENTICATION.INVALID_CURRENT_PASSWORD)
+        if (!passwordMatches) throw new ValidationError(ERROR_CATALOG.VALIDATION.INVALID_CURRENT_PASSWORD)
 
         const passwordHash = await bcrypt.hash(newPassword, 10)
 
