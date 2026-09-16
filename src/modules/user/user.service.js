@@ -109,7 +109,7 @@ const UserService = {
         })
     },
 
-    async updateUser({ requesterUser, targetUserId, data }) {
+    async updateUser({ targetUserId, data }) {
         const { name, email, password, role, preferences } = data
 
         const user = await UserRepository.findByIdPrivate(targetUserId)
