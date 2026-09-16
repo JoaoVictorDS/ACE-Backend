@@ -84,11 +84,12 @@ const NotificationService = {
 
     async getByUser({ user, page, limit }) {
         const userId = user.id
-        const [data, total] = await Promise.all([
+        const [data, total, unreadCount] = await Promise.all([
             NotificationRepository.findByUserPaginated(userId, page, limit),
-            NotificationRepository.countByUser(userId)
+            NotificationRepository.countByUser(userId),
+            NotificationRepository.countUnread(userId),
         ])
-        return PaginationService.createPaginatedResponse(NotificationPresenter.formatMany(data), total, page, limit)
+        return PaginationService.createPaginatedResponse(NotificationPresenter.formatMany(data), total, page, limit, { unreadCount })
     },
 
     async markAsRead({ user, notificationId }) {
