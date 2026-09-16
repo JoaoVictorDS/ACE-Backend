@@ -88,7 +88,9 @@ const WorkspaceMemberRepository = {
                     select: {
                         id: true,
                         name: true,
-                        creator_id: true
+                        description: true,
+                        icon: true,
+                        creator_id: true,
                     }
                 }
             },
