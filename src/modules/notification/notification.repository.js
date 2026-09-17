@@ -49,6 +49,18 @@ const NotificationRepository = {
     },
 
     /**
+    * Marca uma notificação como não lida
+    * @param {number} notificationId - ID da notificação
+    * @returns {Promise<object>} Notificação atualizada
+    */
+    async markAsUnread(notificationId) {
+        return prisma.notification.update({
+            where: { id: notificationId },
+            data: { is_read: false }
+        })
+    },
+
+    /**
      * Cria múltiplas notificações
      * @param {array} notificationsData - Array de dados de notificações
      * @returns {Promise<object>} Resultado da criação

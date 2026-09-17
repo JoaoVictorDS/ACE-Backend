@@ -24,6 +24,17 @@ const NotificationController = {
         })
 
         return res.status(200).json(updatedNotification)
+    }),
+
+    markAsUnread: catchAsync(async (req, res, next) => {
+        const { notification_id: notificationId } = req.validated.params
+
+        const updatedNotification = await NotificationService.markAsUnread({
+            user: req.user,
+            notificationId
+        })
+
+        return res.status(200).json(updatedNotification)
     })
 
 }

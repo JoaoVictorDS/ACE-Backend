@@ -108,6 +108,23 @@ const NotificationService = {
             unreadCount
         }
     },
+
+    async markAsUnread({ user, notificationId }) {
+        const userId = user.id
+        const notification = await NotificationRepository.findById(notificationId)
+        if (!notification) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.NOTIFICATION)
+        if (notification.user_id !== userId) {
+            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('marcar como lida', 'NOTIFICATION'))
+        }
+
+        const updatedNotification = await NotificationRepository.markAsUnread(notificationId)
+        const unreadCount = await NotificationRepository.countUnread(userId)
+
+        return {
+            notification: updatedNotification,
+            unreadCount
+        }
+    }
 }
 
 module.exports = NotificationService

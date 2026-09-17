@@ -12,7 +12,12 @@ const markAsReadSchema = {
     params: z.object({ notification_id })
 }
 
+const markAsUnreadSchema = {
+    params: z.object({ notification_id })
+}
+
 module.exports = {
     listNotificationsSchema,
-    markAsReadSchema
+    markAsReadSchema,
+    markAsUnreadSchema
 }
