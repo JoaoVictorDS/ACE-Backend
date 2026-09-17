@@ -93,12 +93,20 @@ const NotificationService = {
     },
 
     async markAsRead({ user, notificationId }) {
+        const userId = user.id
         const notification = await NotificationRepository.findById(notificationId)
         if (!notification) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.NOTIFICATION)
-        if (notification.user_id !== user.id) {
+        if (notification.user_id !== userId) {
             throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('marcar como lida', 'NOTIFICATION'))
         }
-        return await NotificationRepository.markAsRead(notificationId)
+
+        const updatedNotification = await NotificationRepository.markAsRead(notificationId)
+        const unreadCount = await NotificationRepository.countUnread(userId)
+
+        return {
+            notification: updatedNotification,
+            unreadCount
+        }
     },
 }
 
