@@ -114,7 +114,7 @@ const NotificationService = {
         const notification = await NotificationRepository.findById(notificationId)
         if (!notification) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.NOTIFICATION)
         if (notification.user_id !== userId) {
-            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('marcar como lida', 'NOTIFICATION'))
+            throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('marcar como não lida', 'NOTIFICATION'))
         }
 
         const updatedNotification = await NotificationRepository.markAsUnread(notificationId)
