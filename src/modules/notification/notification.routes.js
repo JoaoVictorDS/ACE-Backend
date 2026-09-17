@@ -6,6 +6,7 @@ const { listNotificationsSchema, markAsReadSchema, markAsUnreadSchema } = requir
 const NotificationController = require('./notification.controller')
 
 router.get('/', authMiddleware, validationMiddleware(listNotificationsSchema), NotificationController.list)
+router.patch('/read', authMiddleware, NotificationController.markAllAsRead)
 router.patch('/:notification_id/read', authMiddleware, validationMiddleware(markAsReadSchema), NotificationController.markAsRead)
 router.patch('/:notification_id/unread', authMiddleware, validationMiddleware(markAsUnreadSchema), NotificationController.markAsUnread)
 

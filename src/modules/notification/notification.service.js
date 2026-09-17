@@ -124,6 +124,14 @@ const NotificationService = {
             notification: updatedNotification,
             unreadCount
         }
+    },
+
+    async markAllAsRead({ user }) {
+        await NotificationRepository.markAllAsRead(user.id)
+
+        return {
+            unreadCount: 0
+        }
     }
 }
 

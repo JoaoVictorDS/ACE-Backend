@@ -61,6 +61,21 @@ const NotificationRepository = {
     },
 
     /**
+    * Marca todas as notificações como lidas
+    * @param {number} userId - ID do usuário
+    * @returns {Promise<object>} Resultado da atualização
+    */
+    async markAllAsRead(userId) {
+        return prisma.notification.updateMany({
+            where: {
+                user_id: userId,
+                is_read: false
+            },
+            data: { is_read: true }
+        })
+    },
+
+    /**
      * Cria múltiplas notificações
      * @param {array} notificationsData - Array de dados de notificações
      * @returns {Promise<object>} Resultado da criação

@@ -35,6 +35,14 @@ const NotificationController = {
         })
 
         return res.status(200).json(updatedNotification)
+    }),
+
+    markAllAsRead: catchAsync(async (req, res, next) => {
+        const updatedNotifications = await NotificationService.markAllAsRead({
+            user: req.user
+        })
+
+        return res.status(200).json(updatedNotifications)
     })
 
 }
