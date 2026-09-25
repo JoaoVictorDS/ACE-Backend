@@ -5,12 +5,14 @@ const LogEventHandler = require('../../modules/log/log.event-handler')
 const NotificationEventHandler = require('../../modules/notification/notification.event-handler')
 const MentionEventHandler = require('../../modules/notification/mention.event-handler.js')
 const UndoEventHandler = require('../../modules/undo/undo.event-handler')
+const RealtimeEventHandler = require('./realtime.event-handler.js')
 
 function register() {
     appEventEmitter.on(DOMAIN_EVENT, LogEventHandler)
     appEventEmitter.on(DOMAIN_EVENT, NotificationEventHandler)
     appEventEmitter.on(DOMAIN_EVENT, MentionEventHandler)
     appEventEmitter.on(DOMAIN_EVENT, UndoEventHandler)
+    appEventEmitter.on(DOMAIN_EVENT, RealtimeEventHandler)
 }
 
 module.exports = {

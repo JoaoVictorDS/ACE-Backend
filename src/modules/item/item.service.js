@@ -1,4 +1,3 @@
-const { emitToRoom } = require('../../config')
 const ItemRepository = require('./item.repository')
 const { NotFoundError, ValidationError } = require('../../shared/errors')
 const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
@@ -41,8 +40,6 @@ const ItemService = {
             }
         })
 
-        emitToRoom(`board:${boardId}`, 'item:created', result)
-
         return result
     },
 
@@ -80,8 +77,6 @@ const ItemService = {
                 after: updatedItem.title
             },
         })
-
-        emitToRoom(`board:${boardId}`, 'item:updated', updatedItem)
 
         return updatedItem
     },
@@ -126,8 +121,6 @@ const ItemService = {
                 cascaded
             }
         })
-
-        emitToRoom(`board:${boardId}`, 'item:deleted', { itemId })
 
         return deletedItem
     },
@@ -196,8 +189,6 @@ const ItemService = {
                 changes: result.changes
             })
         }
-
-        emitToRoom(`board:${boardId}`, 'item:moved', result.updated)
 
         return result.updated
     },

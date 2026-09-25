@@ -32,6 +32,16 @@ const initSocket = (httpServer) => {
         socket.join(`user:${userId}`)
         logger.info({ userId }, 'Socket: usuario conectado')
 
+        socket.on('workspace:join', (workspaceId) => {
+            socket.join(`workspace:${workspaceId}`)
+            logger.debug({ userId, workspaceId }, 'Socket: usuario entrou no workspace')
+        })
+
+        socket.on('workspace:leave', (workspaceId) => {
+            socket.leave(`workspace:${workspaceId}`)
+            logger.debug({ userId, workspaceId }, 'Socket: usuario saiu do workspace')
+        })
+
         socket.on('board:join', (boardId) => {
             socket.join(`board:${boardId}`)
             logger.debug({ userId, boardId }, 'Socket: usuario entrou no board')

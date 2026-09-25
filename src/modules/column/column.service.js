@@ -1,4 +1,3 @@
-const { emitToRoom } = require('../../config')
 const ColumnRepository = require('./column.repository')
 const ItemAssigneeRepository = require('../item/item-assignee.repository')
 const ItemValueRepository = require('../item-value/item-value.repository')
@@ -87,8 +86,6 @@ const ColumnService = {
             }
         })
 
-        emitToRoom(`board:${boardId}`, 'column:created', newColumn)
-
         return newColumn
     },
 
@@ -162,8 +159,6 @@ const ColumnService = {
             changes: { fields }
         })
 
-        emitToRoom(`board:${boardId}`, 'column:updated', updatedColumn)
-
         return updatedColumn
     },
 
@@ -214,8 +209,6 @@ const ColumnService = {
             }
         })
 
-        emitToRoom(`board:${boardId}`, 'column:deleted', { columnId })
-
         return result
     },
 
@@ -239,8 +232,6 @@ const ColumnService = {
         }
 
         const result = await ColumnRepository.updateOrder(columnId, finalOrder)
-
-        emitToRoom(`board:${boardId}`, 'column:moved', result)
 
         return result
     },
@@ -287,8 +278,6 @@ const ColumnService = {
                 after: ColumnRestrictionMapper.toPersistence(result)
             }
         })
-
-        emitToRoom(`board:${boardId}`, 'column:restrictions_updated', { columnId, restrictions: result })
 
         return result
     }

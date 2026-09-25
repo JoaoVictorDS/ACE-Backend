@@ -1,4 +1,3 @@
-const { emitToRoom } = require('../../config')
 const ColumnService = require('../column/column.service')
 const ItemAssigneeService = require('../item/item-assignee.service')
 const ItemValueRepository = require('./item-value.repository')
@@ -91,8 +90,6 @@ const ItemValueService = {
                 updated_at: result?.updated_at ?? currentItemValue.updated_at,
             })
         }
-
-        emitToRoom(`board:${boardId}`, 'item_value:changed', response.data)
 
         return response
     },

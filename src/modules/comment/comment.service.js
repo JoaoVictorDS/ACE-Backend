@@ -1,4 +1,3 @@
-const { emitToRoom } = require('../../config')
 const CommentRepository = require('./comment.repository')
 const CommentPresenter = require('./comment.presenter')
 const { NotFoundError, AuthorizationError } = require('../../shared/errors')
@@ -37,8 +36,6 @@ const CommentService = {
             }
         })
 
-        emitToRoom(`board:${boardId}`, 'comment:created', newComment)
-
         return newComment
     },
 
@@ -71,8 +68,6 @@ const CommentService = {
             resource: { workspaceId, boardId, item: { id: updatedComment.item_id, title: updatedComment.item.title }, commentId },
             changes: { before: current.content, after: updatedComment.content }
         })
-
-        emitToRoom(`board:${boardId}`, 'comment:updated', updatedComment)
 
         return updatedComment
     },
@@ -113,8 +108,6 @@ const CommentService = {
                 after: null
             }
         })
-
-        emitToRoom(`board:${boardId}`, 'comment:deleted', { commentId })
 
         return deletedComment
     },

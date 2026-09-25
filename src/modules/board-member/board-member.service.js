@@ -1,4 +1,3 @@
-const { emitToRoom } = require('../../config')
 const BoardMemberRepository = require('./board-member.repository')
 const BoardRepository = require('../board/board.repository')
 const WorkspaceMemberRepository = require('../workspace-member/workspace-member.repository')
@@ -87,8 +86,6 @@ const BoardMemberService = {
             specificRecipients: [targetUserId],
         })
 
-        emitToRoom(`board:${boardId}`, 'board_member:changed', member)
-
         return BoardMemberPresenter.format(member)
     },
 
@@ -139,8 +136,6 @@ const BoardMemberService = {
             },
             specificRecipients: [memberIdToRemove]
         })
-
-        emitToRoom(`board:${boardId}`, 'board_member:removed', { memberId: memberIdToRemove })
 
         return result
     },
@@ -203,8 +198,6 @@ const BoardMemberService = {
             },
             specificRecipients: admins.map(a => a.user_id),
         })
-
-        emitToRoom(`board:${boardId}`, 'board_member:leaved', { memberId: membership.user_id })
 
         return result
     },

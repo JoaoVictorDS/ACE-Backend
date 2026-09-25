@@ -1,4 +1,3 @@
-const { emitToRoom } = require('../../config')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const BoardRepository = require('./board.repository')
 const ItemRepository = require('../item/item.repository')
@@ -142,8 +141,6 @@ const BoardService = {
             changes: { fields }
         })
 
-        emitToRoom(`board:${boardId}`, 'board:updated', updatedBoard)
-
         return updatedBoard
     },
 
@@ -206,8 +203,6 @@ const BoardService = {
                 cascaded
             }
         })
-
-        emitToRoom(`board:${boardId}`, 'board:deleted', { boardId })
 
         return deletedBoard
     },

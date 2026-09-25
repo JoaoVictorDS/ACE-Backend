@@ -1,4 +1,3 @@
-const { emitToRoom } = require('../../config')
 const SectionRepository = require('./section.repository')
 const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const { NotFoundError, ConflictError } = require('../../shared/errors')
@@ -40,8 +39,6 @@ const SectionService = {
             }
         })
 
-        emitToRoom(`board:${boardId}`, 'section:created', result)
-
         return result
     },
 
@@ -72,8 +69,6 @@ const SectionService = {
             resource: { workspaceId, boardId, section: { id: updatedSection.id, name: updatedSection.name } },
             changes: { before: section.name, after: updatedSection.name }
         })
-
-        emitToRoom(`board:${boardId}`, 'section:updated', updatedSection)
 
         return updatedSection
     },
@@ -122,8 +117,6 @@ const SectionService = {
             }
         })
 
-        emitToRoom(`board:${boardId}`, 'section:deleted', { sectionId })
-
         return deletedSection
     },
 
@@ -159,8 +152,6 @@ const SectionService = {
             resource: { workspaceId, boardId, section: { id: result.id, name: result.name } },
             changes: { before: currentSection.order, after: result.order }
         })
-
-        emitToRoom(`board:${boardId}`, 'section:moved', result)
 
         return result
     },

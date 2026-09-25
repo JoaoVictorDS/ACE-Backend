@@ -1,4 +1,3 @@
-const { emitToRoom } = require('../../config')
 const ItemRepository = require('../item/item.repository')
 const ItemUpdateRespository = require('./item-update.repository')
 const ItemUpdatePresenter = require('./item-update.presenter')
@@ -40,8 +39,6 @@ const ItemUpdateService = {
             }
         })
 
-        emitToRoom(`board:${boardId}`, 'item_update:created', newItemUpdate)
-
         return newItemUpdate
     },
 
@@ -75,8 +72,6 @@ const ItemUpdateService = {
             resource: { workspaceId, boardId, item: { id: updatedItemUpdate.item_id, title: updatedItemUpdate.item.title } },
             changes: { before: current.content, after: updatedItemUpdate.content }
         })
-
-        emitToRoom(`board:${boardId}`, 'item_update:updated', updatedItemUpdate)
 
         return updatedItemUpdate
     },
@@ -116,8 +111,6 @@ const ItemUpdateService = {
                 after: null
             }
         })
-
-        emitToRoom(`board:${boardId}`, 'item_update:deleted', { itemUpdateId })
 
         return deletedItemUpdate
     }
