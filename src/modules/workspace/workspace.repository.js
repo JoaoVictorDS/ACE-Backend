@@ -18,6 +18,35 @@ const WorkspaceRepository = {
         })
     },
 
+    async findByIdWithStructure(workspaceId) {
+        return prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            include: {
+                workspace_members: { include: { user: { select: { id: true, name: true, email: true } } } },
+                activities: {
+                    where: { entity_type: { not: 'COLUMN_RESTRICTION' } },
+                    include: { actor: { select: { id: true, name: true, email: true } } },
+                    orderBy: { created_at: 'desc' },
+                    take: 10,
+                }
+            }
+        })
+    },
+
+    async findByIdWithStructureForAdmin(workspaceId) {
+        return prisma.workspace.findUnique({
+            where: { id: workspaceId },
+            include: {
+                workspace_members: { include: { user: { select: { id: true, name: true, email: true } } } },
+                activities: {
+                    include: { actor: { select: { id: true, name: true, email: true } } },
+                    orderBy: { created_at: 'desc' },
+                    take: 10,
+                }
+            }
+        })
+    },
+
     async findById(workspaceId) {
         return prisma.workspace.findUnique({
             where: { id: workspaceId }

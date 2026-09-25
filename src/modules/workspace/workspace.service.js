@@ -8,6 +8,8 @@ const { PERMISSION_LEVELS, ENTITY_TYPES } = require('../../shared/constants')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 const { EventPublisher } = require('../../shared/events')
 const WorkspaceCascadeService = require('./workspace-cascade.service')
+const BoardMemberRepository = require('../board-member/board-member.repository')
+const LogPresenter = require('../log/log.presenter')
 
 const WorkspaceService = {
 
@@ -48,6 +50,36 @@ const WorkspaceService = {
             user_role: m.role,
             personal_order: m.order
         }))
+    },
+
+    async getFull({ user, workspaceId }) {
+        const userId = user.id
+
+        const { role } = await PermissionService.checkWorkspace(workspaceId, user, PERMISSION_LEVELS.VIEW)
+
+        const isSystemAdmin = user.role === 'ADMIN'
+        const isPrivilegedMember = PermissionService.isPrivileged(role)
+        const canAccessAdminStructure = isSystemAdmin || isPrivilegedMember
+
+        const [workspaceStructure, boards] = await Promise.all([
+            canAccessAdminStructure ? WorkspaceRepository.findByIdWithStructureForAdmin(workspaceId) : WorkspaceRepository.findByIdWithStructure(workspaceId),
+            BoardMemberRepository.findMembershipsInWorkspace(userId, workspaceId)
+        ])
+
+        const { workspace_members, activities, ...workspaceData } = workspaceStructure
+        const membership = workspace_members.find((member) => member.user_id === userId)
+
+        return {
+            ...workspaceData,
+            user_role: membership.role,
+            workspace_members,
+            boards: boards.map(m => ({
+                ...m.board,
+                user_role: m.role,
+                personal_order: m.order
+            })),
+            activities: LogPresenter.formatMany(activities)
+        }
     },
 
     async update({ user, workspaceId, data }) {

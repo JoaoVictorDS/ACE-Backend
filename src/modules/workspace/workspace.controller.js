@@ -17,8 +17,19 @@ const WorkspaceController = {
     }),
 
     list: catchAsync(async (req, res, next) => {
-        const workspace = await WorkspaceService.getByUser({
+        const workspaces = await WorkspaceService.getByUser({
             user: req.user
+        })
+
+        return res.status(200).json(workspaces)
+    }),
+
+    show: catchAsync(async (req, res, next) => {
+        const { workspace_id: workspaceId } = req.validated.params
+
+        const workspace = await WorkspaceService.getFull({
+            user: req.user,
+            workspaceId
         })
 
         return res.status(200).json(workspace)

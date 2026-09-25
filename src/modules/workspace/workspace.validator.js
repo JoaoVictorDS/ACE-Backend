@@ -5,6 +5,10 @@ const createWorkspaceSchema = {
     body: z.object({ name })
 }
 
+const showWorkspaceSchema = {
+    params: z.object({ workspace_id })
+}
+
 const updateWorkspaceSchema = {
     params: z.object({ workspace_id }),
 
@@ -37,6 +41,7 @@ const getHistorySchema = {
 
 module.exports = {
     createWorkspaceSchema,
+    showWorkspaceSchema,
     updateWorkspaceSchema,
     deleteWorkspaceSchema,
     movedWorkspaceSchema,
