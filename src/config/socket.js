@@ -3,6 +3,8 @@ const AuthService = require('../modules/auth/auth.service')
 const { AppError } = require('../shared/errors')
 const logger = require('./logger')
 const ERROR_CATALOG = require('../shared/errors/error-catalog')
+const PermissionService = require('../shared/services/permission.service')
+const { PERMISSION_LEVELS, RESOURCE_TYPES } = require('../shared/constants')
 
 let io
 
@@ -16,7 +18,7 @@ const initSocket = (httpServer) => {
 
     io.use(async (socket, next) => {
         try {
-            const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization
+            const token = socket.handshake.auth?.token
             const user = await AuthService.validateToken(token)
 
             socket.user = user
@@ -27,14 +29,19 @@ const initSocket = (httpServer) => {
     })
 
     io.on('connection', (socket) => {
-        const userId = socket.user.id;
+        const userId = socket.user.id
 
         socket.join(`user:${userId}`)
         logger.info({ userId }, 'Socket: usuario conectado')
 
-        socket.on('workspace:join', (workspaceId) => {
-            socket.join(`workspace:${workspaceId}`)
-            logger.debug({ userId, workspaceId }, 'Socket: usuario entrou no workspace')
+        socket.on('workspace:join', async (workspaceId) => {
+            try {
+                await PermissionService.checkWorkspace(Number(workspaceId), socket.user, PERMISSION_LEVELS.VIEW)
+                socket.join(`workspace:${workspaceId}`)
+                logger.debug({ userId, workspaceId }, 'Socket: usuario entrou no workspace')
+            } catch (error) {
+                logger.warn({ userId, workspaceId, error: error.message }, 'Socket: join negado')
+            }
         })
 
         socket.on('workspace:leave', (workspaceId) => {
@@ -42,9 +49,14 @@ const initSocket = (httpServer) => {
             logger.debug({ userId, workspaceId }, 'Socket: usuario saiu do workspace')
         })
 
-        socket.on('board:join', (boardId) => {
-            socket.join(`board:${boardId}`)
-            logger.debug({ userId, boardId }, 'Socket: usuario entrou no board')
+        socket.on('board:join', async (boardId) => {
+            try {
+                await PermissionService.check(RESOURCE_TYPES.BOARD, Number(boardId), socket.user, PERMISSION_LEVELS.VIEW)
+                socket.join(`board:${boardId}`)
+                logger.debug({ userId, boardId }, 'Socket: usuario entrou no board')
+            } catch (error) {
+                logger.warn({ userId, boardId, error: error.message }, 'Socket: join negado')
+            }
         })
 
         socket.on('board:leave', (boardId) => {
