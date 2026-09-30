@@ -75,14 +75,13 @@ const NotificationRepository = {
         })
     },
 
-    /**
-     * Cria múltiplas notificações
-     * @param {array} notificationsData - Array de dados de notificações
-     * @returns {Promise<object>} Resultado da criação
-     */
     async createMany(notificationsData) {
-        return prisma.notification.createMany({
-            data: notificationsData
+        return prisma.notification.createManyAndReturn({
+            data: notificationsData,
+            include: {
+                item: { select: { id: true, title: true } },
+                actor: { select: { id: true, name: true, email: true } }
+            },
         })
     },
 

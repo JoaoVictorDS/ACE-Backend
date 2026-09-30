@@ -3,7 +3,6 @@ const ItemAssigneeRepository = require('../item/item-assignee.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const NotificationRepository = require('./notification.repository')
 const UserNotificationSettingRepository = require('../user-notification-setting/user-notification-setting.repository')
-const NotificationDictionary = require('./notification.dictionary')
 const NotificationPresenter = require('./notification.presenter')
 const { NotFoundError, AuthorizationError } = require('../../shared/errors')
 const { PaginationService } = require('../../shared/services')
@@ -49,7 +48,7 @@ const NotificationService = {
 
             if (finalAssignedUserIds.length === 0) return
 
-            await NotificationRepository.createMany(finalAssignedUserIds.map(userId => ({
+            const notificationsData = finalAssignedUserIds.map(userId => ({
                 user_id: userId,
                 actor_id: actor.id,
                 entity_type: entityType,
@@ -57,24 +56,19 @@ const NotificationService = {
                 item_id: itemId,
                 action,
                 payload,
-            })))
+            }))
+
+            const createdNotifications = await NotificationRepository.createMany(notificationsData)
 
             const io = getIO()
-            const template = NotificationDictionary[action] || NotificationDictionary['DEFAULT']
 
             await Promise.all(finalAssignedUserIds.map(async (userId) => {
+                const notification = NotificationPresenter.format(createdNotifications.find((n) => n.user_id === userId))
                 const totalUnread = await NotificationRepository.countUnread(userId)
 
                 io.to(`user:${userId}`).emit('notification:received', {
-                    unread_count: totalUnread,
-                    data: {
-                        message: template(actor.name, payload, userId),
-                        entity_type: entityType,
-                        entity_id: entityId,
-                        board_id: boardId,
-                        item_id: itemId,
-                        created_at: new Date(),
-                    }
+                    data: notification,
+                    unreadCount: totalUnread
                 })
             }))
         } catch (error) {

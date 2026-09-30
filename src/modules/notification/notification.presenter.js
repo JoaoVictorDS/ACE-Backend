@@ -8,6 +8,7 @@ class NotificationPresenter {
 
         return {
             id: notification.id,
+            user_id: notification.user_id,
             is_read: notification.is_read,
             actor: {
                 id: notification.actor.id,
