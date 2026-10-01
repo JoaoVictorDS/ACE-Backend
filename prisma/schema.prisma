@@ -305,6 +305,7 @@ model WorkspaceMember {
   workspace_id Int           @map("workspace_id")
   role         WorkspaceRole @default(VIEWER)
   order        Int           @default(0)
+  preferences  Json          @default("{}")
 
   user      User      @relation(fields: [user_id], references: [id])
   workspace Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
@@ -317,11 +318,12 @@ model WorkspaceMember {
 }
 
 model BoardMember {
-  id       Int       @id @default(autoincrement())
-  user_id  Int       @map("user_id")
-  board_id Int       @map("board_id")
-  role     BoardRole @default(VIEWER)
-  order    Int       @default(0)
+  id          Int       @id @default(autoincrement())
+  user_id     Int       @map("user_id")
+  board_id    Int       @map("board_id")
+  role        BoardRole @default(VIEWER)
+  order       Int       @default(0)
+  preferences Json      @default("{}")
 
   user  User  @relation(fields: [user_id], references: [id])
   board Board @relation(fields: [board_id], references: [id], onDelete: Cascade)
