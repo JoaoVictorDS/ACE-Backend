@@ -8,15 +8,14 @@ class PaginationService {
         return Math.ceil(total / limit)
     }
 
-    static createPaginatedResponse(data, total, page, limit, meta = {}) {
+    static createPaginatedResponse(data, total, page, limit) {
         return {
             data,
             meta: {
                 total,
                 page,
                 limit,
-                totalPages: this.calculateTotalPages(total, limit),
-                ...meta
+                totalPages: this.calculateTotalPages(total, limit)
             },
         }
     }

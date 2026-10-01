@@ -83,7 +83,10 @@ const NotificationService = {
             NotificationRepository.countByUser(userId),
             NotificationRepository.countUnread(userId),
         ])
-        return PaginationService.createPaginatedResponse(NotificationPresenter.formatMany(data), total, page, limit, { unreadCount })
+
+        const paginatedResponse = PaginationService.createPaginatedResponse(NotificationPresenter.formatMany(data), total, page, limit)
+
+        return { ...paginatedResponse, unreadCount }
     },
 
     async markAsRead({ user, notificationId }) {
