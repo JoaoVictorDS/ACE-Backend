@@ -97,8 +97,10 @@ const BoardService = {
 
         return {
             ...boardData,
+            user_role: membership.role,
+            preferences: membership.preferences,
             columns: visibleColumns,
-            sections: cleanSections
+            sections: cleanSections,
         }
     },
 

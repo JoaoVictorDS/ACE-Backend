@@ -89,6 +89,22 @@ const BoardMemberService = {
         return BoardMemberPresenter.format(member)
     },
 
+    async updatePreferences({ user, boardId, preferences }) {
+        const userId = user.id
+        await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.VIEW)
+
+        const currentPreferences = await BoardMemberRepository.findPreferences(userId, boardId)
+
+        return await BoardMemberRepository.updatePreferences(userId, boardId, {
+            ...currentPreferences.preferences,
+            ...preferences,
+            column_widths: {
+                ...currentPreferences.preferences?.column_widths,
+                ...preferences?.column_widths
+            }
+        })
+    },
+
     async getByBoard({ user, boardId }) {
         await PermissionService.check(RESOURCE_TYPES.BOARD, boardId, user, PERMISSION_LEVELS.VIEW)
         return await BoardMemberRepository.findByBoard(boardId)

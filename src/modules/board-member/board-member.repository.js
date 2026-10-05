@@ -193,6 +193,21 @@ const BoardMemberRepository = {
         })
     },
 
+    async updatePreferences(userId, boardId, preferences) {
+        return prisma.boardMember.update({
+            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
+            data: { preferences },
+            select: { preferences: true }
+        })
+    },
+
+    async findPreferences(userId, boardId) {
+        return prisma.boardMember.findUnique({
+            where: { user_id_board_id: { user_id: userId, board_id: boardId } },
+            select: { preferences: true }
+        })
+    },
+
     async findMembershipWithBoardAndUser(boardId, userId) {
         return prisma.boardMember.findUnique({
             where: {

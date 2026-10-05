@@ -17,6 +17,19 @@ const BoardMemberController = {
         return res.status(200).json(boardMember)
     }),
 
+    updatePreferences: catchAsync(async (req, res, next) => {
+        const { board_id: boardId } = req.validated.params
+        const { preferences } = req.validated.body
+
+        const updatedPreferences = await BoardMemberService.updatePreferences({
+            user: req.user,
+            boardId,
+            preferences
+        })
+
+        return res.status(200).json(updatedPreferences)
+    }),
+
     list: catchAsync(async (req, res, next) => {
         const { board_id: boardId } = req.validated.params
 
