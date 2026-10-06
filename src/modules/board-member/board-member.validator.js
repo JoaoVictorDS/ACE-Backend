@@ -3,8 +3,17 @@ const { board_id, member_email, role, member_id } = require('../../shared/valida
 
 const column_widths = z.record(
     z.string().regex(/^\d+$/),
-    z.number().int().positive()
+    z.number().positive()
 )
+
+const item_width = z.number().positive()
+
+const hidden_sections = z.record(
+    z.string().regex(/^\d+$/),
+    z.boolean()
+)
+
+const sidebar_collapsed = z.boolean()
 
 const upsertMemberSchema = {
     params: z.object({ board_id }),
@@ -21,8 +30,11 @@ const updatePreferencesSchema = {
 
     body: z.object({
         preferences: z.object({
-            column_widths
-        })
+            column_widths,
+            item_width,
+            hidden_sections,
+            sidebar_collapsed
+        }).partial()
     })
 }
 
