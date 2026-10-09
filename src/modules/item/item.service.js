@@ -152,7 +152,9 @@ const ItemService = {
             const isSameSection = oldSectionId === finalSectionId
             const isSamePostion = oldOrder === finalOrder
 
-            if (isSameSection && isSamePostion) return currentItem
+            if (isSameSection && isSamePostion) return {
+                data: currentItem
+            }
             if (isSameSection) {
                 if (finalOrder < oldOrder) {
                     await ItemRepository.incrementOrderRange(oldSectionId, oldOrder, finalOrder, tx)
@@ -167,8 +169,7 @@ const ItemService = {
             const updated = await ItemRepository.updateSectionAndOrder(itemId, finalSectionId, finalOrder, tx)
 
             return {
-                updated,
-                isSameSection,
+                data: updated,
                 changes: {
                     before: { section_id: oldSectionId, order: oldOrder },
                     after: { section_id: finalSectionId, order: finalOrder }
@@ -176,21 +177,21 @@ const ItemService = {
             }
         })
 
-        if (!result.isSameSection) {
+        if (result.changes) {
             EventPublisher.publish({
                 actor: user,
                 workspaceId,
                 boardId,
-                itemId: result.updated.id,
+                itemId: result.data.id,
                 entityType: ENTITY_TYPES.ITEM,
-                entityId: result.updated.id,
+                entityId: result.data.id,
                 action: 'MOVE',
-                resource: { workspaceId, boardId, sectionId: result.updated.section_id, item: { id: result.updated.id, title: result.updated.title } },
+                resource: { workspaceId, boardId, sectionId: result.data.section_id, item: { id: result.data.id, title: result.data.title } },
                 changes: result.changes
             })
         }
 
-        return result.updated
+        return result.data
     },
 
 }

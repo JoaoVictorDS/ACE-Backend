@@ -16,7 +16,7 @@ const NotificationDictionary = {
         `**${actorName}** removeu a tarefa **${meta.resource.item.title}**`,
 
     ITEM_MOVED: (actorName, meta) =>
-        `**${actorName}** moveu **${meta.resource.item.title}** para outra seção`,
+        `**${actorName}** moveu **${meta.resource.item.title}**`,
 
     // ─── ITEM VALUE ────────────────────────────────────────────────────────────
 
