@@ -84,6 +84,17 @@ const UserController = {
         return res.status(204).send()
     }),
 
+    reactivate: catchAsync(async (req, res, next) => {
+        const { user_id: targetUserId } = req.validated.params
+
+        await UserService.reactivate({
+            requesterUser: req.user,
+            targetUserId
+        })
+
+        return res.status(204).send()
+    })
+
 }
 
 module.exports = UserController

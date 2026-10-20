@@ -178,6 +178,17 @@ const UserService = {
         })
     },
 
+    async reactivate({ requesterUser, targetUserId }) {
+        const isSelf = targetUserId === requesterUser.id
+        if (isSelf) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('reativar sua própria conta'))
+
+        const user = await UserRepository.findUserReactivationContext(targetUserId)
+        if (!user) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.USER)
+        if (user.is_active === true) throw new ConflictError(ERROR_CATALOG.CONFLICT.ALREADY_IN_STATE('Usuário', 'ativado'))
+
+        return await UserRepository.reactivate(targetUserId)
+    },
+
 }
 
 module.exports = UserService

@@ -70,4 +70,8 @@ const deleteUserSchema = {
     params: z.object({ user_id })
 }
 
-module.exports = { createUserSchema, showUserSchema, updateMeSchema, updatePasswordSchema, updateUserSchema, deleteUserSchema }
+const reactivateUserSchema = {
+    params: z.object({ user_id })
+}
+
+module.exports = { createUserSchema, showUserSchema, updateMeSchema, updatePasswordSchema, updateUserSchema, deleteUserSchema, reactivateUserSchema }

@@ -147,6 +147,16 @@ const UserRepository = {
         })
     },
 
+    async findUserReactivationContext(userId) {
+        return prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                is_active: true
+            }
+        })
+    },
+
     async countActiveAdmins() {
         return prisma.user.count({
             where: { role: 'ADMIN', is_active: true }
@@ -178,6 +188,15 @@ const UserRepository = {
             }
         })
     },
+
+    async reactivate(userId) {
+        return prisma.user.update({
+            where: { id: userId },
+            data: {
+                is_active: true
+            }
+        })
+    }
 
 }
 

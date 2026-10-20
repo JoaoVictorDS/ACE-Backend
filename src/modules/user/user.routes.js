@@ -2,7 +2,7 @@ const express = require('express')
 const router = express.Router()
 
 const { authMiddleware, adminMiddleware, validationMiddleware } = require('../../shared/middlewares')
-const { createUserSchema, showUserSchema, updateMeSchema, updatePasswordSchema, updateUserSchema, deleteUserSchema } = require('./user.validator')
+const { createUserSchema, showUserSchema, updateMeSchema, updatePasswordSchema, updateUserSchema, deleteUserSchema, reactivateUserSchema } = require('./user.validator')
 const UserController = require('../../modules/user/user.controller')
 
 router.post('/', authMiddleware, adminMiddleware, validationMiddleware(createUserSchema), UserController.create)
@@ -13,6 +13,7 @@ router.patch('/me', authMiddleware, validationMiddleware(updateMeSchema), UserCo
 router.patch('/me/password', authMiddleware, validationMiddleware(updatePasswordSchema), UserController.updatePassword)
 router.patch('/:user_id', authMiddleware, adminMiddleware, validationMiddleware(updateUserSchema), UserController.update)
 router.delete('/:user_id', authMiddleware, adminMiddleware, validationMiddleware(deleteUserSchema), UserController.delete)
+router.patch('/:user_id/reactivate', authMiddleware, adminMiddleware, validationMiddleware(reactivateUserSchema), UserController.reactivate)
 
 router.use('/me/notification-settings', require('../user-notification-setting/user-notification-setting.routes'))
 
