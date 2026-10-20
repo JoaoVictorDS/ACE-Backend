@@ -117,14 +117,15 @@ const UserRepository = {
         })
     },
 
-    async findActiveUsers() {
+    async findAllUsers() {
         return prisma.user.findMany({
-            where: { is_active: true },
             select: {
                 id: true,
                 name: true,
                 email: true,
-                role: true
+                role: true,
+                preferences: true,
+                is_active: true
             },
             orderBy: { role: 'asc' }
         })

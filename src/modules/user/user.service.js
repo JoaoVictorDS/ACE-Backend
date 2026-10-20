@@ -45,7 +45,7 @@ const UserService = {
     },
 
     async getAll() {
-        return await UserRepository.findActiveUsers()
+        return await UserRepository.findAllUsers()
     },
 
     async getProfile({ user }) {
