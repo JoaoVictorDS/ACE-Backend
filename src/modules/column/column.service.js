@@ -68,21 +68,12 @@ const ColumnService = {
             resource: {
                 workspaceId,
                 boardId,
-                column: { id: newColumn.id, name: newColumn.name }
+                column: { ...newColumn }
             },
             changes: { before: null, after: newColumn.name },
             snapshot: {
                 before: null,
-                after: {
-                    id: newColumn.id,
-                    board_id: newColumn.board_id,
-                    name: newColumn.name,
-                    data_type: newColumn.data_type,
-                    formula_expression: newColumn.formula_expression,
-                    options: newColumn.options,
-                    order: newColumn.order,
-                    deleted_at: null,
-                }
+                after: { ...newColumn }
             }
         })
 
