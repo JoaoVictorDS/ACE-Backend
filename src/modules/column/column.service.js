@@ -213,7 +213,7 @@ const ColumnService = {
     },
 
     async move({ user, columnId, newOrder }) {
-        const { boardId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
+        const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.COLUMN, columnId, user, PERMISSION_LEVELS.ADMIN)
 
         const currentColumn = await ColumnRepository.findByIdBasic(columnId)
         if (!currentColumn) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
@@ -232,6 +232,17 @@ const ColumnService = {
         }
 
         const result = await ColumnRepository.updateOrder(columnId, finalOrder)
+
+        EventPublisher.publish({
+            actor: user,
+            workspaceId,
+            boardId,
+            entityType: ENTITY_TYPES.COLUMN,
+            entityId: result.id,
+            action: 'MOVE',
+            resource: { workspaceId, boardId, column: { id: result.id, name: result.name } },
+            changes: { before: currentColumn.order, after: result.order }
+        })
 
         return result
     },
