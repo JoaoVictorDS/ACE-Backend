@@ -312,9 +312,9 @@ const _hasRestrictionsChanged = (currentRestrictions, newRestrictions) => {
         can_edit: Boolean(r.can_edit)
     })
 
-    const currentSet = new Set(currentRestrictions.map(normalize))
-
-    return newRestrictions.some(r => !currentSet.has(normalize(r)))
+    return currentRestrictions.some((restriction, index) => {
+        return normalize(restriction) !== normalize(newRestrictions[index])
+    })
 }
 
 module.exports = ColumnService
