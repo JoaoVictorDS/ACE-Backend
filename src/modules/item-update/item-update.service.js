@@ -34,7 +34,7 @@ const ItemUpdateService = {
                     user_id: newItemUpdate.user_id,
                     item_id: newItemUpdate.item_id,
                     parent_id: newItemUpdate.parent_id,
-                    content: newItemUpdate.user_id,
+                    content: newItemUpdate.content,
                     deleted_at: null
                 }
             }
