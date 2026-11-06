@@ -9,16 +9,22 @@ const { isDeepStrictEqual } = require('node:util')
 
 const CommentService = {
 
-    async create({ user, itemId, content }) {
+    async create({ user, itemId, content, parentId }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.VIEW)
 
-        const newComment = await CommentRepository.create(itemId, user.id, content)
+        if (parentId) {
+            const hasValidParent = await CommentRepository.findActiveParentByIdAndItem(parentId, itemId)
+
+            if (!hasValidParent) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COMMENT)
+        }
+
+        const newComment = await CommentRepository.create(itemId, user.id, content, parentId)
 
         EventPublisher.publish({
             actor: user,
             workspaceId,
             boardId,
-            itemId,
+            itemId: newComment.item_id,
             entityType: ENTITY_TYPES.COMMENT,
             entityId: newComment.id,
             action: 'CREATE',

@@ -2,12 +2,17 @@ const prisma = require('../../config/prisma')
 
 const ItemUpdateRespository = {
 
-    async create(userId, itemId, content) {
+    async create(userId, itemId, content, parentId) {
         return prisma.itemUpdate.create({
             data: {
                 user_id: userId,
                 item_id: itemId,
-                content
+                content,
+                parent_id: parentId
+            },
+            include: {
+                user: { select: { id: true, name: true } },
+                item: { select: { id: true, title: true } }
             }
         })
     },
@@ -47,6 +52,18 @@ const ItemUpdateRespository = {
         return client.itemUpdate.findMany({
             where: { item_id: { in: itemIds } },
             select: { id: true }
+        })
+    },
+
+    async findActiveParentByIdAndItem(parentId, itemId) {
+        return prisma.itemUpdate.findFirst({
+            where: {
+                item_id: itemId,
+                id: parentId
+            },
+            select: {
+                id: true
+            }
         })
     },
 

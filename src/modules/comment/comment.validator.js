@@ -1,10 +1,10 @@
 const { z } = require('zod')
-const { item_id, comment_id, content } = require('../../shared/validators/common.fields')
+const { item_id, comment_id, content, parent_id } = require('../../shared/validators/common.fields')
 
 const createCommentSchema = {
     params: z.object({ item_id }),
 
-    body: z.object({ content })
+    body: z.object({ content, parent_id })
 }
 
 const updateCommentSchema = {

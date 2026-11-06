@@ -2,12 +2,13 @@ const prisma = require('../../config/prisma')
 
 const CommentRepository = {
 
-    async create(itemId, userId, content) {
+    async create(itemId, userId, content, parentId) {
         return prisma.comment.create({
             data: {
                 item_id: itemId,
                 user_id: userId,
                 content,
+                parent_id: parentId
             },
             include: {
                 user: { select: { id: true, name: true } },
@@ -51,6 +52,18 @@ const CommentRepository = {
         return client.comment.findMany({
             where: { item_id: { in: itemIds } },
             select: { id: true }
+        })
+    },
+
+    async findActiveParentByIdAndItem(parentId, itemId) {
+        return prisma.comment.findFirst({
+            where: {
+                item_id: itemId,
+                id: parentId
+            },
+            select: {
+                id: true
+            }
         })
     },
 

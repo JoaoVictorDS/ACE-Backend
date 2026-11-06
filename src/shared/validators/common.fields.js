@@ -59,7 +59,7 @@ exports.user_id = makeIdField('user_id', 'do usuário')
 exports.notification_id = makeIdField('notification_id', 'da notificação')
 exports.member_id = makeIdField('member_id', 'do membro')
 exports.undo_action_id = makeIdField('undo_action_id', 'da ação')
-
+exports.parent_id = z.coerce.number({ error: 'O ID do registro pai deve ser number ou null' }).gt(0, 'O ID do registro pai deve ser maior que 0').nullable().optional()
 // ─── Emails ───────────────────────────────────────────────────────
 
 exports.email = makeEmailField('email', 'e-mail')

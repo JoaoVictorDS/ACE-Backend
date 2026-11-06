@@ -10,12 +10,16 @@ const { isDeepStrictEqual } = require('node:util')
 
 const ItemUpdateService = {
 
-    async create({ user, itemId, /*parentId,*/ content }) {
+    async create({ user, itemId, content, parentId }) {
         const { boardId, workspaceId } = await PermissionService.check(RESOURCE_TYPES.ITEM, itemId, user, PERMISSION_LEVELS.EDIT)
 
-        const { title: itemTitle } = await ItemRepository.findItemTitle(itemId)
+        if (parentId) {
+            const hasValidParent = await ItemUpdateRespository.findActiveParentByIdAndItem(parentId, itemId)
 
-        const newItemUpdate = await ItemUpdateRespository.create(user.id, itemId, content)
+            if (!hasValidParent) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.ITEM_UPDATE)
+        }
+
+        const newItemUpdate = await ItemUpdateRespository.create(user.id, itemId, content, parentId)
 
         EventPublisher.publish({
             actor: user,
@@ -25,7 +29,7 @@ const ItemUpdateService = {
             entityType: ENTITY_TYPES.ITEM_UPDATE,
             entityId: newItemUpdate.id,
             action: 'CREATE',
-            resource: { workspaceId, boardId, item: { id: itemId, title: itemTitle }, itemUpdateId: newItemUpdate.id },
+            resource: { workspaceId, boardId, item: { id: newItemUpdate.item_id, title: newItemUpdate.item.title }, itemUpdateId: newItemUpdate.id },
             changes: { before: null, after: newItemUpdate.content },
             snapshot: {
                 before: null,

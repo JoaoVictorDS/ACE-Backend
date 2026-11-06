@@ -5,12 +5,13 @@ const ItemUpdateController = {
 
     create: catchAsync(async (req, res, next) => {
         const { item_id: itemId } = req.validated.params
-        const { content } = req.validated.body
+        const { content, parent_id } = req.validated.body
 
         const itemUpdate = await ItemUpdateService.create({
             user: req.user,
             itemId,
-            content
+            content,
+            parentId: parent_id
         })
 
         return res.status(201).json(itemUpdate)
