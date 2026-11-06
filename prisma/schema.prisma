@@ -267,7 +267,7 @@ model ItemUpdate {
   user      User        @relation(fields: [user_id], references: [id])
   parent_id Int?        @map("parent_id")
   parent    ItemUpdate? @relation("ThreadReplies", fields: [parent_id], references: [id], onDelete: Cascade)
-  content   String      @db.Text
+  content   Json
 
   replies ItemUpdate[] @relation("ThreadReplies")
 
@@ -286,7 +286,7 @@ model Comment {
   user      User     @relation(fields: [user_id], references: [id])
   parent_id Int?     @map("parent_id")
   parent    Comment? @relation("ThreadReplies", fields: [parent_id], references: [id], onDelete: Cascade)
-  content   String   @db.Text
+  content   Json
 
   replies Comment[] @relation("ThreadReplies")
 

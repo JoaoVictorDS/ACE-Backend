@@ -5,6 +5,7 @@ const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../share
 const { PermissionService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 const { EventPublisher } = require('../../shared/events')
+const { isDeepStrictEqual } = require('node:util')
 
 const CommentService = {
 
@@ -53,7 +54,10 @@ const CommentService = {
         if (!isOwner) throw new AuthorizationError(ERROR_CATALOG.AUTHORIZATION.FORBIDDEN_ACTION('editar', 'COMMENT'))
 
         const { boardId, workspaceId } = await PermissionService._resolveResourceContext(RESOURCE_TYPES.ITEM, current.item_id)
-        if (current.content === content) return CommentPresenter.format(current)
+
+        if (isDeepStrictEqual(current.content, content)) {
+            return CommentPresenter.format(current)
+        }
 
         const updatedComment = await CommentRepository.update(commentId, content)
 

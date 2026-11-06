@@ -1,5 +1,4 @@
 const { z } = require('zod')
-const { sanitizeHTML } = require('../utils')
 
 // ─── Factories (internas) ─────────────────────────────────────────
 
@@ -31,6 +30,22 @@ const makeStringField = (fieldName, label, { min = 1, transform } = {}) => {
     return field
 }
 
+const makeRichContentField = (fieldName, label) =>
+    z.object({
+        type: z.literal('doc', {
+            error: `O ${label} deve ser documento Tiptap válido`
+        }),
+
+        content: z.array(z.unknown(), {
+            error: `O ${label} deve ser lista de blocos`
+        }).min(1, `O ${label} não pode ser vazio`)
+
+    }, {
+        error: (issue) => issue.input === undefined
+            ? `O campo "${fieldName}" é obrigatório`
+            : `O ${label} deve ser documento JSON válido`
+    })
+
 // ─── IDs ──────────────────────────────────────────────────────────
 
 exports.board_id = makeIdField('board_id', 'do quadro')
@@ -54,7 +69,6 @@ exports.member_email = makeEmailField('member_email', 'e-mail do membro')
 
 exports.name = makeStringField('name', 'nome')
 exports.password = makeStringField('password', 'senha', { min: 6 })
-exports.content = makeStringField('content', 'conteúdo', { transform: sanitizeHTML })
 exports.color = z.string().regex(/^#[0-9A-F]{6}$/i).optional()
 exports.item_label_singular = z.string().min(1, 'Label não pode estar vazio').max(50, 'Label não pode exceder 50 caracteres').trim().optional()
 exports.item_label_plural = z.string().min(1, 'Label não pode estar vazio').max(50, 'Label não pode exceder 50 caracteres').trim().optional()
@@ -88,3 +102,7 @@ exports.role = z.enum(['ADMIN', 'EDITOR', 'VIEWER'], {
         ? 'O campo "role" é obrigatório'
         : 'Role inválida. Use "ADMIN", "EDITOR" ou "VIEWER"'
 })
+
+// ─── Rich Content ────────────────────────────────────────────────
+
+exports.content = makeRichContentField('content', 'conteúdo')
