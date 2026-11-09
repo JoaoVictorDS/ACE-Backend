@@ -87,12 +87,13 @@ const UserRepository = {
         })
     },
 
-    async validUsersForMention(usersIds, actorId, boardId) {
+    async findValidUsersForMention(usersIds, boardId) {
+        if (usersIds.length === 0) return []
+
         return prisma.user.findMany({
             where: {
                 id: {
-                    in: usersIds,
-                    not: actorId
+                    in: usersIds
                 },
                 is_active: true,
                 board_members: {

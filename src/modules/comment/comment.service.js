@@ -6,6 +6,7 @@ const { PermissionService } = require('../../shared/services')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 const { EventPublisher } = require('../../shared/events')
 const { isDeepStrictEqual } = require('node:util')
+const MentionService = require('../notification/mention.service')
 
 const CommentService = {
 
@@ -17,6 +18,8 @@ const CommentService = {
 
             if (!hasValidParent) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COMMENT)
         }
+
+        await MentionService.validateContentMentions({ content, boardId })
 
         const newComment = await CommentRepository.create(itemId, user.id, content, parentId)
 
@@ -64,6 +67,8 @@ const CommentService = {
         if (isDeepStrictEqual(current.content, content)) {
             return CommentPresenter.format(current)
         }
+
+        await MentionService.validateContentMentions({ content, previousContent: current.content, boardId })
 
         const updatedComment = await CommentRepository.update(commentId, content)
 

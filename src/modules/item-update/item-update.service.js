@@ -1,4 +1,3 @@
-const ItemRepository = require('../item/item.repository')
 const ItemUpdateRespository = require('./item-update.repository')
 const ItemUpdatePresenter = require('./item-update.presenter')
 const { AuthorizationError, NotFoundError } = require('../../shared/errors')
@@ -7,6 +6,7 @@ const { RESOURCE_TYPES, PERMISSION_LEVELS, ENTITY_TYPES } = require('../../share
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 const { EventPublisher } = require('../../shared/events')
 const { isDeepStrictEqual } = require('node:util')
+const MentionService = require('../notification/mention.service')
 
 const ItemUpdateService = {
 
@@ -18,6 +18,8 @@ const ItemUpdateService = {
 
             if (!hasValidParent) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.ITEM_UPDATE)
         }
+
+        await MentionService.validateContentMentions({ content, boardId })
 
         const newItemUpdate = await ItemUpdateRespository.create(user.id, itemId, content, parentId)
 
@@ -65,6 +67,8 @@ const ItemUpdateService = {
         if (isDeepStrictEqual(current.content, content)) {
             return ItemUpdatePresenter.format(current)
         }
+
+        await MentionService.validateContentMentions({ content, previousContent: current.content, boardId })
 
         const updatedItemUpdate = await ItemUpdateRespository.update(itemUpdateId, content)
 
