@@ -109,7 +109,7 @@ const CommentService = {
             entityType: ENTITY_TYPES.COMMENT,
             entityId: comment.id,
             action: 'DELETE',
-            resource: { workspaceId, boardId, item: { id: comment.id, title: comment.item.title }, commentId },
+            resource: { workspaceId, boardId, item: { id: comment.item_id, title: comment.item.title }, commentId },
             changes: { before: comment.content, after: null },
             snapshot: {
                 before: {
