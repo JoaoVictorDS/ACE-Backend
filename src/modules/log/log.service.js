@@ -1,6 +1,6 @@
 const { logger } = require('../../config')
 const LogRepository = require('./log.repository')
-const { PERMISSION_LEVELS, RESOURCE_TYPES } = require('../../shared/constants')
+const { PERMISSION_LEVELS, RESOURCE_TYPES, ENTITY_TYPES } = require('../../shared/constants')
 const { PermissionService, PaginationService } = require('../../shared/services')
 const LogPresenter = require('./log.presenter')
 
@@ -40,6 +40,17 @@ const LogService = {
         const [data, total] = await Promise.all([
             LogRepository.findByBoardPaginated(boardId, page, limit),
             LogRepository.countByBoard(boardId)
+        ])
+
+        return PaginationService.createPaginatedResponse(LogPresenter.formatMany(data), total, page, limit)
+    },
+
+    async getAvailabilityHistory({ page, limit }) {
+        const entityType = ENTITY_TYPES.USER_AVAILABILITY_DAY
+
+        const [data, total] = await Promise.all([
+            LogRepository.findByEntityTypePaginated(entityType, page, limit),
+            LogRepository.countByEntityType(entityType)
         ])
 
         return PaginationService.createPaginatedResponse(LogPresenter.formatMany(data), total, page, limit)

@@ -32,6 +32,7 @@ const initSocket = (httpServer) => {
         const userId = socket.user.id
 
         socket.join(`user:${userId}`)
+        socket.join('availability')
         logger.info({ userId }, 'Socket: usuario conectado')
 
         socket.on('workspace:join', async (workspaceId) => {

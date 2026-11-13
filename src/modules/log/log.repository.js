@@ -41,6 +41,28 @@ const LogRepository = {
         })
     },
 
+    async countByEntityType(entityType) {
+        return prisma.activityLog.count({
+            where: { entity_type: entityType }
+        })
+    },
+
+    async findByEntityTypePaginated(entityType, page, limit) {
+        const skip = PaginationService.calculateSkip(page, limit)
+
+        return prisma.activityLog.findMany({
+            where: { entity_type: entityType },
+            take: limit,
+            skip,
+            include: {
+                actor: {
+                    select: { id: true, name: true, email: true }
+                }
+            },
+            orderBy: { created_at: 'desc' },
+        })
+    },
+
 }
 
 module.exports = LogRepository

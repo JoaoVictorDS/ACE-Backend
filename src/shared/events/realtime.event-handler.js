@@ -5,10 +5,20 @@ const REALTIME_EVENT = 'domain:changed'
 const WORKSPACE_SCOPED_TYPES = [ENTITY_TYPES.BOARD, ENTITY_TYPES.MEMBER, ENTITY_TYPES.WORKSPACE]
 
 const RealtimeEventHandler = (event) => {
-    const payload = {
+    const basePayload = {
         entityType: event.entityType,
         entityId: event.entityId,
         action: event.action,
+    }
+
+    if (event.entityType === ENTITY_TYPES.USER_AVAILABILITY_DAY) {
+        emitToRoom('availability', REALTIME_EVENT, basePayload)
+
+        return
+    }
+
+    const payload = {
+        ...basePayload,
         resource: event.resource,
         changes: event.changes,
     }

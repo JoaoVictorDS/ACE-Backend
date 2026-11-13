@@ -197,7 +197,43 @@ const UserRepository = {
                 is_active: true
             }
         })
-    }
+    },
+
+    async findActiveUsersWithAvailabilityByDate(workDate, tx = null) {
+        const client = tx || prisma
+
+        return client.user.findMany({
+            where: {
+                is_active: true
+            },
+            orderBy: [
+                { name: 'asc' },
+                { id: 'asc' }
+            ],
+            select: {
+                id: true,
+                name: true,
+                availability_days: {
+                    where: {
+                        work_date: workDate
+                    },
+                    select: {
+                        periods: {
+                            orderBy: [
+                                { started_at: 'desc' },
+                                { id: 'desc' }
+                            ],
+                            take: 1,
+                            select: {
+                                status: true,
+                                started_at: true
+                            }
+                        }
+                    }
+                }
+            }
+        })
+    },
 
 }
 

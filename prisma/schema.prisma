@@ -55,6 +55,14 @@ enum EntityType {
   COMMENT
   MEMBER
   ITEM_ASSIGNEE
+  USER_AVAILABILITY_DAY
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BREAK
+  EXTERNAL_ACTIVITY
+  END_OF_DAY
 }
 
 model User {
@@ -70,8 +78,8 @@ model User {
   created_at DateTime @default(now()) @map("created_at")
   updated_at DateTime @updatedAt @map("updated_at")
 
-  created_workspaces  Workspace[]         @relation("WorkspaceCreator")
-  created_boards      Board[]             @relation("BoardCreator")
+  created_workspaces  Workspace[]           @relation("WorkspaceCreator")
+  created_boards      Board[]               @relation("BoardCreator")
   workspace_members   WorkspaceMember[]
   board_members       BoardMember[]
   assigned_items      ItemAssignee[]
@@ -79,6 +87,7 @@ model User {
   comments            Comment[]
   activities          ActivityLog[]
   column_restrictions ColumnRestriction[]
+  availability_days   UserAvailabilityDay[]
 
   notifications_received Notification[]            @relation("Recipient")
   notifications_sent     Notification[]            @relation("Actor")
@@ -86,6 +95,36 @@ model User {
   undo_actions           UndoAction[]
 
   @@map("users")
+}
+
+model UserAvailabilityDay {
+  id        Int      @id @default(autoincrement())
+  user_id   Int      @map("user_id")
+  work_date DateTime @map("work_date") @db.Date
+  notes     String?  @db.Text
+
+  user    User                     @relation(fields: [user_id], references: [id])
+  periods UserAvailabilityPeriod[]
+
+  created_at DateTime @default(now()) @map("created_at")
+  updated_at DateTime @updatedAt @map("updated_at")
+
+  @@unique([user_id, work_date])
+  @@index([work_date])
+  @@map("user_availability_days")
+}
+
+model UserAvailabilityPeriod {
+  id                  Int                @id @default(autoincrement())
+  availability_day_id Int                @map("availability_day_id")
+  status              AvailabilityStatus
+  started_at          DateTime           @default(now()) @map("started_at") @db.Timestamptz(3)
+  ended_at            DateTime?          @map("ended_at") @db.Timestamptz(3)
+
+  availability_day UserAvailabilityDay @relation(fields: [availability_day_id], references: [id], onDelete: Cascade)
+
+  @@index([availability_day_id, started_at])
+  @@map("user_availability_periods")
 }
 
 model UserNotificationSetting {

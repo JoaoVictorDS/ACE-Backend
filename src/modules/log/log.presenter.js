@@ -1,5 +1,3 @@
-const logger = require('../../config/logger')
-
 class LogPresenter {
 
     static format(log) {

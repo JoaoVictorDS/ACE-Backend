@@ -330,8 +330,17 @@ const ERROR_CATALOG = {
             message: `Operação negada: usuário é o único responsável por ${dependentType}: ${dependentNames} `,
         }),
         DUPLICATE_RESTRICTION: {
-            conde: 'CONFLICT',
+            code: 'CONFLICT',
             message: 'Não é possível adicionar restrições conflitantes para o mesmo usuário ou função'
+        },
+        AVAILABILITY_NO_OPEN_PERIOD: {
+            code: 'AVAILABILITY_NO_OPEN_PERIOD',
+            message: 'Não existe um período de disponibilidade aberto para encerrar'
+        },
+
+        AVAILABILITY_INVALID_STATE: {
+            code: 'AVAILABILITY_INVALID_STATE',
+            message: 'O registro de disponibilidade está em um estado inconsistente'
         },
     },
 
