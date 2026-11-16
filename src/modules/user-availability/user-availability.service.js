@@ -17,6 +17,24 @@ const _formatPeriod = (period) => ({
     endedAt: period.ended_at?.toISOString() ?? null
 })
 
+const _getPeriodDurationSeconds = ({ period, workDate, currentWorkDate, now }) => {
+    const startedAt = period.started_at.getTime()
+
+    let endedAt
+
+    if (period.ended_at) {
+        endedAt = period.ended_at.getTime()
+    } else {
+        if (workDate !== currentWorkDate) {
+            return null
+        }
+
+        endedAt = now.getTime()
+    }
+
+    return Math.max(0, Math.floor((endedAt - startedAt) / 1000))
+}
+
 const _updateStatus = async ({ actor, targetUser, status }) => {
     const timestamp = new Date()
     const workDate = _getCurrentWorkDate(timestamp)
@@ -120,10 +138,7 @@ const _updateStatus = async ({ actor, targetUser, status }) => {
 
     if (result.event) {
         EventPublisher.publish({
-            actor: {
-                id: actor.id,
-                name: actor.name
-            },
+            actor,
             entityType: ENTITY_TYPES.USER_AVAILABILITY_DAY,
             entityId: result.data.day.id,
             action: result.event.action,
@@ -178,10 +193,7 @@ const _upsertNotes = async ({ actor, targetUser, workDate, notes }) => {
 
     if (result.event) {
         EventPublisher.publish({
-            actor: {
-                id: actor.id,
-                name: actor.name
-            },
+            actor,
             entityType: ENTITY_TYPES.USER_AVAILABILITY_DAY,
             entityId: result.day.id,
             action: result.event.action,
@@ -233,11 +245,24 @@ const _replacePeriods = async ({ actor, targetUser, workDate, periods }) => {
     }
 
     const result = await TransactionManager.run(async (tx) => {
-        const day = await UserAvailabilityRepository.findDayWithPeriodsByUserAndDate(targetUser.id, date, tx)
+        const existingDay = await UserAvailabilityRepository.findDayWithPeriodsByUserAndDate(targetUser.id, date, tx)
 
-        if (!day) {
-            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.GENERIC)
+        if (!existingDay && periods.length === 0) {
+            return {
+                day: null,
+                event: null
+            }
         }
+
+        if (!existingDay) {
+            await UserAvailabilityRepository.upsertDay(
+                targetUser.id,
+                date,
+                tx
+            )
+        }
+
+        const day = existingDay || await UserAvailabilityRepository.findDayWithPeriodsByUserAndDate(targetUser.id, date, tx)
 
         const hasChanged = day.periods.length !== periods.length ||
             day.periods.some((current, index) => {
@@ -275,7 +300,7 @@ const _replacePeriods = async ({ actor, targetUser, workDate, periods }) => {
         return {
             day: updatedDay,
             event: {
-                action: 'UPDATE',
+                action: existingDay ? 'UPDATE' : 'CREATE',
                 changes: {
                     periods: {
                         before,
@@ -288,10 +313,7 @@ const _replacePeriods = async ({ actor, targetUser, workDate, periods }) => {
 
     if (result.event) {
         EventPublisher.publish({
-            actor: {
-                id: actor.id,
-                name: actor.name
-            },
+            actor,
             entityType: ENTITY_TYPES.USER_AVAILABILITY_DAY,
             entityId: result.day.id,
             action: result.event.action,
@@ -406,6 +428,97 @@ const UserAvailabilityService = {
         }
 
         return day
+    },
+
+    async getMonth({ userId, year, month }) {
+        const targetUser = await UserRepository.findByIdPrivate(userId)
+
+        if (!targetUser) {
+            throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.USER)
+        }
+
+        const startDate = new Date(Date.UTC(year, month - 1, 1))
+        const endDate = new Date(Date.UTC(year, month, 1))
+        const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate()
+
+        const currentDate = new Date()
+        const currentWorkDate = _getCurrentWorkDate(currentDate)
+            .toISOString()
+            .slice(0, 10)
+
+        const existingDays = await UserAvailabilityRepository.findDaysByUserAndDateRange(userId, startDate, endDate)
+
+        const daysByDate = new Map(
+            existingDays.map((day) => [
+                day.work_date.toISOString().slice(0, 10),
+                day
+            ])
+        )
+
+        const days = Array.from({ length: daysInMonth }, (_, index) => {
+            const date = new Date(Date.UTC(year, month - 1, index + 1))
+            const workDate = date.toISOString().slice(0, 10)
+
+            const existingDay = daysByDate.get(workDate)
+
+            const periods = (existingDay?.periods ?? []).map((period) => ({
+                id: period.id,
+                status: period.status,
+                started_at: period.started_at.toISOString(),
+                ended_at: period.ended_at?.toISOString() ?? null,
+                duration_seconds: _getPeriodDurationSeconds({
+                    period,
+                    workDate,
+                    currentWorkDate,
+                    now: currentDate
+                })
+            }))
+
+            const availableSeconds = periods
+                .filter((period) => period.status === 'AVAILABLE')
+                .reduce((total, period) => total + (period.duration_seconds ?? 0), 0)
+
+            const externalActivitySeconds = periods
+                .filter((period) => period.status === 'EXTERNAL_ACTIVITY')
+                .reduce((total, period) => total + (period.duration_seconds ?? 0), 0)
+
+            const hasOpenPeriod = periods.some((period) => period.ended_at === null)
+
+            return {
+                id: existingDay?.id ?? null,
+                work_date: workDate,
+                notes: existingDay?.notes ?? null,
+                periods,
+                totals: {
+                    available_seconds: availableSeconds,
+                    external_activity_seconds: externalActivitySeconds
+                },
+                has_open_period: hasOpenPeriod,
+                requires_review: hasOpenPeriod && workDate < currentWorkDate
+            }
+        })
+
+        const totals = days.reduce((result, day) => ({
+            available_seconds: result.available_seconds + day.totals.available_seconds,
+            external_activity_seconds: result.external_activity_seconds + day.totals.external_activity_seconds
+        }), {
+            available_seconds: 0,
+            external_activity_seconds: 0
+        })
+
+        const requiresReview = days.some((day) => day.requires_review)
+
+        return {
+            user: {
+                id: targetUser.id,
+                name: targetUser.name
+            },
+            year,
+            month,
+            requires_review: requiresReview,
+            totals,
+            days
+        }
     },
 
 }

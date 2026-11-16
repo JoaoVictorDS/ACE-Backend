@@ -168,6 +168,31 @@ const UserAvailabilityRepository = {
         })
     },
 
+    async findDaysByUserAndDateRange(userId, startDate, endDate, tx = null) {
+        const client = tx || prisma
+
+        return client.userAvailabilityDay.findMany({
+            where: {
+                user_id: userId,
+                work_date: {
+                    gte: startDate,
+                    lt: endDate
+                }
+            },
+            include: {
+                periods: {
+                    orderBy: [
+                        { started_at: 'asc' },
+                        { id: 'asc' }
+                    ]
+                }
+            },
+            orderBy: {
+                work_date: 'asc'
+            }
+        })
+    },
+
 }
 
 module.exports = UserAvailabilityRepository

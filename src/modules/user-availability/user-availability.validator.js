@@ -115,6 +115,17 @@ const updateUserStatusSchema = {
     })
 }
 
+const updateUserPeriodsSchema = {
+    params: z.object({
+        user_id
+    }),
+
+    body: z.object({
+        work_date: workDate,
+        periods: availabilityPeriods
+    })
+}
+
 const upsertNotesSchema = {
     body: z.object({
         notes: availabilityNotes
@@ -123,30 +134,40 @@ const upsertNotesSchema = {
 
 const upsertUserNotesSchema = {
     params: z.object({
-        user_id,
-        work_date: workDate
+        user_id
     }),
 
     body: z.object({
+        work_date: workDate,
         notes: availabilityNotes
     })
 }
 
 const getDaySchema = {
     params: z.object({
-        user_id,
+        user_id
+    }),
+
+    query: z.object({
         work_date: workDate
     })
 }
 
-const updateUserPeriodsSchema = {
+const getMonthSchema = {
     params: z.object({
-        user_id,
-        work_date: workDate
+        user_id
     }),
 
-    body: z.object({
-        periods: availabilityPeriods
+    query: z.object({
+        year: z.coerce.number()
+            .int()
+            .min(1000)
+            .max(9999),
+
+        month: z.coerce.number()
+            .int()
+            .min(1)
+            .max(12)
     })
 }
 
@@ -164,5 +185,6 @@ module.exports = {
     upsertNotesSchema,
     upsertUserNotesSchema,
     getDaySchema,
+    getMonthSchema,
     getAvailabilityHistorySchema
 }

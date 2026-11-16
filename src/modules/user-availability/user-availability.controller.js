@@ -10,8 +10,9 @@ const UserAvailabilityController = {
         return res.status(200).json(availability)
     }),
 
-    showDay: catchAsync(async (req, res, next) => {
-        const { user_id: userId, work_date: workDate } = req.validated.params
+    showDay: catchAsync(async (req, res) => {
+        const { user_id: userId } = req.validated.params
+        const { work_date: workDate } = req.validated.query
 
         const day = await UserAvailabilityService.getDay({
             userId,
@@ -19,6 +20,19 @@ const UserAvailabilityController = {
         })
 
         return res.status(200).json(day)
+    }),
+
+    showMonth: catchAsync(async (req, res) => {
+        const { user_id: userId } = req.validated.params
+        const { year, month } = req.validated.query
+
+        const result = await UserAvailabilityService.getMonth({
+            userId,
+            year,
+            month
+        })
+
+        return res.status(200).json(result)
     }),
 
     updateMe: catchAsync(async (req, res, next) => {
@@ -45,10 +59,9 @@ const UserAvailabilityController = {
         return res.status(200).json(result)
     }),
 
-    updatePeriods: catchAsync(async (req, res, next) => {
-        const { user_id: targetUserId, work_date: workDate } = req.validated.params
-
-        const { periods } = req.validated.body
+    updatePeriods: catchAsync(async (req, res) => {
+        const { user_id: targetUserId } = req.validated.params
+        const { work_date: workDate, periods } = req.validated.body
 
         const updatedDay = await UserAvailabilityService.updateUserPeriods({
             actor: req.user,
@@ -60,9 +73,9 @@ const UserAvailabilityController = {
         return res.status(200).json(updatedDay)
     }),
 
-    upsert: catchAsync(async (req, res, next) => {
-        const { user_id: targetUserId, work_date: workDate } = req.validated.params
-        const { notes } = req.validated.body
+    upsert: catchAsync(async (req, res) => {
+        const { user_id: targetUserId } = req.validated.params
+        const { work_date: workDate, notes } = req.validated.body
 
         const updatedDay = await UserAvailabilityService.upsertUserNotes({
             actor: req.user,
