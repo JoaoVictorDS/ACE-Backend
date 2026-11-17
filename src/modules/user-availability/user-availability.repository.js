@@ -1,3 +1,4 @@
+
 const prisma = require('../../config/prisma')
 
 const UserAvailabilityRepository = {
@@ -41,7 +42,7 @@ const UserAvailabilityRepository = {
             include: {
                 periods: {
                     orderBy: [
-                        { started_at: 'asc' },
+                        { started_time: 'asc' },
                         { id: 'asc' }
                     ]
                 }
@@ -57,7 +58,7 @@ const UserAvailabilityRepository = {
                 availability_day_id: dayId
             },
             orderBy: [
-                { started_at: 'desc' },
+                { started_time: 'desc' },
                 { id: 'desc' }
             ]
         })
@@ -69,38 +70,38 @@ const UserAvailabilityRepository = {
         return client.userAvailabilityPeriod.findFirst({
             where: {
                 availability_day_id: dayId,
-                ended_at: null
+                ended_time: null
             },
             orderBy: [
-                { started_at: 'desc' },
+                { started_time: 'desc' },
                 { id: 'desc' }
             ]
         })
     },
 
-    async createPeriod(availabilityDayId, status, startedAt, endedAt = null, tx = null) {
+    async createPeriod(availabilityDayId, status, startedTime, endedTime = null, tx = null) {
         const client = tx || prisma
 
         return client.userAvailabilityPeriod.create({
             data: {
                 availability_day_id: availabilityDayId,
                 status,
-                started_at: startedAt,
-                ended_at: endedAt
+                started_time: startedTime,
+                ended_time: endedTime
             }
         })
     },
 
-    async closePeriod(periodId, endedAt, tx = null) {
+    async closePeriod(periodId, endedTime, tx = null) {
         const client = tx || prisma
 
         return client.userAvailabilityPeriod.updateMany({
             where: {
                 id: periodId,
-                ended_at: null
+                ended_time: null
             },
             data: {
-                ended_at: endedAt
+                ended_time: endedTime
             }
         })
     },
@@ -133,7 +134,7 @@ const UserAvailabilityRepository = {
                 },
                 periods: {
                     orderBy: [
-                        { started_at: 'asc' },
+                        { started_time: 'asc' },
                         { id: 'asc' }
                     ]
                 }
@@ -157,13 +158,11 @@ const UserAvailabilityRepository = {
         if (periods.length === 0) return { count: 0 }
 
         return client.userAvailabilityPeriod.createMany({
-            data: periods.map(period => ({
+            data: periods.map((period) => ({
                 availability_day_id: dayId,
                 status: period.status,
-                started_at: new Date(period.started_at),
-                ended_at: period.ended_at
-                    ? new Date(period.ended_at)
-                    : null
+                started_time: period.started_time,
+                ended_time: period.ended_time
             }))
         })
     },
@@ -182,7 +181,7 @@ const UserAvailabilityRepository = {
             include: {
                 periods: {
                     orderBy: [
-                        { started_at: 'asc' },
+                        { started_time: 'asc' },
                         { id: 'asc' }
                     ]
                 }

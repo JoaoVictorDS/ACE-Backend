@@ -220,13 +220,13 @@ const UserRepository = {
                     select: {
                         periods: {
                             orderBy: [
-                                { started_at: 'desc' },
+                                { started_time: 'desc' },
                                 { id: 'desc' }
                             ],
                             take: 1,
                             select: {
                                 status: true,
-                                started_at: true
+                                started_time: true
                             }
                         }
                     }

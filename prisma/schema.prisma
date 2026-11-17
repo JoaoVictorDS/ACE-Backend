@@ -118,12 +118,12 @@ model UserAvailabilityPeriod {
   id                  Int                @id @default(autoincrement())
   availability_day_id Int                @map("availability_day_id")
   status              AvailabilityStatus
-  started_at          DateTime           @default(now()) @map("started_at") @db.Timestamptz(3)
-  ended_at            DateTime?          @map("ended_at") @db.Timestamptz(3)
+  started_time        DateTime           @map("started_time") @db.Time(0)
+  ended_time          DateTime?          @map("ended_time") @db.Time(0)
 
   availability_day UserAvailabilityDay @relation(fields: [availability_day_id], references: [id], onDelete: Cascade)
 
-  @@index([availability_day_id, started_at])
+  @@index([availability_day_id, started_time])
   @@map("user_availability_periods")
 }
 

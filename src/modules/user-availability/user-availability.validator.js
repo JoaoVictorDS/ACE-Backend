@@ -1,3 +1,4 @@
+
 const { z } = require('zod')
 const { user_id, page, limit } = require('../../shared/validators/common.fields')
 
@@ -22,47 +23,51 @@ const workDate = z.string().refine((value) => {
         date.toISOString().slice(0, 10) === value
 }, { error: 'Data inválida.' })
 
+const availabilityTime = z.string({
+    error: (issue) => issue.input === undefined
+        ? 'O horário é obrigatório.'
+        : 'O horário deve ser uma string.'
+}).regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/, { error: 'Horário inválido. Utilize o formato HH:mm.' })
+
+const toMinutes = (time) => {
+    const [hours, minutes] = time.split(':').map(Number)
+
+    return hours * 60 + minutes
+}
+
 const availabilityPeriod = z.object({
     status: availabilityStatus,
-
-    started_at: z.iso.datetime({
-        offset: true,
-        error: 'Data de início inválida.'
-    }),
-
-    ended_at: z.iso.datetime({
-        offset: true,
-        error: 'Data de término inválida.'
-    }).nullable()
+    started_time: availabilityTime,
+    ended_time: availabilityTime.nullable()
 })
 
 const availabilityPeriods = z.array(availabilityPeriod).superRefine((periods, ctx) => {
     periods.forEach((period, index) => {
-        const startedAt = new Date(period.started_at).getTime()
-        const endedAt = period.ended_at
-            ? new Date(period.ended_at).getTime()
+        const startedTime = toMinutes(period.started_time)
+        const endedTime = period.ended_time !== null
+            ? toMinutes(period.ended_time)
             : null
 
         if (period.status === 'END_OF_DAY') {
-            if (endedAt === null || endedAt !== startedAt) {
+            if (endedTime === null || endedTime !== startedTime) {
                 ctx.addIssue({
                     code: 'custom',
-                    path: [index, 'ended_at'],
-                    message: 'END_OF_DAY deve possuir início e término no mesmo instante.'
+                    path: [index, 'ended_time'],
+                    message: 'END_OF_DAY deve possuir início e término no mesmo horário.'
                 })
             }
-        } else if (endedAt !== null && endedAt <= startedAt) {
+        } else if (endedTime !== null && endedTime <= startedTime) {
             ctx.addIssue({
                 code: 'custom',
-                path: [index, 'ended_at'],
+                path: [index, 'ended_time'],
                 message: 'O término deve ser posterior ao início.'
             })
         }
 
-        if (endedAt === null && index !== periods.length - 1) {
+        if (endedTime === null && index !== periods.length - 1) {
             ctx.addIssue({
                 code: 'custom',
-                path: [index, 'ended_at'],
+                path: [index, 'ended_time'],
                 message: 'Um período aberto deve ser o último da sequência.'
             })
         }
@@ -70,29 +75,29 @@ const availabilityPeriods = z.array(availabilityPeriod).superRefine((periods, ct
         if (index === 0) return
 
         const previousPeriod = periods[index - 1]
-        const previousStartedAt = new Date(previousPeriod.started_at).getTime()
-        const previousEndedAt = previousPeriod.ended_at
-            ? new Date(previousPeriod.ended_at).getTime()
+        const previousStartedTime = toMinutes(previousPeriod.started_time)
+        const previousEndedTime = previousPeriod.ended_time !== null
+            ? toMinutes(previousPeriod.ended_time)
             : null
 
-        if (startedAt < previousStartedAt) {
+        if (startedTime < previousStartedTime) {
             ctx.addIssue({
                 code: 'custom',
-                path: [index, 'started_at'],
+                path: [index, 'started_time'],
                 message: 'Os períodos devem estar em ordem cronológica.'
             })
         }
 
-        if (previousEndedAt === null) {
+        if (previousEndedTime === null) {
             ctx.addIssue({
                 code: 'custom',
-                path: [index, 'started_at'],
+                path: [index, 'started_time'],
                 message: 'Não pode existir período após um período aberto.'
             })
-        } else if (startedAt < previousEndedAt) {
+        } else if (startedTime < previousEndedTime) {
             ctx.addIssue({
                 code: 'custom',
-                path: [index, 'started_at'],
+                path: [index, 'started_time'],
                 message: 'Os períodos não podem se sobrepor.'
             })
         }

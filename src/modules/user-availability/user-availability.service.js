@@ -1,3 +1,4 @@
+
 const UserAvailabilityRepository = require('./user-availability.repository')
 const UserRepository = require('../user/user.repository')
 const { EventPublisher } = require('../../shared/events')
@@ -10,34 +11,68 @@ const _getCurrentWorkDate = (timestamp = new Date()) => {
     return new Date(Date.UTC(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate()))
 }
 
+const _getCurrentWorkTime = (timestamp = new Date()) => {
+    const hours = String(timestamp.getHours()).padStart(2, '0')
+    const minutes = String(timestamp.getMinutes()).padStart(2, '0')
+
+    return `${hours}:${minutes}`
+}
+
+const _normalizeAvailabilityTime = (time) => {
+    const [hours, minutes] = time.split(':').map(Number)
+
+    const seconds = 0
+
+    return new Date(Date.UTC(1970, 0, 1, hours, minutes, seconds, 0))
+}
+
+const _formatAvailabilityTime = (time) => {
+    const hours = String(time.getUTCHours()).padStart(2, '0')
+    const minutes = String(time.getUTCMinutes()).padStart(2, '0')
+
+    return `${hours}:${minutes}`
+}
+
+const _getTimeInMinutes = (time) => {
+    const [hours, minutes] = time.split(':').map(Number)
+
+    return hours * 60 + minutes
+}
+
 const _formatPeriod = (period) => ({
     id: period.id,
     status: period.status,
-    startedAt: period.started_at.toISOString(),
-    endedAt: period.ended_at?.toISOString() ?? null
+    started_time: _formatAvailabilityTime(period.started_time),
+    ended_time: period.ended_time
+        ? _formatAvailabilityTime(period.ended_time)
+        : null
 })
 
-const _getPeriodDurationSeconds = ({ period, workDate, currentWorkDate, now }) => {
-    const startedAt = period.started_at.getTime()
+const _getPeriodDurationSeconds = ({ period, workDate, currentWorkDate, currentTime }) => {
+    const startedTime = _getTimeInMinutes(_formatAvailabilityTime(period.started_time))
 
-    let endedAt
+    let endedTime
 
-    if (period.ended_at) {
-        endedAt = period.ended_at.getTime()
+    if (period.ended_time) {
+        endedTime = _getTimeInMinutes(_formatAvailabilityTime(period.ended_time))
     } else {
         if (workDate !== currentWorkDate) {
             return null
         }
 
-        endedAt = now.getTime()
+        endedTime = _getTimeInMinutes(currentTime)
     }
 
-    return Math.max(0, Math.floor((endedAt - startedAt) / 1000))
+    const durationMinutes = Math.max(0, endedTime - startedTime)
+
+    return durationMinutes * 60
 }
 
 const _updateStatus = async ({ actor, targetUser, status }) => {
     const timestamp = new Date()
     const workDate = _getCurrentWorkDate(timestamp)
+    const currentTime = _getCurrentWorkTime(timestamp)
+    const normalizedTime = _normalizeAvailabilityTime(currentTime)
 
     const result = await TransactionManager.run(async (tx) => {
         const existingDay = await UserAvailabilityRepository.findDayByUserAndDate(targetUser.id, workDate, tx)
@@ -87,11 +122,19 @@ const _updateStatus = async ({ actor, targetUser, status }) => {
             }
         }
 
+        if (openPeriod && _getTimeInMinutes(currentTime) <= _getTimeInMinutes(_formatAvailabilityTime(openPeriod.started_time))) {
+            throw new ConflictError(ERROR_CATALOG.CONFLICT.AVAILABILITY_INVALID_STATE)
+        }
+
         let previousPeriod = isResuming ? latestPeriod : null
         let closedPeriod = null
 
         if (openPeriod) {
-            const closed = await UserAvailabilityRepository.closePeriod(openPeriod.id, timestamp, tx)
+            const closed = await UserAvailabilityRepository.closePeriod(
+                openPeriod.id,
+                normalizedTime,
+                tx
+            )
 
             if (closed.count !== 1) {
                 throw new ConflictError(ERROR_CATALOG.CONFLICT.AVAILABILITY_INVALID_STATE)
@@ -99,13 +142,13 @@ const _updateStatus = async ({ actor, targetUser, status }) => {
 
             closedPeriod = {
                 ...openPeriod,
-                ended_at: timestamp
+                ended_time: normalizedTime
             }
 
             previousPeriod = closedPeriod
         }
 
-        const period = await UserAvailabilityRepository.createPeriod(day.id, status, timestamp, status === 'END_OF_DAY' ? timestamp : null, tx)
+        const period = await UserAvailabilityRepository.createPeriod(day.id, status, normalizedTime, status === 'END_OF_DAY' ? normalizedTime : null, tx)
 
         return {
             data: {
@@ -158,7 +201,15 @@ const _updateStatus = async ({ actor, targetUser, status }) => {
         })
     }
 
-    return result.data
+    return {
+        ...result.data,
+        previousPeriod: result.data.previousPeriod
+            ? _formatPeriod(result.data.previousPeriod)
+            : null,
+        period: result.data.period
+            ? _formatPeriod(result.data.period)
+            : null
+    }
 }
 
 const _upsertNotes = async ({ actor, targetUser, workDate, notes }) => {
@@ -219,26 +270,21 @@ const _upsertNotes = async ({ actor, targetUser, workDate, notes }) => {
 const _replacePeriods = async ({ actor, targetUser, workDate, periods }) => {
     const date = new Date(`${workDate}T00:00:00.000Z`)
 
+    const normalizedPeriods = periods.map((period) => ({
+        status: period.status,
+        started_time: _normalizeAvailabilityTime(period.started_time),
+        ended_time: period.ended_time
+            ? _normalizeAvailabilityTime(period.ended_time)
+            : null
+    }))
+
     for (let i = 0; i < periods.length; i++) {
         const period = periods[i]
-        const startedAt = new Date(period.started_at)
-
-        if (_getCurrentWorkDate(startedAt).getTime() !== date.getTime()) {
-            throw new ConflictError(ERROR_CATALOG.CONFLICT.AVAILABILITY_INVALID_STATE)
-        }
-
-        if (period.ended_at) {
-            const endedAt = new Date(period.ended_at)
-
-            if (_getCurrentWorkDate(endedAt).getTime() !== date.getTime()) {
-                throw new ConflictError(ERROR_CATALOG.CONFLICT.AVAILABILITY_INVALID_STATE)
-            }
-        }
 
         if (period.status === 'END_OF_DAY') {
             const previousPeriod = periods[i - 1]
 
-            if (!previousPeriod || previousPeriod.status === 'END_OF_DAY' || !previousPeriod.ended_at || new Date(previousPeriod.ended_at).getTime() !== startedAt.getTime()) {
+            if (!previousPeriod || previousPeriod.status === 'END_OF_DAY' || !previousPeriod.ended_time || previousPeriod.ended_time !== period.started_time) {
                 throw new ConflictError(ERROR_CATALOG.CONFLICT.AVAILABILITY_INVALID_STATE)
             }
         }
@@ -247,7 +293,7 @@ const _replacePeriods = async ({ actor, targetUser, workDate, periods }) => {
     const result = await TransactionManager.run(async (tx) => {
         const existingDay = await UserAvailabilityRepository.findDayWithPeriodsByUserAndDate(targetUser.id, date, tx)
 
-        if (!existingDay && periods.length === 0) {
+        if (!existingDay && normalizedPeriods.length === 0) {
             return {
                 day: null,
                 event: null
@@ -255,32 +301,31 @@ const _replacePeriods = async ({ actor, targetUser, workDate, periods }) => {
         }
 
         if (!existingDay) {
-            await UserAvailabilityRepository.upsertDay(
-                targetUser.id,
-                date,
-                tx
-            )
+            await UserAvailabilityRepository.upsertDay(targetUser.id, date, tx)
         }
 
         const day = existingDay || await UserAvailabilityRepository.findDayWithPeriodsByUserAndDate(targetUser.id, date, tx)
 
-        const hasChanged = day.periods.length !== periods.length ||
+        const hasChanged = day.periods.length !== normalizedPeriods.length ||
             day.periods.some((current, index) => {
-                const updated = periods[index]
+                const updated = normalizedPeriods[index]
 
                 if (!updated) return true
 
-                const currentStartedAt = current.started_at.getTime()
-                const updatedStartedAt = new Date(updated.started_at).getTime()
+                const currentStartedTime = _formatAvailabilityTime(current.started_time)
+                const updatedStartedTime = _formatAvailabilityTime(updated.started_time)
 
-                const currentEndedAt = current.ended_at?.getTime() ?? null
-                const updatedEndedAt = updated.ended_at
-                    ? new Date(updated.ended_at).getTime()
+                const currentEndedTime = current.ended_time
+                    ? _formatAvailabilityTime(current.ended_time)
+                    : null
+
+                const updatedEndedTime = updated.ended_time
+                    ? _formatAvailabilityTime(updated.ended_time)
                     : null
 
                 return current.status !== updated.status ||
-                    currentStartedAt !== updatedStartedAt ||
-                    currentEndedAt !== updatedEndedAt
+                    currentStartedTime !== updatedStartedTime ||
+                    currentEndedTime !== updatedEndedTime
             })
 
         if (!hasChanged) {
@@ -293,7 +338,7 @@ const _replacePeriods = async ({ actor, targetUser, workDate, periods }) => {
         const before = day.periods.map(_formatPeriod)
 
         await UserAvailabilityRepository.deletePeriodsByDayId(day.id, tx)
-        await UserAvailabilityRepository.createPeriods(day.id, periods, tx)
+        await UserAvailabilityRepository.createPeriods(day.id, normalizedPeriods, tx)
 
         const updatedDay = await UserAvailabilityRepository.findDayWithPeriodsByUserAndDate(targetUser.id, date, tx)
 
@@ -333,7 +378,12 @@ const _replacePeriods = async ({ actor, targetUser, workDate, periods }) => {
         })
     }
 
-    return result.day
+    if (!result.day) return null
+
+    return {
+        ...result.day,
+        periods: result.day.periods.map(_formatPeriod)
+    }
 }
 
 const UserAvailabilityService = {
@@ -413,7 +463,9 @@ const UserAvailabilityService = {
                 id: user.id,
                 name: user.name,
                 status: latestPeriod?.status ?? null,
-                changed_at: latestPeriod?.started_at ?? null
+                changed_time: latestPeriod
+                    ? _formatAvailabilityTime(latestPeriod.started_time)
+                    : null
             }
         })
     },
@@ -427,7 +479,10 @@ const UserAvailabilityService = {
             throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.GENERIC)
         }
 
-        return day
+        return {
+            ...day,
+            periods: day.periods.map(_formatPeriod)
+        }
     },
 
     async getMonth({ userId, year, month }) {
@@ -446,6 +501,8 @@ const UserAvailabilityService = {
             .toISOString()
             .slice(0, 10)
 
+        const currentTime = _getCurrentWorkTime(currentDate)
+
         const existingDays = await UserAvailabilityRepository.findDaysByUserAndDateRange(userId, startDate, endDate)
 
         const daysByDate = new Map(
@@ -462,15 +519,12 @@ const UserAvailabilityService = {
             const existingDay = daysByDate.get(workDate)
 
             const periods = (existingDay?.periods ?? []).map((period) => ({
-                id: period.id,
-                status: period.status,
-                started_at: period.started_at.toISOString(),
-                ended_at: period.ended_at?.toISOString() ?? null,
+                ..._formatPeriod(period),
                 duration_seconds: _getPeriodDurationSeconds({
                     period,
                     workDate,
                     currentWorkDate,
-                    now: currentDate
+                    currentTime
                 })
             }))
 
@@ -482,7 +536,7 @@ const UserAvailabilityService = {
                 .filter((period) => period.status === 'EXTERNAL_ACTIVITY')
                 .reduce((total, period) => total + (period.duration_seconds ?? 0), 0)
 
-            const hasOpenPeriod = periods.some((period) => period.ended_at === null)
+            const hasOpenPeriod = periods.some((period) => period.ended_time === null)
 
             return {
                 id: existingDay?.id ?? null,
