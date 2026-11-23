@@ -56,11 +56,11 @@ const availabilityPeriods = z.array(availabilityPeriod).superRefine((periods, ct
                     message: 'END_OF_DAY deve possuir início e término no mesmo horário.'
                 })
             }
-        } else if (endedTime !== null && endedTime <= startedTime) {
+        } else if (endedTime !== null && endedTime < startedTime) {
             ctx.addIssue({
                 code: 'custom',
                 path: [index, 'ended_time'],
-                message: 'O término deve ser posterior ao início.'
+                message: 'O término não pode ser anterior ao início.'
             })
         }
 
