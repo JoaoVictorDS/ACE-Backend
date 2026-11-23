@@ -7,15 +7,38 @@ const { ConflictError, NotFoundError } = require('../../shared/errors')
 const { TransactionManager } = require('../../shared/database')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
 
+const BUSINESS_TZ = process.env.APP_TIMEZONE || 'America/Sao_Paulo'
+
+const BUSINESS_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+    timeZone: BUSINESS_TZ,
+    calendar: 'gregory',
+    numberingSystem: 'latn',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+})
+
+const BUSINESS_TIME_FORMATTER = new Intl.DateTimeFormat('en-GB', {
+    timeZone: BUSINESS_TZ,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+})
+
+const _getFormattedParts = (formatter, timestamp) => {
+    return Object.fromEntries(formatter.formatToParts(timestamp).filter(({ type }) => type !== 'literal').map(({ type, value }) => [type, value]))
+}
+
 const _getCurrentWorkDate = (timestamp = new Date()) => {
-    return new Date(Date.UTC(timestamp.getFullYear(), timestamp.getMonth(), timestamp.getDate()))
+    const { year, month, day } = _getFormattedParts(BUSINESS_DATE_FORMATTER, timestamp)
+
+    return new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)))
 }
 
 const _getCurrentWorkTime = (timestamp = new Date()) => {
-    const hours = String(timestamp.getHours()).padStart(2, '0')
-    const minutes = String(timestamp.getMinutes()).padStart(2, '0')
+    const { hour, minute } = _getFormattedParts(BUSINESS_TIME_FORMATTER, timestamp)
 
-    return `${hours}:${minutes}`
+    return `${hour}:${minute}`
 }
 
 const _normalizeAvailabilityTime = (time) => {
@@ -122,7 +145,7 @@ const _updateStatus = async ({ actor, targetUser, status }) => {
             }
         }
 
-        if (openPeriod && _getTimeInMinutes(currentTime) <= _getTimeInMinutes(_formatAvailabilityTime(openPeriod.started_time))) {
+        if (openPeriod && _getTimeInMinutes(currentTime) < _getTimeInMinutes(_formatAvailabilityTime(openPeriod.started_time))) {
             throw new ConflictError(ERROR_CATALOG.CONFLICT.AVAILABILITY_INVALID_STATE)
         }
 
