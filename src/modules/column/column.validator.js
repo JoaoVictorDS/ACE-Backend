@@ -1,10 +1,19 @@
 const { z } = require('zod')
 const { board_id, column_id, name, force, new_order } = require('../../shared/validators/common.fields')
 
-const ColumnTypesEnum = z.enum(['TEXT', 'LONG_TEXT', 'SELECT', 'USER', 'DATE', 'NUMBER', 'FORMULA'], {
+const ColumnTypesEnum = z.enum([
+    'TEXT',
+    'LONG_TEXT',
+    'SELECT',
+    'USER',
+    'DATE',
+    'NUMBER',
+    'FORMULA',
+    'STATUS',
+], {
     error: (issue) => issue.input === undefined
         ? 'O campo "data_type" é obrigatório'
-        : 'Tipo inválido em "data_type". Use "TEXT", "LONG_TEXT", "SELECT", "USER", "DATE", "NUMBER" ou "FORMULA"'
+        : 'Tipo inválido em "data_type". Use "TEXT", "LONG_TEXT", "SELECT", "USER", "DATE", "NUMBER", "FORMULA" ou "STATUS"'
 })
 
 const BoardRolesEnum = z.enum(['VIEWER', 'EDITOR'])
@@ -22,16 +31,35 @@ const columnBodyFields = {
     formula_expression: z.string().trim().optional()
 }
 
-const applyColumnRefinements = (schema) =>
-    schema
-        .refine(data => {
-            if (data.data_type === 'SELECT') return Array.isArray(data.options) && data.options.length > 0
-            return true
-        }, { message: 'O tipo SELECT exige um array de opções ("options") válidas', path: ['options'] })
-        .refine(data => {
-            if (data.data_type === 'FORMULA') return !!data.formula_expression
-            return true
-        }, { message: 'O tipo FORMULA exige uma expressão ("formula_expression") válida', path: ['formula_expression'] })
+const applyColumnRefinements = (schema) => schema
+    .refine(data => {
+        if (data.data_type === 'SELECT') return Array.isArray(data.options) && data.options.length > 0
+        return true
+    }, { message: 'O tipo SELECT exige um array de opções ("options") válidas', path: ['options'] })
+    .refine(data => {
+        if (data.data_type === 'FORMULA') return !!data.formula_expression
+        return true
+    }, { message: 'O tipo FORMULA exige uma expressão ("formula_expression") válida', path: ['formula_expression'] })
+    .refine(data => {
+        if (data.data_type === 'STATUS') {
+            return data.options === undefined
+        }
+
+        return true
+    }, {
+        message: 'O tipo STATUS não aceita opções personalizadas.',
+        path: ['options']
+    })
+    .refine(data => {
+        if (data.data_type === 'STATUS') {
+            return data.formula_expression === undefined
+        }
+
+        return true
+    }, {
+        message: 'O tipo STATUS não aceita expressão de fórmula.',
+        path: ['formula_expression']
+    })
 
 const createColumnSchema = {
     params: z.object({ board_id }),

@@ -1,8 +1,16 @@
-const ColumnRepository = require('./column.repository')
 const BoardMemberRepository = require('../board-member/board-member.repository')
 const { ValidationError } = require('../../shared/errors')
 const { splitIdList } = require('../../shared/utils')
 const ERROR_CATALOG = require('../../shared/errors/error-catalog')
+
+const STATUS_VALUES = Object.freeze([
+    'NOT_STARTED',
+    'IN_PROGRESS',
+    'WAITING',
+    'BLOCKED',
+    'COMPLETED',
+    'CANCELED'
+])
 
 class ColumnValueValidator {
 
@@ -60,6 +68,9 @@ class ColumnValueValidator {
 
             case 'FORMULA':
                 return sentValue
+
+            case 'STATUS':
+                return this._validateStatus(sentValue, column.name)
 
             default:
                 return sentValue
@@ -199,6 +210,27 @@ class ColumnValueValidator {
         }
 
         return true
+    }
+
+    /**
+     * Valida valor STATUS
+     * @private
+     * @param {string} sentValue
+     * @param {string} columnName
+     * @returns {string}
+     * @throws {ValidationError}
+     */
+    static _validateStatus(sentValue, columnName) {
+        if (!STATUS_VALUES.includes(sentValue)) {
+            throw new ValidationError(
+                ERROR_CATALOG.VALIDATION.INVALID_COLUMN_VALUE(
+                    columnName,
+                    `deve ser um dos status válidos: ${STATUS_VALUES.join(', ')}`
+                )
+            )
+        }
+
+        return sentValue
     }
 }
 

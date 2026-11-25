@@ -105,8 +105,20 @@ const ColumnService = {
         const currentColumn = await ColumnRepository.findByIdBasic(columnId)
         if (!currentColumn) throw new NotFoundError(ERROR_CATALOG.NOT_FOUND.COLUMN)
 
-        const hasChanges = Object.keys(data).some(
-            (key) => data[key] !== undefined && data[key] !== currentColumn[key]
+        const updateData = { ...data }
+
+        const effectiveDataType = updateData.data_type ?? currentColumn.data_type
+
+        if (effectiveDataType !== 'SELECT') {
+            updateData.options = null
+        }
+
+        if (effectiveDataType !== 'FORMULA') {
+            updateData.formula_expression = null
+        }
+
+        const hasChanges = Object.keys(updateData).some((key) =>
+            updateData[key] !== undefined && updateData[key] !== currentColumn[key]
         )
         if (!hasChanges) return currentColumn
 
@@ -118,11 +130,10 @@ const ColumnService = {
         }
 
         const fields = Object.keys(FIELD_LABELS)
-            .filter(key => data[key] !== undefined && data[key] !== currentColumn[key])
-            .map(field => ({ field, label: FIELD_LABELS[field], before: currentColumn[field], after: data[field] }))
+            .filter(key => updateData[key] !== undefined && updateData[key] !== currentColumn[key])
+            .map(field => ({ field, label: FIELD_LABELS[field], before: currentColumn[field], after: updateData[field] }))
 
-        const dataType = data.data_type
-        const hasDataTypeChanged = dataType && dataType !== currentColumn.data_type
+        const hasDataTypeChanged = effectiveDataType !== currentColumn.data_type
 
         if (hasDataTypeChanged) {
             await Promise.all([
@@ -133,7 +144,7 @@ const ColumnService = {
             ])
         }
 
-        const updatedColumn = await ColumnRepository.update(columnId, data)
+        const updatedColumn = await ColumnRepository.update(columnId, updateData)
 
         EventPublisher.publish({
             actor: user,

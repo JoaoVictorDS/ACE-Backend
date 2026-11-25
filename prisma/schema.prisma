@@ -33,6 +33,7 @@ enum ColumnDataType {
   DATE
   NUMBER
   FORMULA
+  STATUS
 }
 
 enum ActivityAction {
